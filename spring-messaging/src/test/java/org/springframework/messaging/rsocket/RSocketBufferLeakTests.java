@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -246,7 +246,7 @@ class RSocketBufferLeakTests {
 		void checkForLeaks() {
 			this.rsockets.stream().map(PayloadSavingDecorator::getPayloads)
 					.forEach(payloadInfoProcessor -> {
-						payloadInfoProcessor.emitComplete();
+						payloadInfoProcessor.tryEmitComplete();
 						payloadInfoProcessor.asFlux()
 								.doOnNext(this::checkForLeak)
 								.blockLast();
@@ -258,7 +258,7 @@ class RSocketBufferLeakTests {
 			while (true) {
 				try {
 					int count = info.getReferenceCount();
-					assertThat(count == 0).as("Leaked payload (refCnt=" + count + "): " + info).isTrue();
+					assertThat(count).as("Leaked payload (refCnt=" + count + "): " + info).isEqualTo(0);
 					break;
 				}
 				catch (AssertionError ex) {
@@ -328,7 +328,7 @@ class RSocketBufferLeakTests {
 			}
 
 			private io.rsocket.Payload addPayload(io.rsocket.Payload payload) {
-				this.payloads.emitNext(new PayloadLeakInfo(payload));
+				this.payloads.tryEmitNext(new PayloadLeakInfo(payload));
 				return payload;
 			}
 

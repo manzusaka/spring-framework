@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,24 +40,20 @@ public interface BindMarkersFactory {
 
 	/**
 	 * Create a new {@link BindMarkers} instance.
-	 * @return a new {@link BindMarkers} instance
 	 */
 	BindMarkers create();
 
 	/**
-	 * Return whether the {@link BindMarkersFactory} uses identifiable
-	 * placeholders.
-	 * @return whether the {@link BindMarkersFactory} uses identifiable
-	 * placeholders. {@code false} if multiple placeholders cannot be
-	 * distinguished by just the {@link BindMarker#getPlaceholder() placeholder}
-	 * identifier.
+	 * Return whether the {@link BindMarkersFactory} uses identifiable placeholders:
+	 * {@code false} if multiple placeholders cannot be distinguished by just the
+	 * {@link BindMarker#getPlaceholder() placeholder} identifier.
 	 */
 	default boolean identifiablePlaceholders() {
 		return true;
 	}
 
 
-	// Static, factory methods
+	// Static factory methods
 
 	/**
 	 * Create index-based {@link BindMarkers} using indexes to bind parameters.
@@ -86,14 +82,12 @@ public interface BindMarkersFactory {
 	 * @see io.r2dbc.spi.Statement#bind(int, Object)
 	 */
 	static BindMarkersFactory anonymous(String placeholder) {
-		Assert.hasText(placeholder, "Placeholder must not be empty!");
+		Assert.hasText(placeholder, "Placeholder must not be empty");
 		return new BindMarkersFactory() {
-
 			@Override
 			public BindMarkers create() {
 				return new AnonymousBindMarkers(placeholder);
 			}
-
 			@Override
 			public boolean identifiablePlaceholders() {
 				return false;
@@ -140,6 +134,7 @@ public interface BindMarkersFactory {
 	 */
 	static BindMarkersFactory named(String prefix, String namePrefix, int maxLength,
 			Function<String, String> hintFilterFunction) {
+
 		Assert.notNull(prefix, "Prefix must not be null");
 		Assert.notNull(namePrefix, "Index prefix must not be null");
 		Assert.notNull(hintFilterFunction, "Hint filter function must not be null");

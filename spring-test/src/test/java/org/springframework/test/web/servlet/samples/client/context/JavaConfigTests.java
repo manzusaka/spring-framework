@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.springframework.test.web.servlet.samples.client.context;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -39,11 +38,10 @@ import org.springframework.web.servlet.config.annotation.DefaultServletHandlerCo
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
-import org.springframework.web.servlet.config.annotation.ViewResolverRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.servlet.view.tiles3.TilesConfigurer;
 
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 /**
  * {@link MockMvcWebTestClient} equivalent of the MockMvc
@@ -57,7 +55,7 @@ import static org.mockito.BDDMockito.given;
 	@ContextConfiguration(classes = JavaConfigTests.RootConfig.class),
 	@ContextConfiguration(classes = JavaConfigTests.WebConfig.class)
 })
-public class JavaConfigTests {
+class JavaConfigTests {
 
 	@Autowired
 	private WebApplicationContext wac;
@@ -65,21 +63,18 @@ public class JavaConfigTests {
 	@Autowired
 	private PersonDao personDao;
 
-	@Autowired
-	private PersonController personController;
-
 	private WebTestClient testClient;
 
 
 	@BeforeEach
-	public void setup() {
+	void setup() {
 		this.testClient = MockMvcWebTestClient.bindToApplicationContext(this.wac).build();
 		given(this.personDao.getPerson(5L)).willReturn(new Person("Joe"));
 	}
 
 
 	@Test
-	public void person() {
+	void person() {
 		testClient.get().uri("/person/5")
 				.accept(MediaType.APPLICATION_JSON)
 				.exchange()
@@ -87,21 +82,13 @@ public class JavaConfigTests {
 				.expectBody().json("{\"name\":\"Joe\",\"someDouble\":0.0,\"someBoolean\":false}");
 	}
 
-	@Test
-	public void tilesDefinitions() {
-		testClient.get().uri("/")
-				.exchange()
-				.expectStatus().isOk()
-				.expectHeader().valueEquals("Forwarded-Url", "/WEB-INF/layouts/standardLayout.jsp");
-	}
-
 
 	@Configuration
 	static class RootConfig {
 
 		@Bean
-		public PersonDao personDao() {
-			return Mockito.mock(PersonDao.class);
+		PersonDao personDao() {
+			return mock();
 		}
 	}
 
@@ -113,7 +100,7 @@ public class JavaConfigTests {
 		private RootConfig rootConfig;
 
 		@Bean
-		public PersonController personController() {
+		PersonController personController() {
 			return new PersonController(this.rootConfig.personDao());
 		}
 
@@ -130,18 +117,6 @@ public class JavaConfigTests {
 		@Override
 		public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
 			configurer.enable();
-		}
-
-		@Override
-		public void configureViewResolvers(ViewResolverRegistry registry) {
-			registry.tiles();
-		}
-
-		@Bean
-		public TilesConfigurer tilesConfigurer() {
-			TilesConfigurer configurer = new TilesConfigurer();
-			configurer.setDefinitions("/WEB-INF/**/tiles.xml");
-			return configurer;
 		}
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2022 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import org.reactivestreams.Publisher;
+import reactor.core.Scannable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoProcessor;
 import reactor.core.publisher.Sinks;
 
 import org.springframework.core.io.buffer.DataBuffer;
@@ -89,10 +89,8 @@ class WiretapConnector implements ClientHttpConnector {
 	 */
 	ExchangeResult getExchangeResult(String requestId, @Nullable String uriTemplate, Duration timeout) {
 		ClientExchangeInfo clientInfo = this.exchanges.remove(requestId);
-		Assert.state(clientInfo != null, () -> {
-			String header = WebTestClient.WEBTESTCLIENT_REQUEST_ID;
-			return "No match for " + header + "=" + requestId;
-		});
+		Assert.state(clientInfo != null, () -> "No match for %s=%s".formatted(
+				WebTestClient.WEBTESTCLIENT_REQUEST_ID, requestId));
 		return new ExchangeResult(clientInfo.getRequest(), clientInfo.getResponse(),
 				clientInfo.getRequest().getRecorder().getContent(),
 				clientInfo.getResponse().getRecorder().getContent(),
@@ -136,9 +134,10 @@ class WiretapConnector implements ClientHttpConnector {
 		@Nullable
 		private final Flux<? extends Publisher<? extends DataBuffer>> publisherNested;
 
-		private final DataBuffer buffer = DefaultDataBufferFactory.sharedInstance.allocateBuffer();
+		private final DataBuffer buffer = DefaultDataBufferFactory.sharedInstance.allocateBuffer(256);
 
-		private final MonoProcessor<byte[]> content = MonoProcessor.fromSink(Sinks.one());
+		// unsafe(): we're intercepting, already serialized Publisher signals
+		private final Sinks.One<byte[]> content = Sinks.unsafe().one();
 
 		private boolean hasContentConsumer;
 
@@ -167,7 +166,7 @@ class WiretapConnector implements ClientHttpConnector {
 							.doOnComplete(this::handleOnComplete) : null;
 
 			if (publisher == null && publisherNested == null) {
-				this.content.onComplete();
+				this.content.tryEmitEmpty();
 			}
 		}
 
@@ -184,8 +183,8 @@ class WiretapConnector implements ClientHttpConnector {
 
 		public Mono<byte[]> getContent() {
 			return Mono.defer(() -> {
-				if (this.content.isTerminated()) {
-					return this.content;
+				if (this.content.scan(Scannable.Attr.TERMINATED) == Boolean.TRUE) {
+					return this.content.asMono();
 				}
 				if (!this.hasContentConsumer) {
 					// Couple of possible cases:
@@ -198,23 +197,21 @@ class WiretapConnector implements ClientHttpConnector {
 											"an error was raised while attempting to produce it.", ex))
 							.subscribe();
 				}
-				return this.content;
+				return this.content.asMono();
 			});
 		}
 
 
 		private void handleOnError(Throwable ex) {
-			if (!this.content.isTerminated()) {
-				this.content.onError(ex);
-			}
+			// Ignore result: signals cannot compete
+			this.content.tryEmitError(ex);
 		}
 
 		private void handleOnComplete() {
-			if (!this.content.isTerminated()) {
-				byte[] bytes = new byte[this.buffer.readableByteCount()];
-				this.buffer.read(bytes);
-				this.content.onNext(bytes);
-			}
+			byte[] bytes = new byte[this.buffer.readableByteCount()];
+			this.buffer.read(bytes);
+			// Ignore result: signals cannot compete
+			this.content.tryEmitValue(bytes);
 		}
 	}
 
@@ -283,8 +280,8 @@ class WiretapConnector implements ClientHttpConnector {
 
 		@Nullable
 		public Object getMockServerResult() {
-			return (getDelegate() instanceof MockServerClientHttpResponse ?
-					((MockServerClientHttpResponse) getDelegate()).getServerResult() : null);
+			return (getDelegate() instanceof MockServerClientHttpResponse mockResponse ?
+					mockResponse.getServerResult() : null);
 		}
 	}
 

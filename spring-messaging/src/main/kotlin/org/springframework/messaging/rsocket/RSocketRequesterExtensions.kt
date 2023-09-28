@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@ package org.springframework.messaging.rsocket
 import io.rsocket.transport.ClientTransport
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.reactive.asFlow
-import kotlinx.coroutines.reactive.awaitFirstOrNull
-import kotlinx.coroutines.reactive.awaitSingle
+import kotlinx.coroutines.reactor.awaitSingle
+import kotlinx.coroutines.reactor.awaitSingleOrNull
 import org.reactivestreams.Publisher
 import org.springframework.core.ParameterizedTypeReference
 import reactor.core.publisher.Flux
@@ -103,12 +103,13 @@ inline fun <reified T : Any> RSocketRequester.RequestSpec.dataWithType(flow: Flo
  * @since 5.2
  */
 suspend fun RSocketRequester.RetrieveSpec.sendAndAwait() {
-	send().awaitFirstOrNull()
+	send().awaitSingleOrNull()
 }
 
 /**
  * Coroutines variant of [RSocketRequester.RetrieveSpec.retrieveMono].
  *
+ * @throws NoSuchElementException if the underlying [Mono] does not emit any value
  * @author Sebastien Deleuze
  * @since 5.2
  */
@@ -122,7 +123,7 @@ suspend inline fun <reified T : Any> RSocketRequester.RetrieveSpec.retrieveAndAw
  * @since 5.2.1
  */
 suspend inline fun <reified T : Any> RSocketRequester.RetrieveSpec.retrieveAndAwaitOrNull(): T? =
-		retrieveMono(object : ParameterizedTypeReference<T>() {}).awaitFirstOrNull()
+		retrieveMono(object : ParameterizedTypeReference<T>() {}).awaitSingleOrNull()
 
 /**
  * Coroutines variant of [RSocketRequester.RetrieveSpec.retrieveFlux].

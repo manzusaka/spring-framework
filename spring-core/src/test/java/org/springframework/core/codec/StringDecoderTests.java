@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.core.codec;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -75,14 +76,15 @@ class StringDecoderTests extends AbstractDecoderTests<StringDecoder> {
 		String s = String.format("%s\n%s\n%s", u, e, o);
 		Flux<DataBuffer> input = toDataBuffers(s, 1, UTF_8);
 
-		// TODO: temporarily replace testDecodeAll with explicit decode/cancel/empty
-		// see https://github.com/reactor/reactor-core/issues/2041
-
-//		testDecode(input, TYPE, step -> step.expectNext(u, e, o).verifyComplete(), null, null);
-//		testDecodeCancel(input, TYPE, null, null);
-//		testDecodeEmpty(TYPE, null, null);
-
 		testDecodeAll(input, TYPE, step -> step.expectNext(u, e, o).verifyComplete(), null, null);
+	}
+
+	@Test // gh-30299
+	public void decodeAndCancelWithPendingChunks() {
+		Flux<DataBuffer> input = toDataBuffers("abc", 1, UTF_8).concatWith(Flux.never());
+		Flux<String> result = this.decoder.decode(input, TYPE, null, null);
+
+		StepVerifier.create(result).thenAwait(Duration.ofMillis(100)).thenCancel().verify();
 	}
 
 	@Test
@@ -125,10 +127,10 @@ class StringDecoderTests extends AbstractDecoderTests<StringDecoder> {
 		);
 
 		testDecode(input, String.class, step -> step
-				.expectNext("")
+				.expectNext("").as("1st")
 				.expectNext("abc")
 				.expectNext("defghi")
-				.expectNext("")
+				.expectNext("").as("2nd")
 				.expectNext("jklmno")
 				.expectNext("pqr")
 				.expectNext("stuvwxyz")
@@ -137,22 +139,45 @@ class StringDecoderTests extends AbstractDecoderTests<StringDecoder> {
 	}
 
 	@Test
+	void decodeNewlinesAcrossBuffers()  {
+		Flux<DataBuffer> input = Flux.just(
+				stringBuffer("\r"),
+				stringBuffer("\n"),
+				stringBuffer("xyz")
+		);
+
+		testDecode(input, String.class, step -> step
+				.expectNext("")
+				.expectNext("xyz")
+				.expectComplete()
+				.verify());
+	}
+
+	@Test
 	void maxInMemoryLimit() {
 		Flux<DataBuffer> input = Flux.just(
-				stringBuffer("abc\n"), stringBuffer("defg\n"), stringBuffer("hijkl\n"));
+				stringBuffer("abc\n"), stringBuffer("defg\n"),
+				stringBuffer("hi"), stringBuffer("jkl"), stringBuffer("mnop"));
 
 		this.decoder.setMaxInMemorySize(5);
 		testDecode(input, String.class, step ->
 				step.expectNext("abc", "defg").verifyError(DataBufferLimitException.class));
 	}
 
-	@Test // gh-24312
-	void maxInMemoryLimitReleaseUnprocessedLinesFromCurrentBuffer() {
+	@Test
+	void maxInMemoryLimitDoesNotApplyToParsedItemsThatDontRequireBuffering() {
 		Flux<DataBuffer> input = Flux.just(
 				stringBuffer("TOO MUCH DATA\nanother line\n\nand another\n"));
 
 		this.decoder.setMaxInMemorySize(5);
-		testDecode(input, String.class, step -> step.verifyError(DataBufferLimitException.class));
+
+		testDecode(input, String.class, step -> step
+				.expectNext("TOO MUCH DATA")
+				.expectNext("another line")
+				.expectNext("")
+				.expectNext("and another")
+				.expectComplete()
+				.verify());
 	}
 
 	@Test // gh-24339

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.springframework.messaging.rsocket;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.SocketAcceptor;
 import io.rsocket.core.RSocketServer;
@@ -43,6 +42,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.rsocket.annotation.ConnectMapping;
 import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
 import org.springframework.stereotype.Controller;
@@ -56,6 +56,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Server-side handling of RSocket requests.
  *
  * @author Rossen Stoyanchev
+ * @author Sebastien Deleuze
  */
 public class RSocketClientToServerIntegrationTests {
 
@@ -104,6 +105,7 @@ public class RSocketClientToServerIntegrationTests {
 	@Test
 	public void fireAndForget() {
 		Flux.range(1, 3)
+				.delayElements(Duration.ofMillis(10))
 				.concatMap(i -> requester.route("receive").data("Hello " + i).send())
 				.blockLast();
 
@@ -111,7 +113,7 @@ public class RSocketClientToServerIntegrationTests {
 				.expectNext("Hello 1")
 				.expectNext("Hello 2")
 				.expectNext("Hello 3")
-				.thenAwait(Duration.ofMillis(50))
+				.thenAwait(Duration.ofMillis(10))
 				.thenCancel()
 				.verify(Duration.ofSeconds(5));
 
@@ -164,16 +166,23 @@ public class RSocketClientToServerIntegrationTests {
 				.verify(Duration.ofSeconds(5));
 	}
 
+	@Test // gh-26344
+	public void echoChannelWithEmptyInput() {
+		Flux<String> result = requester.route("echo-channel-empty").data(Flux.empty()).retrieveFlux(String.class);
+		StepVerifier.create(result).verifyComplete();
+	}
+
 	@Test
 	public void metadataPush() {
 		Flux.just("bar", "baz")
+				.delayElements(Duration.ofMillis(10))
 				.concatMap(s -> requester.route("foo-updates").metadata(s, FOO_MIME_TYPE).sendMetadata())
 				.blockLast();
 
 		StepVerifier.create(context.getBean(ServerController.class).metadataPushPayloads.asFlux())
 				.expectNext("bar")
 				.expectNext("baz")
-				.thenAwait(Duration.ofMillis(50))
+				.thenAwait(Duration.ofMillis(10))
 				.thenCancel()
 				.verify(Duration.ofSeconds(5));
 
@@ -231,7 +240,7 @@ public class RSocketClientToServerIntegrationTests {
 
 		@MessageMapping("receive")
 		void receive(String payload) {
-			this.fireForgetPayloads.emitNext(payload);
+			this.fireForgetPayloads.tryEmitNext(payload);
 		}
 
 		@MessageMapping("echo")
@@ -254,6 +263,11 @@ public class RSocketClientToServerIntegrationTests {
 			return payloads.delayElements(Duration.ofMillis(10)).map(payload -> payload + " async");
 		}
 
+		@MessageMapping("echo-channel-empty")
+		Flux<String> echoChannelEmpty(@Payload(required = false) Flux<String> payloads) {
+			return payloads.map(payload -> payload + " echoed");
+		}
+
 		@MessageMapping("thrown-exception")
 		Mono<String> handleAndThrow(String payload) {
 			throw new IllegalArgumentException("Invalid input error");
@@ -273,7 +287,7 @@ public class RSocketClientToServerIntegrationTests {
 
 		@ConnectMapping("foo-updates")
 		public void handleMetadata(@Header("foo") String foo) {
-			this.metadataPushPayloads.emitNext(foo);
+			this.metadataPushPayloads.tryEmitNext(foo);
 		}
 
 		@MessageExceptionHandler
@@ -317,9 +331,9 @@ public class RSocketClientToServerIntegrationTests {
 
 		private RSocket delegate;
 
-		private final AtomicInteger fireAndForgetCount = new AtomicInteger(0);
+		private final AtomicInteger fireAndForgetCount = new AtomicInteger();
 
-		private final AtomicInteger metadataPushCount = new AtomicInteger(0);
+		private final AtomicInteger metadataPushCount = new AtomicInteger();
 
 
 		public int getFireAndForgetCount() {
@@ -338,29 +352,29 @@ public class RSocketClientToServerIntegrationTests {
 		}
 
 		@Override
-		public Mono<Void> fireAndForget(Payload payload) {
+		public Mono<Void> fireAndForget(io.rsocket.Payload payload) {
 			return this.delegate.fireAndForget(payload)
 					.doOnSuccess(aVoid -> this.fireAndForgetCount.incrementAndGet());
 		}
 
 		@Override
-		public Mono<Void> metadataPush(Payload payload) {
+		public Mono<Void> metadataPush(io.rsocket.Payload payload) {
 			return this.delegate.metadataPush(payload)
 					.doOnSuccess(aVoid -> this.metadataPushCount.incrementAndGet());
 		}
 
 		@Override
-		public Mono<Payload> requestResponse(Payload payload) {
+		public Mono<io.rsocket.Payload> requestResponse(io.rsocket.Payload payload) {
 			return this.delegate.requestResponse(payload);
 		}
 
 		@Override
-		public Flux<Payload> requestStream(Payload payload) {
+		public Flux<io.rsocket.Payload> requestStream(io.rsocket.Payload payload) {
 			return this.delegate.requestStream(payload);
 		}
 
 		@Override
-		public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
+		public Flux<io.rsocket.Payload> requestChannel(Publisher<io.rsocket.Payload> payloads) {
 			return this.delegate.requestChannel(payloads);
 		}
 	}

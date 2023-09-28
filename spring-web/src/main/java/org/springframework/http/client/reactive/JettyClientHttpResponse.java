@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package org.springframework.http.client.reactive;
 
 import java.net.HttpCookie;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.eclipse.jetty.reactive.client.ReactiveResponse;
 import org.reactivestreams.Publisher;
@@ -25,8 +27,10 @@ import reactor.core.publisher.Flux;
 
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.support.JettyHeadersAdapter;
+import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -41,6 +45,9 @@ import org.springframework.util.MultiValueMap;
  */
 class JettyClientHttpResponse implements ClientHttpResponse {
 
+	private static final Pattern SAME_SITE_PATTERN = Pattern.compile("(?i).*SameSite=(Strict|Lax|None).*");
+
+
 	private final ReactiveResponse reactiveResponse;
 
 	private final Flux<DataBuffer> content;
@@ -52,19 +59,14 @@ class JettyClientHttpResponse implements ClientHttpResponse {
 		this.reactiveResponse = reactiveResponse;
 		this.content = Flux.from(content);
 
-		MultiValueMap<String, String> adapter = new JettyHeadersAdapter(reactiveResponse.getHeaders());
-		this.headers = HttpHeaders.readOnlyHttpHeaders(adapter);
+		MultiValueMap<String, String> headers = new JettyHeadersAdapter(reactiveResponse.getHeaders());
+		this.headers = HttpHeaders.readOnlyHttpHeaders(headers);
 	}
 
 
 	@Override
-	public HttpStatus getStatusCode() {
-		return HttpStatus.valueOf(getRawStatusCode());
-	}
-
-	@Override
-	public int getRawStatusCode() {
-		return this.reactiveResponse.getStatus();
+	public HttpStatusCode getStatusCode() {
+		return HttpStatusCode.valueOf(this.reactiveResponse.getStatus());
 	}
 
 	@Override
@@ -72,18 +74,27 @@ class JettyClientHttpResponse implements ClientHttpResponse {
 		MultiValueMap<String, ResponseCookie> result = new LinkedMultiValueMap<>();
 		List<String> cookieHeader = getHeaders().get(HttpHeaders.SET_COOKIE);
 		if (cookieHeader != null) {
-			cookieHeader.forEach(header -> HttpCookie.parse(header)
-					.forEach(c -> result.add(c.getName(), ResponseCookie.fromClientResponse(c.getName(), c.getValue())
-							.domain(c.getDomain())
-							.path(c.getPath())
-							.maxAge(c.getMaxAge())
-							.secure(c.getSecure())
-							.httpOnly(c.isHttpOnly())
-							.build()))
+			cookieHeader.forEach(header ->
+					HttpCookie.parse(header).forEach(cookie -> result.add(cookie.getName(),
+							ResponseCookie.fromClientResponse(cookie.getName(), cookie.getValue())
+									.domain(cookie.getDomain())
+									.path(cookie.getPath())
+									.maxAge(cookie.getMaxAge())
+									.secure(cookie.getSecure())
+									.httpOnly(cookie.isHttpOnly())
+									.sameSite(parseSameSite(header))
+									.build()))
 			);
 		}
 		return CollectionUtils.unmodifiableMultiValueMap(result);
 	}
+
+	@Nullable
+	private static String parseSameSite(String headerValue) {
+		Matcher matcher = SAME_SITE_PATTERN.matcher(headerValue);
+		return (matcher.matches() ? matcher.group(1) : null);
+	}
+
 
 	@Override
 	public Flux<DataBuffer> getBody() {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 
+import io.micrometer.observation.tck.TestObservationRegistry;
+import io.micrometer.observation.tck.TestObservationRegistryAssert;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -33,7 +36,10 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.HttpHandler;
+import org.springframework.http.server.reactive.HttpHandlerDecoratorFactory;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.observation.DefaultServerRequestObservationConvention;
+import org.springframework.http.server.reactive.observation.ServerRequestObservationConvention;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebExceptionHandler;
 import org.springframework.web.server.WebFilter;
@@ -46,7 +52,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for {@link WebHttpHandlerBuilder}.
+ *
  * @author Rossen Stoyanchev
+ * @author Brian Clozel
  */
 public class WebHttpHandlerBuilderTests {
 
@@ -71,7 +79,7 @@ public class WebHttpHandlerBuilderTests {
 	@Test
 	void forwardedHeaderTransformer() {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
-		context.register(ForwardedHeaderFilterConfig.class);
+		context.register(ForwardedHeaderTransformerConfig.class);
 		context.refresh();
 
 		WebHttpHandlerBuilder builder = WebHttpHandlerBuilder.applicationContext(context);
@@ -123,7 +131,7 @@ public class WebHttpHandlerBuilderTests {
 		BiFunction<ServerHttpRequest, String, ServerHttpRequest> mutator =
 				(req, value) -> req.mutate().headers(headers -> headers.add("My-Header", value)).build();
 
-		AtomicBoolean success = new AtomicBoolean(false);
+		AtomicBoolean success = new AtomicBoolean();
 		HttpHandler httpHandler = WebHttpHandlerBuilder
 				.webHandler(exchange -> {
 					HttpHeaders headers = exchange.getRequest().getHeaders();
@@ -139,6 +147,32 @@ public class WebHttpHandlerBuilderTests {
 		assertThat(success.get()).isTrue();
 	}
 
+	@Test
+	void httpHandlerDecoratorFactoryBeans() {
+		HttpHandler handler = WebHttpHandlerBuilder.applicationContext(
+				new AnnotationConfigApplicationContext(HttpHandlerDecoratorFactoryBeansConfig.class)).build();
+
+		MockServerHttpResponse response = new MockServerHttpResponse();
+		handler.handle(MockServerHttpRequest.get("/").build(), response).block();
+
+		Function<String, Long> headerValue = name -> Long.valueOf(response.getHeaders().getFirst(name));
+		assertThat(headerValue.apply("decoratorA")).isLessThan(headerValue.apply("decoratorB"));
+		assertThat(headerValue.apply("decoratorC")).isLessThan(headerValue.apply("decoratorB"));
+	}
+
+	@Test
+	void observationRegistry() {
+		AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext(ObservationConfig.class);
+		HttpHandler handler = WebHttpHandlerBuilder.applicationContext(applicationContext).build();
+
+		MockServerHttpResponse response = new MockServerHttpResponse();
+		handler.handle(MockServerHttpRequest.get("/").build(), response).block();
+
+		TestObservationRegistry observationRegistry = applicationContext.getBean(TestObservationRegistry.class);
+		TestObservationRegistryAssert.assertThat(observationRegistry).hasObservationWithNameEqualTo("http.server.requests")
+				.that().hasLowCardinalityKeyValue("uri", "UNKNOWN");
+	}
+
 	private static Mono<Void> writeToResponse(ServerWebExchange exchange, String value) {
 		byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
 		DataBuffer buffer = DefaultDataBufferFactory.sharedInstance.wrap(bytes);
@@ -147,7 +181,43 @@ public class WebHttpHandlerBuilderTests {
 
 
 	@Configuration
-	@SuppressWarnings("unused")
+	static class HttpHandlerDecoratorFactoryBeansConfig {
+
+		@Bean
+		@Order(1)
+		public HttpHandlerDecoratorFactory decoratorFactoryA() {
+			return delegate -> (HttpHandler) (request, response) -> {
+				response.getHeaders().set("decoratorA", String.valueOf(System.nanoTime()));
+				return delegate.handle(request, response);
+			};
+		}
+
+		@Bean
+		@Order(3)
+		public HttpHandlerDecoratorFactory decoratorFactoryB() {
+			return delegate -> (HttpHandler) (request, response) -> {
+				response.getHeaders().set("decoratorB", String.valueOf(System.nanoTime()));
+				return delegate.handle(request, response);
+			};
+		}
+
+		@Bean
+		@Order(2)
+		public HttpHandlerDecoratorFactory decoratorFactoryC() {
+			return delegate -> (HttpHandler) (request, response) -> {
+				response.getHeaders().set("decoratorC", String.valueOf(System.nanoTime()));
+				return delegate.handle(request, response);
+			};
+		}
+
+		@Bean
+		public WebHandler webHandler() {
+			return exchange -> Mono.empty();
+		}
+	}
+
+
+	@Configuration
 	static class OrderedWebFilterBeanConfig {
 
 		private static final String ATTRIBUTE = "attr";
@@ -182,7 +252,6 @@ public class WebHttpHandlerBuilderTests {
 
 
 	@Configuration
-	@SuppressWarnings("unused")
 	static class OrderedExceptionHandlerBeanConfig {
 
 		@Bean
@@ -204,13 +273,11 @@ public class WebHttpHandlerBuilderTests {
 	}
 
 	@Configuration
-	@SuppressWarnings("unused")
-	static class ForwardedHeaderFilterConfig {
+	static class ForwardedHeaderTransformerConfig {
 
 		@Bean
-		@SuppressWarnings("deprecation")
-		public WebFilter forwardedHeaderFilter() {
-			return new org.springframework.web.filter.reactive.ForwardedHeaderFilter();
+		public ForwardedHeaderTransformer forwardedHeaderTransformer() {
+			return new ForwardedHeaderTransformer();
 		}
 
 		@Bean
@@ -220,13 +287,32 @@ public class WebHttpHandlerBuilderTests {
 	}
 
 	@Configuration
-	@SuppressWarnings("unused")
 	static class NoFilterConfig {
 
 		@Bean
 		public WebHandler webHandler() {
 			return exchange -> writeToResponse(exchange, "handled");
 		}
+	}
+
+	@Configuration
+	static class ObservationConfig {
+
+		@Bean
+		public TestObservationRegistry testObservationRegistry() {
+			return TestObservationRegistry.create();
+		}
+
+		@Bean
+		public ServerRequestObservationConvention requestObservationConvention() {
+			return new DefaultServerRequestObservationConvention();
+		}
+
+		@Bean
+		public WebHandler webHandler() {
+			return exchange -> exchange.getResponse().setComplete();
+		}
+
 	}
 
 }

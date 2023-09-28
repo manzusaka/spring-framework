@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.springframework.test.web.servlet.samples.client.standalone;
 
-import javax.validation.constraints.NotNull;
-
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.http.MediaType;
@@ -33,7 +33,7 @@ import static org.hamcrest.Matchers.equalTo;
  *
  * @author Rossen Stoyanchev
  */
-public class ResponseBodyTests {
+class ResponseBodyTests {
 
 	@Test
 	void json() {
@@ -56,13 +56,14 @@ public class ResponseBodyTests {
 	private static class PersonController {
 
 		@GetMapping("/person/{name}")
-		public Person get(@PathVariable String name) {
+		Person get(@PathVariable String name) {
 			Person person = new Person(name);
 			person.setAge(42);
 			return person;
 		}
 	}
 
+	@SuppressWarnings("unused")
 	private static class Person {
 
 		@NotNull

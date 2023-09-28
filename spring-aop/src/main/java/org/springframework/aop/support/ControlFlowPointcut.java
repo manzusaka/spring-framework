@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public class ControlFlowPointcut implements Pointcut, ClassFilter, MethodMatcher
 	@Nullable
 	private final String methodName;
 
-	private final AtomicInteger evaluations = new AtomicInteger(0);
+	private final AtomicInteger evaluations = new AtomicInteger();
 
 
 	/**
@@ -125,14 +125,9 @@ public class ControlFlowPointcut implements Pointcut, ClassFilter, MethodMatcher
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof ControlFlowPointcut)) {
-			return false;
-		}
-		ControlFlowPointcut that = (ControlFlowPointcut) other;
-		return (this.clazz.equals(that.clazz)) && ObjectUtils.nullSafeEquals(this.methodName, that.methodName);
+		return (this == other || (other instanceof ControlFlowPointcut that &&
+				this.clazz.equals(that.clazz)) &&
+				ObjectUtils.nullSafeEquals(this.methodName, that.methodName));
 	}
 
 	@Override
@@ -146,7 +141,7 @@ public class ControlFlowPointcut implements Pointcut, ClassFilter, MethodMatcher
 
 	@Override
 	public String toString() {
-		return getClass().getName() + ": class = " + this.clazz.getName() + "; methodName = " + methodName;
+		return getClass().getName() + ": class = " + this.clazz.getName() + "; methodName = " + this.methodName;
 	}
 
 }

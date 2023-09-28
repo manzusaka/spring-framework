@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ import org.springframework.transaction.testfixture.CallCountingTransactionManage
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.mock;
-import static org.springframework.core.testfixture.TestGroup.PERFORMANCE;
+import static org.springframework.core.testfixture.TestGroup.LONG_RUNNING;
 
 /**
  * Integration tests cornering bug SPR-8651, which revealed that @Scheduled methods may
@@ -52,7 +52,7 @@ import static org.springframework.core.testfixture.TestGroup.PERFORMANCE;
  * @since 3.1
  */
 @SuppressWarnings("resource")
-@EnabledForTestGroups(PERFORMANCE)
+@EnabledForTestGroups(LONG_RUNNING)
 class ScheduledAndTransactionalAnnotationIntegrationTests {
 
 	@Test
@@ -60,8 +60,8 @@ class ScheduledAndTransactionalAnnotationIntegrationTests {
 		AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
 		ctx.register(Config.class, JdkProxyTxConfig.class, RepoConfigA.class);
 		assertThatExceptionOfType(BeanCreationException.class)
-			.isThrownBy(ctx::refresh)
-			.withCauseInstanceOf(IllegalStateException.class);
+				.isThrownBy(ctx::refresh)
+				.withCauseInstanceOf(IllegalStateException.class);
 	}
 
 	@Test
@@ -70,11 +70,11 @@ class ScheduledAndTransactionalAnnotationIntegrationTests {
 		ctx.register(Config.class, SubclassProxyTxConfig.class, RepoConfigA.class);
 		ctx.refresh();
 
-		Thread.sleep(100);  // allow @Scheduled method to be called several times
+		Thread.sleep(200);  // allow @Scheduled method to be called several times
 
 		MyRepository repository = ctx.getBean(MyRepository.class);
 		CallCountingTransactionManager txManager = ctx.getBean(CallCountingTransactionManager.class);
-		assertThat(AopUtils.isCglibProxy(repository)).isEqualTo(true);
+		assertThat(AopUtils.isCglibProxy(repository)).isTrue();
 		assertThat(repository.getInvocationCount()).isGreaterThan(0);
 		assertThat(txManager.commits).isGreaterThan(0);
 	}
@@ -85,7 +85,7 @@ class ScheduledAndTransactionalAnnotationIntegrationTests {
 		ctx.register(Config.class, JdkProxyTxConfig.class, RepoConfigB.class);
 		ctx.refresh();
 
-		Thread.sleep(100);  // allow @Scheduled method to be called several times
+		Thread.sleep(200);  // allow @Scheduled method to be called several times
 
 		MyRepositoryWithScheduledMethod repository = ctx.getBean(MyRepositoryWithScheduledMethod.class);
 		CallCountingTransactionManager txManager = ctx.getBean(CallCountingTransactionManager.class);
@@ -100,7 +100,7 @@ class ScheduledAndTransactionalAnnotationIntegrationTests {
 		ctx.register(AspectConfig.class, MyRepositoryWithScheduledMethodImpl.class);
 		ctx.refresh();
 
-		Thread.sleep(100);  // allow @Scheduled method to be called several times
+		Thread.sleep(200);  // allow @Scheduled method to be called several times
 
 		MyRepositoryWithScheduledMethod repository = ctx.getBean(MyRepositoryWithScheduledMethod.class);
 		assertThat(AopUtils.isCglibProxy(repository)).isTrue();
@@ -151,7 +151,7 @@ class ScheduledAndTransactionalAnnotationIntegrationTests {
 
 		@Bean
 		PersistenceExceptionTranslator peTranslator() {
-			return mock(PersistenceExceptionTranslator.class);
+			return mock();
 		}
 
 		@Bean
@@ -182,7 +182,7 @@ class ScheduledAndTransactionalAnnotationIntegrationTests {
 	@Aspect
 	public static class MyAspect {
 
-		private final AtomicInteger count = new AtomicInteger(0);
+		private final AtomicInteger count = new AtomicInteger();
 
 		@org.aspectj.lang.annotation.Before("execution(* scheduled())")
 		public void checkTransaction() {
@@ -200,7 +200,7 @@ class ScheduledAndTransactionalAnnotationIntegrationTests {
 	@Repository
 	static class MyRepositoryImpl implements MyRepository {
 
-		private final AtomicInteger count = new AtomicInteger(0);
+		private final AtomicInteger count = new AtomicInteger();
 
 		@Transactional
 		@Scheduled(fixedDelay = 5)
@@ -226,7 +226,7 @@ class ScheduledAndTransactionalAnnotationIntegrationTests {
 	@Repository
 	static class MyRepositoryWithScheduledMethodImpl implements MyRepositoryWithScheduledMethod {
 
-		private final AtomicInteger count = new AtomicInteger(0);
+		private final AtomicInteger count = new AtomicInteger();
 
 		@Autowired(required = false)
 		private MyAspect myAspect;

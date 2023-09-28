@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,12 +109,11 @@ public class PathPatternParserTests {
 		assertThat(pp2).isEqualTo(pp1);
 		assertThat(pp2.hashCode()).isEqualTo(pp1.hashCode());
 		assertThat(pp3).isNotEqualTo(pp1);
-		assertThat(pp1.equals("abc")).isFalse();
 
 		pp1 = caseInsensitiveParser.parse("/abc");
 		pp2 = caseSensitiveParser.parse("/abc");
 		assertThat(pp1.equals(pp2)).isFalse();
-		assertThat(pp2.hashCode()).isNotEqualTo((long) pp1.hashCode());
+		assertThat(pp2.hashCode()).isNotEqualTo(pp1.hashCode());
 	}
 
 	@Test
@@ -395,7 +394,7 @@ public class PathPatternParserTests {
 		// Based purely on catchAll
 		p1 = parse("{*foobar}");
 		p2 = parse("{*goo}");
-		assertThat(p1.compareTo(p2) != 0).isTrue();
+		assertThat(p1.compareTo(p2)).isNotEqualTo(0);
 
 		p1 = parse("/{*foobar}");
 		p2 = parse("/abc/{*ww}");

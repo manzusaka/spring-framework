@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -230,11 +230,11 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 		List<Message<byte[]>> messages;
 		try {
 			ByteBuffer byteBuffer;
-			if (webSocketMessage instanceof TextMessage) {
-				byteBuffer = ByteBuffer.wrap(((TextMessage) webSocketMessage).asBytes());
+			if (webSocketMessage instanceof TextMessage textMessage) {
+				byteBuffer = ByteBuffer.wrap(textMessage.asBytes());
 			}
-			else if (webSocketMessage instanceof BinaryMessage) {
-				byteBuffer = ((BinaryMessage) webSocketMessage).getPayload();
+			else if (webSocketMessage instanceof BinaryMessage binaryMessage) {
+				byteBuffer = binaryMessage.getPayload();
 			}
 			else {
 				return;
@@ -269,13 +269,15 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 		}
 
 		for (Message<byte[]> message : messages) {
-			try {
-				StompHeaderAccessor headerAccessor =
-						MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-				Assert.state(headerAccessor != null, "No StompHeaderAccessor");
+			StompHeaderAccessor headerAccessor =
+					MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+			Assert.state(headerAccessor != null, "No StompHeaderAccessor");
 
-				StompCommand command = headerAccessor.getCommand();
-				boolean isConnect = StompCommand.CONNECT.equals(command) || StompCommand.STOMP.equals(command);
+			StompCommand command = headerAccessor.getCommand();
+			boolean isConnect = StompCommand.CONNECT.equals(command) || StompCommand.STOMP.equals(command);
+
+			boolean sent = false;
+			try {
 
 				headerAccessor.setSessionId(session.getId());
 				headerAccessor.setSessionAttributes(session.getAttributes());
@@ -305,7 +307,7 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 
 				try {
 					SimpAttributesContextHolder.setAttributesFromMessage(message);
-					boolean sent = outputChannel.send(message);
+					sent = outputChannel.send(message);
 
 					if (sent) {
 						if (this.eventPublisher != null) {
@@ -327,9 +329,15 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 				}
 			}
 			catch (Throwable ex) {
-				if (logger.isErrorEnabled()) {
-					logger.error("Failed to send client message to application via MessageChannel" +
-							" in session " + session.getId() + ". Sending STOMP ERROR to client.", ex);
+				if (logger.isDebugEnabled()) {
+					logger.debug("Failed to send message to MessageChannel in session " + session.getId(), ex);
+				}
+				else if (logger.isErrorEnabled()) {
+					// Skip unsent CONNECT messages (likely auth issues)
+					if (!isConnect || sent) {
+						logger.error("Failed to send message to MessageChannel in session " + session.getId() +
+								":" + ex.getMessage());
+					}
 				}
 				handleError(session, ex, message);
 			}
@@ -366,6 +374,8 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 		headerAccessor.setMessage(error.getMessage());
 
 		byte[] bytes = this.stompEncoder.encode(headerAccessor.getMessageHeaders(), EMPTY_PAYLOAD);
+		// We cannot use try-with-resources here for the WebSocketSession, since we have
+		// custom handling of the close() method in a finally-block.
 		try {
 			session.sendMessage(new TextMessage(bytes));
 		}
@@ -388,8 +398,8 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 			return this.immutableMessageInterceptorPresent;
 		}
 
-		if (channel instanceof AbstractMessageChannel) {
-			for (ChannelInterceptor interceptor : ((AbstractMessageChannel) channel).getInterceptors()) {
+		if (channel instanceof AbstractMessageChannel abstractMessageChannel) {
+			for (ChannelInterceptor interceptor : abstractMessageChannel.getInterceptors()) {
 				if (interceptor instanceof ImmutableMessageChannelInterceptor) {
 					this.immutableMessageInterceptorPresent = true;
 					return true;
@@ -417,7 +427,7 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 	@Override
 	@SuppressWarnings("unchecked")
 	public void handleMessageToClient(WebSocketSession session, Message<?> message) {
-		if (!(message.getPayload() instanceof byte[])) {
+		if (!(message.getPayload() instanceof byte[] payload)) {
 			if (logger.isErrorEnabled()) {
 				logger.error("Expected byte[] payload. Ignoring " + message + ".");
 			}
@@ -454,9 +464,9 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 			}
 		}
 
-		byte[] payload = (byte[]) message.getPayload();
 		if (StompCommand.ERROR.equals(command) && getErrorHandler() != null) {
-			Message<byte[]> errorMessage = getErrorHandler().handleErrorMessageToClient((Message<byte[]>) message);
+			Message<byte[]> errorMessage = getErrorHandler().handleErrorMessageToClient(
+					MessageBuilder.createMessage(payload, accessor.getMessageHeaders()));
 			if (errorMessage != null) {
 				accessor = MessageHeaderAccessor.getAccessor(errorMessage, StompHeaderAccessor.class);
 				Assert.state(accessor != null, "No StompHeaderAccessor");
@@ -511,8 +521,8 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 
 	private StompHeaderAccessor getStompHeaderAccessor(Message<?> message) {
 		MessageHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, MessageHeaderAccessor.class);
-		if (accessor instanceof StompHeaderAccessor) {
-			return (StompHeaderAccessor) accessor;
+		if (accessor instanceof StompHeaderAccessor stompHeaderAccessor) {
+			return stompHeaderAccessor;
 		}
 		else {
 			StompHeaderAccessor stompAccessor = StompHeaderAccessor.wrap(message);
@@ -605,8 +615,8 @@ public class StompSubProtocolHandler implements SubProtocolHandler, ApplicationE
 		long[] heartbeat = accessor.getHeartbeat();
 		if (heartbeat[1] > 0) {
 			session = WebSocketSessionDecorator.unwrap(session);
-			if (session instanceof SockJsSession) {
-				((SockJsSession) session).disableHeartbeat();
+			if (session instanceof SockJsSession sockJsSession) {
+				sockJsSession.disableHeartbeat();
 			}
 		}
 

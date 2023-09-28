@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,10 +35,12 @@ import org.springframework.util.StringUtils;
 
 /**
  * A generic implementation of the {@link CallMetaDataProvider} interface.
- * This class can be extended to provide database specific behavior.
+ *
+ * <p>This class can be extended to provide database specific behavior.
  *
  * @author Thomas Risberg
  * @author Juergen Hoeller
+ * @author Sam Brannen
  * @since 2.5
  */
 public class GenericCallMetaDataProvider implements CallMetaDataProvider {
@@ -123,52 +125,19 @@ public class GenericCallMetaDataProvider implements CallMetaDataProvider {
 	@Override
 	@Nullable
 	public String procedureNameToUse(@Nullable String procedureName) {
-		if (procedureName == null) {
-			return null;
-		}
-		else if (isStoresUpperCaseIdentifiers()) {
-			return procedureName.toUpperCase();
-		}
-		else if (isStoresLowerCaseIdentifiers()) {
-			return procedureName.toLowerCase();
-		}
-		else {
-			return procedureName;
-		}
+		return identifierNameToUse(procedureName);
 	}
 
 	@Override
 	@Nullable
 	public String catalogNameToUse(@Nullable String catalogName) {
-		if (catalogName == null) {
-			return null;
-		}
-		else if (isStoresUpperCaseIdentifiers()) {
-			return catalogName.toUpperCase();
-		}
-		else if (isStoresLowerCaseIdentifiers()) {
-			return catalogName.toLowerCase();
-		}
-		else {
-			return catalogName;
-		}
+		return identifierNameToUse(catalogName);
 	}
 
 	@Override
 	@Nullable
 	public String schemaNameToUse(@Nullable String schemaName) {
-		if (schemaName == null) {
-			return null;
-		}
-		else if (isStoresUpperCaseIdentifiers()) {
-			return schemaName.toUpperCase();
-		}
-		else if (isStoresLowerCaseIdentifiers()) {
-			return schemaName.toLowerCase();
-		}
-		else {
-			return schemaName;
-		}
+		return identifierNameToUse(schemaName);
 	}
 
 	@Override
@@ -196,18 +165,7 @@ public class GenericCallMetaDataProvider implements CallMetaDataProvider {
 	@Override
 	@Nullable
 	public String parameterNameToUse(@Nullable String parameterName) {
-		if (parameterName == null) {
-			return null;
-		}
-		else if (isStoresUpperCaseIdentifiers()) {
-			return parameterName.toUpperCase();
-		}
-		else if (isStoresLowerCaseIdentifiers()) {
-			return parameterName.toLowerCase();
-		}
-		else {
-			return parameterName;
-		}
+		return identifierNameToUse(parameterName);
 	}
 
 	@Override
@@ -315,6 +273,21 @@ public class GenericCallMetaDataProvider implements CallMetaDataProvider {
 	}
 
 
+	private String identifierNameToUse(@Nullable String identifierName) {
+		if (identifierName == null) {
+			return null;
+		}
+		else if (isStoresUpperCaseIdentifiers()) {
+			return identifierName.toUpperCase();
+		}
+		else if (isStoresLowerCaseIdentifiers()) {
+			return identifierName.toLowerCase();
+		}
+		else {
+			return identifierName;
+		}
+	}
+
 	/**
 	 * Process the procedure column meta-data.
 	 */
@@ -414,8 +387,15 @@ public class GenericCallMetaDataProvider implements CallMetaDataProvider {
 		}
 		catch (SQLException ex) {
 			if (logger.isWarnEnabled()) {
-				logger.warn("Error while retrieving meta-data for procedure columns: " + ex);
+				logger.warn("Error while retrieving meta-data for procedure columns. " +
+						"Consider declaring explicit parameters -- for example, via SimpleJdbcCall#addDeclaredParameter().",
+						ex);
 			}
+			// Although we could invoke `this.callParameterMetaData.clear()` so that
+			// we don't retain a partial list of column names (like we do in
+			// GenericTableMetaDataProvider.processTableColumns(...)), we choose
+			// not to do that here, since invocation of the stored procedure will
+			// likely fail anyway with an incorrect argument list.
 		}
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package org.springframework.messaging.rsocket;
 
 import java.lang.reflect.Field;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
@@ -27,6 +29,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.rsocket.ConnectionSetupPayload;
 import io.rsocket.DuplexConnection;
+import io.rsocket.RSocketErrorException;
 import io.rsocket.core.DefaultConnectionSetupPayload;
 import io.rsocket.core.RSocketConnector;
 import io.rsocket.frame.decoder.PayloadDecoder;
@@ -63,7 +66,7 @@ import static org.mockito.Mockito.verify;
  */
 public class DefaultRSocketRequesterBuilderTests {
 
-	private ClientTransport transport;
+	private ClientTransport transport = mock();
 
 	private final MockConnection connection = new MockConnection();
 
@@ -72,7 +75,6 @@ public class DefaultRSocketRequesterBuilderTests {
 
 	@BeforeEach
 	public void setup() {
-		this.transport = mock(ClientTransport.class);
 		given(this.transport.connect()).willReturn(Mono.just(this.connection));
 		given(this.transport.maxFrameLength()).willReturn(16777215);
 	}
@@ -81,7 +83,7 @@ public class DefaultRSocketRequesterBuilderTests {
 	@Test
 	@SuppressWarnings("unchecked")
 	public void rsocketConnectorConfigurer() {
-		Consumer<RSocketStrategies.Builder> strategiesConfigurer = mock(Consumer.class);
+		Consumer<RSocketStrategies.Builder> strategiesConfigurer = mock();
 		RSocketRequester.builder()
 				.rsocketConnector(this.connectorConfigurer)
 				.rsocketStrategies(strategiesConfigurer)
@@ -240,14 +242,12 @@ public class DefaultRSocketRequesterBuilderTests {
 		}
 
 		@Override
-		public Mono<Void> send(Publisher<ByteBuf> frames) {
-			return Mono.empty();
+		public void sendFrame(int i, ByteBuf byteBuf) {
+			this.setupFrame = this.setupFrame == null ? byteBuf : this.setupFrame;
 		}
 
 		@Override
-		public Mono<Void> sendOne(ByteBuf frame) {
-			this.setupFrame = frame;
-			return Mono.empty();
+		public void sendErrorAndClose(RSocketErrorException e) {
 		}
 
 		@Override
@@ -273,6 +273,12 @@ public class DefaultRSocketRequesterBuilderTests {
 		public boolean isDisposed() {
 			return false;
 		}
+
+		@Override
+		public SocketAddress remoteAddress() {
+			return InetSocketAddress.createUnresolved("localhost", 9090);
+		}
+
 	}
 
 

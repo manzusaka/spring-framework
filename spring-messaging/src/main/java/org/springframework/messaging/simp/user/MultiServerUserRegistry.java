@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,12 @@ package org.springframework.messaging.simp.user;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.security.Principal;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -274,7 +276,7 @@ public class MultiServerUserRegistry implements SimpUserRegistry, SmartApplicati
 		private String name = "";
 
 		// User sessions from "this" registry only (i.e. one server)
-		private Set<TransferSimpSession> sessions;
+		private final Set<TransferSimpSession> sessions;
 
 		// Cross-server session lookup (e.g. user connected to multiple servers)
 		@Nullable
@@ -308,6 +310,12 @@ public class MultiServerUserRegistry implements SimpUserRegistry, SmartApplicati
 		@Override
 		public String getName() {
 			return this.name;
+		}
+
+		@Nullable
+		@Override
+		public Principal getPrincipal() {
+			return null;
 		}
 
 		@Override
@@ -363,7 +371,7 @@ public class MultiServerUserRegistry implements SimpUserRegistry, SmartApplicati
 
 		@Override
 		public boolean equals(@Nullable Object other) {
-			return (this == other || (other instanceof SimpUser && this.name.equals(((SimpUser) other).getName())));
+			return (this == other || (other instanceof SimpUser that && this.name.equals(that.getName())));
 		}
 
 		@Override
@@ -449,7 +457,7 @@ public class MultiServerUserRegistry implements SimpUserRegistry, SmartApplicati
 
 		@Override
 		public boolean equals(@Nullable Object other) {
-			return (this == other || (other instanceof SimpSession && getId().equals(((SimpSession) other).getId())));
+			return (this == other || (other instanceof SimpSession that && this.id.equals(that.getId())));
 		}
 
 		@Override
@@ -525,20 +533,14 @@ public class MultiServerUserRegistry implements SimpUserRegistry, SmartApplicati
 
 		@Override
 		public boolean equals(@Nullable Object other) {
-			if (this == other) {
-				return true;
-			}
-			if (!(other instanceof SimpSubscription)) {
-				return false;
-			}
-			SimpSubscription otherSubscription = (SimpSubscription) other;
-			return (getId().equals(otherSubscription.getId()) &&
-					ObjectUtils.nullSafeEquals(getSession(), otherSubscription.getSession()));
+			return (this == other || (other instanceof SimpSubscription that &&
+					getId().equals(that.getId()) &&
+					ObjectUtils.nullSafeEquals(getSession(), that.getSession())));
 		}
 
 		@Override
 		public int hashCode() {
-			return getId().hashCode() * 31 + ObjectUtils.nullSafeHashCode(getSession());
+			return Objects.hash(getId(), getSession());
 		}
 
 		@Override

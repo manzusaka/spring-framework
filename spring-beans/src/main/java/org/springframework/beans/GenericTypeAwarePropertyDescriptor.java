@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-2023 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Method;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.commons.logging.LogFactory;
@@ -30,7 +31,6 @@ import org.springframework.core.MethodParameter;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
-import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
 /**
@@ -138,7 +138,7 @@ final class GenericTypeAwarePropertyDescriptor extends PropertyDescriptor {
 		Set<Method> ambiguousCandidates = this.ambiguousWriteMethods;
 		if (ambiguousCandidates != null) {
 			this.ambiguousWriteMethods = null;
-			LogFactory.getLog(GenericTypeAwarePropertyDescriptor.class).warn("Invalid JavaBean property '" +
+			LogFactory.getLog(GenericTypeAwarePropertyDescriptor.class).debug("Non-unique JavaBean property '" +
 					getName() + "' being accessed! Ambiguous write methods found next to actually used [" +
 					this.writeMethod + "]: " + ambiguousCandidates);
 		}
@@ -165,22 +165,14 @@ final class GenericTypeAwarePropertyDescriptor extends PropertyDescriptor {
 
 	@Override
 	public boolean equals(@Nullable Object other) {
-		if (this == other) {
-			return true;
-		}
-		if (!(other instanceof GenericTypeAwarePropertyDescriptor)) {
-			return false;
-		}
-		GenericTypeAwarePropertyDescriptor otherPd = (GenericTypeAwarePropertyDescriptor) other;
-		return (getBeanClass().equals(otherPd.getBeanClass()) && PropertyDescriptorUtils.equals(this, otherPd));
+		return (this == other || (other instanceof GenericTypeAwarePropertyDescriptor that &&
+				getBeanClass().equals(that.getBeanClass()) &&
+				PropertyDescriptorUtils.equals(this, that)));
 	}
 
 	@Override
 	public int hashCode() {
-		int hashCode = getBeanClass().hashCode();
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(getReadMethod());
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(getWriteMethod());
-		return hashCode;
+		return Objects.hash(getBeanClass(), getReadMethod(), getWriteMethod());
 	}
 
 }
