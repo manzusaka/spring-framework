@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,12 @@ import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.withContext
 import org.springframework.core.io.Resource
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatusCode
 import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.server.RouterFunctions.nest
+import org.springframework.web.server.CoWebFilter
 import reactor.core.publisher.Mono
 import java.net.URI
 import kotlin.coroutines.CoroutineContext
@@ -143,7 +145,7 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 	 * @see RouterFunctions.nest
 	 */
 	fun RequestPredicate.nest(r: (CoRouterFunctionDsl.() -> Unit)) {
-		builder.add(nest(this, CoRouterFunctionDsl(r).build()))
+		builder.add(nest(this, CoRouterFunctionDsl(r).also { it.contextProvider = contextProvider }.build()))
 	}
 
 
@@ -168,7 +170,17 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 
 	/**
 	 * Adds a route to the given handler function that handles all HTTP `GET` requests
-	 * that match the given pattern.
+	 * that match the given predicate.
+	 * @param predicate predicate to match
+	 * @since 6.1.4
+	 */
+	fun GET(predicate: RequestPredicate, f: suspend (ServerRequest) -> ServerResponse) {
+		builder.GET(predicate, asHandlerFunction(f))
+	}
+
+	/**
+	 * Adds a route to the given handler function that handles all HTTP `GET` requests
+	 * that match the given pattern and predicate.
 	 * @param pattern the pattern to match to
 	 * @param predicate additional predicate to match
 	 * @since 5.2
@@ -195,7 +207,17 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 
 	/**
 	 * Adds a route to the given handler function that handles all HTTP `HEAD` requests
-	 * that match the given pattern.
+	 * that match the given pattern and predicate.
+	 * @param predicate predicate to match
+	 * @since 6.1.4
+	 */
+	fun HEAD(predicate: RequestPredicate, f: suspend (ServerRequest) -> ServerResponse) {
+		builder.HEAD(predicate, asHandlerFunction(f))
+	}
+
+	/**
+	 * Adds a route to the given handler function that handles all HTTP `HEAD` requests
+	 * that match the given pattern and predicate.
 	 * @param pattern the pattern to match to
 	 * @param predicate additional predicate to match
 	 * @since 5.2
@@ -222,7 +244,17 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 
 	/**
 	 * Adds a route to the given handler function that handles all HTTP `POST` requests
-	 * that match the given pattern.
+	 * that match the given predicate.
+	 * @param predicate predicate to match
+	 * @since 6.1.4
+	 */
+	fun POST(predicate: RequestPredicate, f: suspend (ServerRequest) -> ServerResponse) {
+		builder.POST(predicate, asHandlerFunction(f))
+	}
+
+	/**
+	 * Adds a route to the given handler function that handles all HTTP `POST` requests
+	 * that match the given pattern and predicate.
 	 * @param pattern the pattern to match to
 	 * @param predicate additional predicate to match
 	 * @since 5.2
@@ -249,7 +281,17 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 
 	/**
 	 * Adds a route to the given handler function that handles all HTTP `PUT` requests
-	 * that match the given pattern.
+	 * that match the given predicate.
+	 * @param predicate predicate to match
+	 * @since 6.1.4
+	 */
+	fun PUT(predicate: RequestPredicate, f: suspend (ServerRequest) -> ServerResponse) {
+		builder.PUT(predicate, asHandlerFunction(f))
+	}
+
+	/**
+	 * Adds a route to the given handler function that handles all HTTP `PUT` requests
+	 * that match the given pattern and predicate.
 	 * @param pattern the pattern to match to
 	 * @param predicate additional predicate to match
 	 * @since 5.2
@@ -276,7 +318,17 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 
 	/**
 	 * Adds a route to the given handler function that handles all HTTP `PATCH` requests
-	 * that match the given pattern.
+	 * that match the given pattern and predicate.
+	 * @param predicate predicate to match
+	 * @since 6.1.4
+	 */
+	fun PATCH(predicate: RequestPredicate, f: suspend (ServerRequest) -> ServerResponse) {
+		builder.PATCH(predicate, asHandlerFunction(f))
+	}
+
+	/**
+	 * Adds a route to the given handler function that handles all HTTP `PATCH` requests
+	 * that match the given pattern and predicate.
 	 * @param pattern the pattern to match to
 	 * @param predicate additional predicate to match
 	 * @since 5.2
@@ -305,7 +357,17 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 
 	/**
 	 * Adds a route to the given handler function that handles all HTTP `DELETE` requests
-	 * that match the given pattern.
+	 * that match the given predicate.
+	 * @param predicate predicate to match
+	 * @since 6.1.4
+	 */
+	fun DELETE(predicate: RequestPredicate, f: suspend (ServerRequest) -> ServerResponse) {
+		builder.DELETE(predicate, asHandlerFunction(f))
+	}
+
+	/**
+	 * Adds a route to the given handler function that handles all HTTP `DELETE` requests
+	 * that match the given pattern and predicate.
 	 * @param pattern the pattern to match to
 	 * @param predicate additional predicate to match
 	 * @since 5.2
@@ -334,7 +396,17 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 
 	/**
 	 * Adds a route to the given handler function that handles all HTTP `OPTIONS` requests
-	 * that match the given pattern.
+	 * that match the given predicate.
+	 * @param predicate predicate to match
+	 * @since 6.1.4
+	 */
+	fun OPTIONS(predicate: RequestPredicate, f: suspend (ServerRequest) -> ServerResponse) {
+		builder.OPTIONS(predicate, asHandlerFunction(f))
+	}
+
+	/**
+	 * Adds a route to the given handler function that handles all HTTP `OPTIONS` requests
+	 * that match the given pattern and predicate.
 	 * @param pattern the pattern to match to
 	 * @param predicate additional predicate to match
 	 * @since 5.2
@@ -435,6 +507,11 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 	 * Route to the given handler function if the given pathExtension predicate applies.
 	 * @see RouterFunctions.route
 	 */
+	@Deprecated("without replacement to discourage use of path extensions for request mapping and for" +
+			"content negotiation (with similar deprecations and removals already applied to" +
+			"annotated controllers). For further context, please read issue " +
+			"https://github.com/spring-projects/spring-framework/issues/24179", replaceWith = ReplaceWith("None"))
+	@Suppress("removal", "DEPRECATION")
 	fun pathExtension(extension: String, f: suspend (ServerRequest) -> ServerResponse) {
 		builder.add(RouterFunctions.route(RequestPredicates.pathExtension(extension), asHandlerFunction(f)))
 	}
@@ -444,22 +521,36 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 	 * @param extension the path extension to match against, ignoring case
 	 * @return a predicate that matches if the request's path has the given file extension
 	 */
+	@Suppress("removal", "DEPRECATION")
+	@Deprecated("without replacement to discourage use of path extensions for request mapping and for" +
+			"content negotiation (with similar deprecations and removals already applied to" +
+			"annotated controllers). For further context, please read issue " +
+			"https://github.com/spring-projects/spring-framework/issues/24179", replaceWith = ReplaceWith("None"))
 	fun pathExtension(extension: String): RequestPredicate = RequestPredicates.pathExtension(extension)
 
 	/**
 	 * Route to the given handler function if the given pathExtension predicate applies.
 	 * @see RouterFunctions.route
 	 */
-	fun pathExtension(predicate: (String) -> Boolean, f: suspend (ServerRequest) -> ServerResponse) {
+	@Suppress("removal", "DEPRECATION")
+	@Deprecated("without replacement to discourage use of path extensions for request mapping and for" +
+			"content negotiation (with similar deprecations and removals already applied to" +
+			"annotated controllers). For further context, please read issue " +
+			"https://github.com/spring-projects/spring-framework/issues/24179", replaceWith = ReplaceWith("None"))
+	fun pathExtension(predicate: (String?) -> Boolean, f: suspend (ServerRequest) -> ServerResponse) {
 		builder.add(RouterFunctions.route(RequestPredicates.pathExtension(predicate), asHandlerFunction(f)))
 	}
 
 	/**
 	 * Return a [RequestPredicate] that matches if the request's path matches the given
 	 * predicate.
-	 * @see RequestPredicates.pathExtension
 	 */
-	fun pathExtension(predicate: (String) -> Boolean): RequestPredicate =
+	@Suppress("removal", "DEPRECATION")
+	@Deprecated("without replacement to discourage use of path extensions for request mapping and for" +
+			"content negotiation (with similar deprecations and removals already applied to" +
+			"annotated controllers). For further context, please read issue " +
+			"https://github.com/spring-projects/spring-framework/issues/24179", replaceWith = ReplaceWith("None"))
+	fun pathExtension(predicate: (String?) -> Boolean): RequestPredicate =
 			RequestPredicates.pathExtension(predicate)
 
 	/**
@@ -496,6 +587,15 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 	 */
 	operator fun String.invoke(f: suspend (ServerRequest) -> ServerResponse) {
 		builder.add(RouterFunctions.route(RequestPredicates.path(this),  asHandlerFunction(f)))
+	}
+
+	/**
+	 * Route requests that match the given predicate to the given resource.
+	 * @since 6.1.4
+	 * @see RouterFunctions.resource
+	 */
+	fun resource(predicate: RequestPredicate, resource: Resource, headersConsumer: (Resource, HttpHeaders) -> Unit = { _, _ -> }) {
+		builder.resource(predicate, resource, headersConsumer)
 	}
 
 	/**
@@ -627,9 +727,6 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 	 * @since 6.1
 	 */
 	fun context(provider: suspend (ServerRequest) -> CoroutineContext) {
-		if (this.contextProvider != null) {
-			throw IllegalStateException("The Coroutine context provider should be defined not more than once")
-		}
 		this.contextProvider = provider
 	}
 
@@ -642,7 +739,8 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 	}
 
 	@PublishedApi
-	internal fun <T> asMono(request: ServerRequest, context: CoroutineContext = Dispatchers.Unconfined, handler: suspend (ServerRequest) -> T): Mono<T> {
+	internal fun <T : Any> asMono(request: ServerRequest, context: CoroutineContext =
+		Dispatchers.Unconfined, handler: suspend (ServerRequest) -> T?): Mono<T> {
 		return mono(context) {
 			contextProvider?.let {
 				withContext(it.invoke(request)) {
@@ -711,8 +809,15 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 	fun notFound() = ServerResponse.notFound()
 
 	/**
+	 * @see ServerResponse.unprocessableContent
+	 */
+	fun unprocessableContent() = ServerResponse.unprocessableContent()
+
+	/**
 	 * @see ServerResponse.unprocessableEntity
 	 */
+	@Deprecated("Use unprocessable content instead.", ReplaceWith("unprocessableContent()"))
+	@Suppress("DEPRECATION")
 	fun unprocessableEntity() = ServerResponse.unprocessableEntity()
 
 	/**
@@ -731,7 +836,8 @@ class CoRouterFunctionDsl internal constructor (private val init: (CoRouterFunct
 	) : HandlerFunction<T> {
 
 		override fun handle(request: ServerRequest): Mono<T> {
-			return handle(Dispatchers.Unconfined, request)
+			val context = request.attributes()[CoWebFilter.COROUTINE_CONTEXT_ATTRIBUTE] as CoroutineContext?
+			return handle(context ?: Dispatchers.Unconfined, request)
 		}
 
 		fun handle(context: CoroutineContext, request: ServerRequest) = asMono(request, context) {

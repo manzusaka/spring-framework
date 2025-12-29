@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import org.springframework.http.MediaType;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for {@link MockServletContext}.
+ * Tests for {@link MockServletContext}.
  *
  * @author Juergen Hoeller
  * @author Chris Beams
@@ -55,14 +55,14 @@ class MockServletContextTests {
 		void getResourcePaths() {
 			Set<String> paths = servletContext.getResourcePaths("/web");
 			assertThat(paths).isNotNull();
-			assertThat(paths.contains("/web/MockServletContextTests.class")).isTrue();
+			assertThat(paths).contains("/web/MockServletContextTests.class");
 		}
 
 		@Test
 		void getResourcePathsWithSubdirectories() {
 			Set<String> paths = servletContext.getResourcePaths("/");
 			assertThat(paths).isNotNull();
-			assertThat(paths.contains("/web/")).isTrue();
+			assertThat(paths).contains("/web/");
 		}
 
 		@Test
@@ -106,9 +106,9 @@ class MockServletContextTests {
 		@Test
 		void servletVersion() {
 			assertThat(servletContext.getMajorVersion()).isEqualTo(6);
-			assertThat(servletContext.getMinorVersion()).isEqualTo(0);
+			assertThat(servletContext.getMinorVersion()).isEqualTo(1);
 			assertThat(servletContext.getEffectiveMajorVersion()).isEqualTo(6);
-			assertThat(servletContext.getEffectiveMinorVersion()).isEqualTo(0);
+			assertThat(servletContext.getEffectiveMinorVersion()).isEqualTo(1);
 
 			servletContext.setMajorVersion(4);
 			servletContext.setMinorVersion(0);
@@ -200,8 +200,8 @@ class MockServletContextTests {
 			assertThat(filterRegistrations).isNotNull();
 			assertThat(filterRegistrations).isEmpty();
 		}
-
 	}
+
 
 	/**
 	 * @since 5.1.11
@@ -242,7 +242,6 @@ class MockServletContextTests {
 				assertThat(realPath).isNotNull();
 			}
 		}
-
 	}
 
 }

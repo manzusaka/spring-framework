@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,12 +39,12 @@ import static org.springframework.beans.factory.support.BeanDefinitionBuilder.ro
 import static org.springframework.beans.factory.support.BeanDefinitionReaderUtils.registerWithGeneratedName;
 
 /**
- * Unit tests for {@link PropertyPlaceholderConfigurer}.
+ * Tests for {@link PropertyPlaceholderConfigurer}.
  *
  * @author Chris Beams
  * @author Sam Brannen
  */
-@SuppressWarnings("deprecation")
+@SuppressWarnings({"deprecation", "removal"})
 class PropertyPlaceholderConfigurerTests {
 
 	private static final String P1 = "p1";
@@ -84,7 +84,7 @@ class PropertyPlaceholderConfigurerTests {
 					.getBeanDefinition());
 
 		PropertyPlaceholderConfigurer pc = new PropertyPlaceholderConfigurer();
-		Resource resource = new ClassPathResource("PropertyPlaceholderConfigurerTests.properties", this.getClass());
+		Resource resource = new ClassPathResource("PropertyPlaceholderConfigurerTests.properties", getClass());
 		pc.setLocation(resource);
 		pc.postProcessBeanFactory(bf);
 	}

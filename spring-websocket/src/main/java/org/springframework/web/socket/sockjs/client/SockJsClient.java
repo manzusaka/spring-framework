@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.context.Lifecycle;
 import org.springframework.http.HttpHeaders;
-import org.springframework.lang.Nullable;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
@@ -40,6 +40,7 @@ import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.WebSocketClient;
 import org.springframework.web.socket.sockjs.frame.Jackson2SockJsMessageCodec;
+import org.springframework.web.socket.sockjs.frame.JacksonJsonSockJsMessageCodec;
 import org.springframework.web.socket.sockjs.frame.SockJsMessageCodec;
 import org.springframework.web.socket.sockjs.transport.TransportType;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -55,13 +56,17 @@ import org.springframework.web.util.UriComponentsBuilder;
  *
  * @author Rossen Stoyanchev
  * @author Sam Brannen
+ * @author Juergen Hoeller
  * @since 4.1
  * @see <a href="https://github.com/sockjs/sockjs-client">https://github.com/sockjs/sockjs-client</a>
  * @see org.springframework.web.socket.sockjs.client.Transport
  */
 public class SockJsClient implements WebSocketClient, Lifecycle {
 
-	private static final boolean jackson2Present = ClassUtils.isPresent(
+	private static final boolean JACKSON_PRESENT = ClassUtils.isPresent(
+			"tools.jackson.databind.ObjectMapper", SockJsClient.class.getClassLoader());
+
+	private static final boolean JACKSON_2_PRESENT = ClassUtils.isPresent(
 			"com.fasterxml.jackson.databind.ObjectMapper", SockJsClient.class.getClassLoader());
 
 	private static final Log logger = LogFactory.getLog(SockJsClient.class);
@@ -71,16 +76,13 @@ public class SockJsClient implements WebSocketClient, Lifecycle {
 
 	private final List<Transport> transports;
 
-	@Nullable
-	private String[] httpHeaderNames;
+	private String @Nullable [] httpHeaderNames;
 
 	private InfoReceiver infoReceiver;
 
-	@Nullable
-	private SockJsMessageCodec messageCodec;
+	private @Nullable SockJsMessageCodec messageCodec;
 
-	@Nullable
-	private TaskScheduler connectTimeoutScheduler;
+	private @Nullable TaskScheduler connectTimeoutScheduler;
 
 	private volatile boolean running;
 
@@ -95,11 +97,15 @@ public class SockJsClient implements WebSocketClient, Lifecycle {
 	 * otherwise is defaulted to {@link RestTemplateXhrTransport}.
 	 * @param transports the (non-empty) list of transports to use
 	 */
+	@SuppressWarnings("removal")
 	public SockJsClient(List<Transport> transports) {
 		Assert.notEmpty(transports, "No transports provided");
 		this.transports = new ArrayList<>(transports);
 		this.infoReceiver = initInfoReceiver(transports);
-		if (jackson2Present) {
+		if (JACKSON_PRESENT) {
+			this.messageCodec = new JacksonJsonSockJsMessageCodec();
+		}
+		else if (JACKSON_2_PRESENT) {
 			this.messageCodec = new Jackson2SockJsMessageCodec();
 		}
 	}
@@ -115,16 +121,16 @@ public class SockJsClient implements WebSocketClient, Lifecycle {
 
 
 	/**
-	 * The names of HTTP headers that should be copied from the handshake headers
-	 * of each call to {@link SockJsClient#doHandshake(WebSocketHandler, WebSocketHttpHeaders, URI)}
-	 * and also used with other HTTP requests issued as part of that SockJS
-	 * connection, e.g. the initial info request, XHR send or receive requests.
+	 * The names of HTTP headers that should be copied from the handshake headers of each
+	 * call to {@link SockJsClient#execute(WebSocketHandler, WebSocketHttpHeaders, URI)}
+	 * and also used with other HTTP requests issued as part of that SockJS connection,
+	 * for example, the initial info request, XHR send or receive requests.
 	 * <p>By default if this property is not set, all handshake headers are also
 	 * used for other HTTP requests. Set it if you want only a subset of handshake
-	 * headers (e.g. auth headers) to be used for other HTTP requests.
+	 * headers (for example, auth headers) to be used for other HTTP requests.
 	 * @param httpHeaderNames the HTTP header names
 	 */
-	public void setHttpHeaderNames(@Nullable String... httpHeaderNames) {
+	public void setHttpHeaderNames(String @Nullable ... httpHeaderNames) {
 		this.httpHeaderNames = httpHeaderNames;
 	}
 
@@ -132,8 +138,7 @@ public class SockJsClient implements WebSocketClient, Lifecycle {
 	 * The configured HTTP header names to be copied from the handshake
 	 * headers and also included in other HTTP requests.
 	 */
-	@Nullable
-	public String[] getHttpHeaderNames() {
+	public String @Nullable [] getHttpHeaderNames() {
 		return this.httpHeaderNames;
 	}
 
@@ -221,7 +226,7 @@ public class SockJsClient implements WebSocketClient, Lifecycle {
 
 	@Override
 	public CompletableFuture<WebSocketSession> execute(
-			WebSocketHandler handler, String uriTemplate, Object... uriVars) {
+			WebSocketHandler handler, String uriTemplate, @Nullable Object... uriVars) {
 
 		Assert.notNull(uriTemplate, "uriTemplate must not be null");
 		URI uri = UriComponentsBuilder.fromUriString(uriTemplate).buildAndExpand(uriVars).encode().toUri();
@@ -242,7 +247,7 @@ public class SockJsClient implements WebSocketClient, Lifecycle {
 
 		CompletableFuture<WebSocketSession> connectFuture = new CompletableFuture<>();
 		try {
-			SockJsUrlInfo sockJsUrlInfo = new SockJsUrlInfo(url);
+			SockJsUrlInfo sockJsUrlInfo = buildSockJsUrlInfo(url);
 			ServerInfo serverInfo = getServerInfo(sockJsUrlInfo, getHttpRequestHeaders(headers));
 			createRequest(sockJsUrlInfo, headers, serverInfo).connect(handler, connectFuture);
 		}
@@ -255,8 +260,19 @@ public class SockJsClient implements WebSocketClient, Lifecycle {
 		return connectFuture;
 	}
 
-	@Nullable
-	private HttpHeaders getHttpRequestHeaders(@Nullable HttpHeaders webSocketHttpHeaders) {
+	/**
+	 * Create a new {@link SockJsUrlInfo} for the current client execution.
+	 * <p>The default implementation builds a {@code SockJsUrlInfo} which
+	 * calculates a random server id and session id if necessary.
+	 * @param url the target URL
+	 * @since 6.1.3
+	 * @see SockJsUrlInfo#SockJsUrlInfo(URI)
+	 */
+	protected SockJsUrlInfo buildSockJsUrlInfo(URI url) {
+		return new SockJsUrlInfo(url);
+	}
+
+	private @Nullable HttpHeaders getHttpRequestHeaders(@Nullable HttpHeaders webSocketHttpHeaders) {
 		if (getHttpHeaderNames() == null || webSocketHttpHeaders == null) {
 			return webSocketHttpHeaders;
 		}
@@ -322,8 +338,7 @@ public class SockJsClient implements WebSocketClient, Lifecycle {
 	 * <p>By default this method returns {@code null}.
 	 * @return the user to associate with the session (possibly {@code null})
 	 */
-	@Nullable
-	protected Principal getUser() {
+	protected @Nullable Principal getUser() {
 		return null;
 	}
 

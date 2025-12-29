@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,13 +44,15 @@ import org.springframework.core.io.buffer.DataBufferUtils;
 /**
  * {@link Function} to transform a JSON stream of arbitrary size, byte array
  * chunks into a {@code Flux<TokenBuffer>} where each token buffer is a
- * well-formed JSON object.
+ * well-formed JSON object with Jackson 2.x.
  *
  * @author Arjen Poutsma
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
  * @since 5.0
+ * @deprecated since 7.0 in favor of {@code org.springframework.http.codec.JacksonTokenizer}
  */
+@Deprecated(since = "7.0", forRemoval = true)
 final class Jackson2Tokenizer {
 
 	private final JsonParser parser;
@@ -91,10 +93,12 @@ final class Jackson2Tokenizer {
 	private List<TokenBuffer> tokenize(DataBuffer dataBuffer) {
 		try {
 			int bufferSize = dataBuffer.readableByteCount();
+			List<TokenBuffer> tokens = new ArrayList<>();
 			if (this.inputFeeder instanceof ByteBufferFeeder byteBufferFeeder) {
 				try (DataBuffer.ByteBufferIterator iterator = dataBuffer.readableByteBuffers()) {
 					while (iterator.hasNext()) {
 						byteBufferFeeder.feedInput(iterator.next());
+						parseTokens(tokens);
 					}
 				}
 			}
@@ -102,10 +106,10 @@ final class Jackson2Tokenizer {
 				byte[] bytes = new byte[bufferSize];
 				dataBuffer.read(bytes);
 				byteArrayFeeder.feedInput(bytes, 0, bufferSize);
+				parseTokens(tokens);
 			}
-			List<TokenBuffer> result = parseTokenBufferFlux();
-			assertInMemorySize(bufferSize, result);
-			return result;
+			assertInMemorySize(bufferSize, tokens);
+			return tokens;
 		}
 		catch (JsonProcessingException ex) {
 			throw new DecodingException("JSON decoding error: " + ex.getOriginalMessage(), ex);
@@ -122,7 +126,9 @@ final class Jackson2Tokenizer {
 		return Flux.defer(() -> {
 			this.inputFeeder.endOfInput();
 			try {
-				return Flux.fromIterable(parseTokenBufferFlux());
+				List<TokenBuffer> tokens = new ArrayList<>();
+				parseTokens(tokens);
+				return Flux.fromIterable(tokens);
 			}
 			catch (JsonProcessingException ex) {
 				throw new DecodingException("JSON decoding error: " + ex.getOriginalMessage(), ex);
@@ -133,9 +139,7 @@ final class Jackson2Tokenizer {
 		});
 	}
 
-	private List<TokenBuffer> parseTokenBufferFlux() throws IOException {
-		List<TokenBuffer> result = new ArrayList<>();
-
+	private void parseTokens(List<TokenBuffer> tokens) throws IOException {
 		// SPR-16151: Smile data format uses null to separate documents
 		boolean previousNull = false;
 		while (!this.parser.isClosed()) {
@@ -153,13 +157,12 @@ final class Jackson2Tokenizer {
 			}
 			updateDepth(token);
 			if (!this.tokenizeArrayElements) {
-				processTokenNormal(token, result);
+				processTokenNormal(token, tokens);
 			}
 			else {
-				processTokenArray(token, result);
+				processTokenArray(token, tokens);
 			}
 		}
-		return result;
 	}
 
 	private void updateDepth(JsonToken token) {

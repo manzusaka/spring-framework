@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,11 +73,6 @@ class JettyClientHttpRequest extends AbstractClientHttpRequest {
 	}
 
 	@Override
-	public Mono<Void> setComplete() {
-		return doCommit();
-	}
-
-	@Override
 	public DataBufferFactory bufferFactory() {
 		return this.bufferFactory;
 	}
@@ -87,6 +82,12 @@ class JettyClientHttpRequest extends AbstractClientHttpRequest {
 	public <T> T getNativeRequest() {
 		return (T) this.jettyRequest;
 	}
+
+	@Override
+	protected HttpHeaders initReadOnlyHeaders() {
+		return HttpHeaders.readOnlyHttpHeaders(new JettyHeadersAdapter(this.jettyRequest.getHeaders()));
+	}
+
 
 	@Override
 	public Mono<Void> writeWith(Publisher<? extends DataBuffer> body) {
@@ -108,13 +109,7 @@ class JettyClientHttpRequest extends AbstractClientHttpRequest {
 				.doOnDiscard(DataBuffer.class, DataBufferUtils::release));
 	}
 
-	private String getContentType() {
-		MediaType contentType = getHeaders().getContentType();
-		return contentType != null ? contentType.toString() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
-	}
-
 	private List<Content.Chunk> toContentChunks(DataBuffer dataBuffer) {
-
 		List<Content.Chunk> result = new ArrayList<>(1);
 		DataBuffer.ByteBufferIterator iterator = dataBuffer.readableByteBuffers();
 		while (iterator.hasNext()) {
@@ -131,6 +126,27 @@ class JettyClientHttpRequest extends AbstractClientHttpRequest {
 		return result;
 	}
 
+	private String getContentType() {
+		MediaType contentType = getHeaders().getContentType();
+		return (contentType != null ? contentType.toString() : MediaType.APPLICATION_OCTET_STREAM_VALUE);
+	}
+
+	@Override
+	public Mono<Void> setComplete() {
+		return doCommit();
+	}
+
+	@Override
+	protected void applyHeaders() {
+		HttpHeaders headers = getHeaders();
+		this.jettyRequest.headers(fields -> {
+			headers.forEach((key, value) -> value.forEach(v -> fields.add(key, v)));
+			if (!headers.containsHeader(HttpHeaders.ACCEPT)) {
+				fields.add(HttpHeaders.ACCEPT, "*/*");
+			}
+		});
+	}
+
 	@Override
 	protected void applyCookies() {
 		getCookies().values().stream().flatMap(Collection::stream)
@@ -139,19 +155,12 @@ class JettyClientHttpRequest extends AbstractClientHttpRequest {
 	}
 
 	@Override
-	protected void applyHeaders() {
-		HttpHeaders headers = getHeaders();
-		this.jettyRequest.headers(fields -> {
-			headers.forEach((key, value) -> value.forEach(v -> fields.add(key, v)));
-			if (!headers.containsKey(HttpHeaders.ACCEPT)) {
-				fields.add(HttpHeaders.ACCEPT, "*/*");
+	protected void applyAttributes() {
+		getAttributes().forEach((key, value) -> {
+			if (this.jettyRequest.getAttributes().get(key) == null) {
+				this.jettyRequest.attribute(key, value);
 			}
 		});
-	}
-
-	@Override
-	protected HttpHeaders initReadOnlyHeaders() {
-		return HttpHeaders.readOnlyHttpHeaders(new JettyHeadersAdapter(this.jettyRequest.getHeaders()));
 	}
 
 	public ReactiveRequest toReactiveRequest() {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import org.springframework.web.server.ServerWebExchange;
  * from asynchronous return values, and to response rendering.
  * <li>Implemented by a {@link HandlerAdapter} in order to handle exceptions that
  * occur before a request is mapped to a handler, or for unhandled errors from a
- * handler..
+ * handler.
  * </ul>
  *
  * @author Rossen Stoyanchev

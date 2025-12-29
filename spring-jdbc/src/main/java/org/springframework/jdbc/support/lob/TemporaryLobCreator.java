@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@ import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.lang.Nullable;
 import org.springframework.util.FileCopyUtils;
 
 /**
@@ -46,7 +46,10 @@ import org.springframework.util.FileCopyUtils;
  * @see DefaultLobHandler#setCreateTemporaryLob
  * @see java.sql.Connection#createBlob()
  * @see java.sql.Connection#createClob()
+ * @deprecated as of 6.2, in favor of {@link org.springframework.jdbc.core.support.SqlBinaryValue}
+ * and {@link org.springframework.jdbc.core.support.SqlCharacterValue}
  */
+@Deprecated(since = "6.2")
 public class TemporaryLobCreator implements LobCreator {
 
 	protected static final Log logger = LogFactory.getLog(TemporaryLobCreator.class);
@@ -57,7 +60,7 @@ public class TemporaryLobCreator implements LobCreator {
 
 
 	@Override
-	public void setBlobAsBytes(PreparedStatement ps, int paramIndex, @Nullable byte[] content)
+	public void setBlobAsBytes(PreparedStatement ps, int paramIndex, byte @Nullable [] content)
 			throws SQLException {
 
 		if (content != null) {

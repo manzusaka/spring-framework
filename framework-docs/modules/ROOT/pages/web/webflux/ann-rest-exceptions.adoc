@@ -5,14 +5,14 @@
 
 A common requirement for REST services is to include details in the body of error
 responses. The Spring Framework supports the "Problem Details for HTTP APIs"
-specification, https://www.rfc-editor.org/rfc/rfc7807.html[RFC 7807].
+specification, {rfc-site}/rfc9457.html[RFC 9457].
 
 The following are the main abstractions for this support:
 
-- `ProblemDetail` -- representation for an RFC 7807 problem detail; a simple container
+- `ProblemDetail` -- representation for an RFC 9457 problem detail; a simple container
 for both standard fields defined in the spec, and for non-standard ones.
 - `ErrorResponse` -- contract to expose HTTP error response details including HTTP
-status, response headers, and a body in the format of RFC 7807; this allows exceptions to
+status, response headers, and a body in the format of RFC 9457; this allows exceptions to
 encapsulate and expose the details of how they map to an HTTP response. All Spring WebFlux
 exceptions implement this.
 - `ErrorResponseException` -- basic `ErrorResponse` implementation that others
@@ -22,13 +22,12 @@ xref:web/webflux/controller/ann-advice.adoc[@ControllerAdvice] that handles all 
 and any `ErrorResponseException`, and renders an error response with a body.
 
 
-
 [[webflux-ann-rest-exceptions-render]]
 == Render
 [.small]#xref:web/webmvc/mvc-ann-rest-exceptions.adoc#mvc-ann-rest-exceptions-render[See equivalent in the Servlet stack]#
 
 You can return `ProblemDetail` or `ErrorResponse` from any `@ExceptionHandler` or from
-any `@RequestMapping` method to render an RFC 7807 response. This is processed as follows:
+any `@RequestMapping` method to render an RFC 9457 response. This is processed as follows:
 
 - The `status` property of `ProblemDetail` determines the HTTP status.
 - The `instance` property of `ProblemDetail` is set from the current URL path, if not
@@ -37,20 +36,23 @@ already set.
 "application/problem+json" over "application/json" when rendering a `ProblemDetail`,
 and also falls back on it if no compatible media type is found.
 
-To enable RFC 7807 responses for Spring WebFlux exceptions and for any
+To enable RFC 9457 responses for Spring WebFlux exceptions and for any
 `ErrorResponseException`, extend `ResponseEntityExceptionHandler` and declare it as an
 xref:web/webflux/controller/ann-advice.adoc[@ControllerAdvice] in Spring configuration. The handler
 has an `@ExceptionHandler` method that handles any `ErrorResponse` exception, which
 includes all built-in web exceptions. You can add more exception handling methods, and
 use a protected method to map any exception to a `ProblemDetail`.
 
+You can register `ErrorResponse` interceptors through the
+xref:web/webflux/config.adoc[WebFlux Config] with a `WebFluxConfigurer`. Use that to intercept
+any RFC 9457 response and take some action.
 
 
 [[webflux-ann-rest-exceptions-non-standard]]
 == Non-Standard Fields
 [.small]#xref:web/webmvc/mvc-ann-rest-exceptions.adoc#mvc-ann-rest-exceptions-non-standard[See equivalent in the Servlet stack]#
 
-You can extend an RFC 7807 response with non-standard fields in one of two ways.
+You can extend an RFC 9457 response with non-standard fields in one of two ways.
 
 One, insert into the "properties" `Map` of `ProblemDetail`. When using the Jackson
 library, the Spring Framework registers `ProblemDetailJacksonMixin` that ensures this
@@ -60,10 +62,9 @@ this `Map`.
 
 You can also extend `ProblemDetail` to add dedicated non-standard properties.
 The copy constructor in `ProblemDetail` allows a subclass to make it easy to be created
-from an existing `ProblemDetail`. This could be done centrally, e.g. from an
+from an existing `ProblemDetail`. This could be done centrally, for example, from an
 `@ControllerAdvice` such as `ResponseEntityExceptionHandler` that re-creates the
 `ProblemDetail` of an exception into a subclass with the additional non-standard fields.
-
 
 
 [[webflux-ann-rest-exceptions-i18n]]
@@ -103,7 +104,7 @@ Message codes and arguments for each error are also resolved via `MessageSource`
 
 | `MissingRequestValueException`
 | (default)
-| `+{0}+` a label for the value (e.g. "request header", "cookie value", ...), `+{1}+` the value name
+| `+{0}+` a label for the value (for example, "request header", "cookie value", ...), `+{1}+` the value name
 
 | `NotAcceptableStatusException`
 | (default)
@@ -134,6 +135,10 @@ Message codes and arguments for each error are also resolved via `MessageSource`
 | `+{0}+` the list of global errors, `+{1}+` the list of field errors.
 Message codes and arguments for each error are also resolved via `MessageSource`.
 
+| `NoResourceFoundException`
+| (default)
+| `+{0}+` the request path (or portion of) used to find a resource
+
 |===
 
 NOTE: Unlike other exceptions, the message arguments for
@@ -145,8 +150,6 @@ xref:core/validation/beanvalidation.adoc#validation-beanvalidation-spring-method
 for more details.
 
 
-
-
 [[webflux-ann-rest-exceptions-client]]
 == Client Handling
 [.small]#xref:web/webmvc/mvc-ann-rest-exceptions.adoc#mvc-ann-rest-exceptions-client[See equivalent in the Servlet stack]#
@@ -155,7 +158,3 @@ A client application can catch `WebClientResponseException`, when using the `Web
 or `RestClientResponseException` when using the `RestTemplate`, and use their
 `getResponseBodyAs` methods to decode the error response body to any target type such as
 `ProblemDetail`, or a subclass of `ProblemDetail`.
-
-
-
-

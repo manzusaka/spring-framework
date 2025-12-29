@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,11 @@
 
 package org.springframework.jdbc.core.simple;
 
+import java.util.List;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.core.io.ClassRelativeResourceLoader;
@@ -34,16 +37,18 @@ import static org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType.
  * Integration tests for {@link JdbcClient} using an embedded H2 database.
  *
  * @author Sam Brannen
+ * @author Juergen Hoeller
  * @since 6.1
  * @see JdbcClientIndexedParameterTests
  * @see JdbcClientNamedParameterTests
  */
 class JdbcClientIntegrationTests {
 
+	private static final String INSERT_WITH_JDBC_PARAMS =
+			"INSERT INTO users (first_name, last_name) VALUES(?, ?)";
+
 	private static final String INSERT_WITH_NAMED_PARAMS =
 			"INSERT INTO users (first_name, last_name) VALUES(:firstName, :lastName)";
-	private static final String INSERT_WITH_POSITIONAL_PARAMS =
-			"INSERT INTO users (first_name, last_name) VALUES(?, ?)";
 
 
 	private final EmbeddedDatabase embeddedDatabase =
@@ -66,15 +71,16 @@ class JdbcClientIntegrationTests {
 		this.embeddedDatabase.shutdown();
 	}
 
+
 	@Test
-	void updateWithGeneratedKeysAndPositionalParameters() {
-		int expectedId = 2;
+	void updateWithGeneratedKeys() {
+		int expectedId = 1;
 		String firstName = "Jane";
 		String lastName = "Smith";
 
 		KeyHolder generatedKeyHolder = new GeneratedKeyHolder();
 
-		int rowsAffected = this.jdbcClient.sql(INSERT_WITH_POSITIONAL_PARAMS)
+		int rowsAffected = this.jdbcClient.sql(INSERT_WITH_JDBC_PARAMS)
 				.params(firstName, lastName)
 				.update(generatedKeyHolder);
 
@@ -85,8 +91,26 @@ class JdbcClientIntegrationTests {
 	}
 
 	@Test
-	void updateWithGeneratedKeysAndNamedParameters() {
-		int expectedId = 2;
+	void updateWithGeneratedKeysAndKeyColumnNames() {
+		int expectedId = 1;
+		String firstName = "Jane";
+		String lastName = "Smith";
+
+		KeyHolder generatedKeyHolder = new GeneratedKeyHolder();
+
+		int rowsAffected = this.jdbcClient.sql(INSERT_WITH_JDBC_PARAMS)
+				.params(firstName, lastName)
+				.update(generatedKeyHolder, "id");
+
+		assertThat(rowsAffected).isEqualTo(1);
+		assertThat(generatedKeyHolder.getKey()).isEqualTo(expectedId);
+		assertNumUsers(2);
+		assertUser(expectedId, firstName, lastName);
+	}
+
+	@Test
+	void updateWithGeneratedKeysUsingNamedParameters() {
+		int expectedId = 1;
 		String firstName = "Jane";
 		String lastName = "Smith";
 
@@ -103,6 +127,135 @@ class JdbcClientIntegrationTests {
 		assertUser(expectedId, firstName, lastName);
 	}
 
+	@Test
+	void updateWithGeneratedKeysAndKeyColumnNamesUsingNamedParameters() {
+		int expectedId = 1;
+		String firstName = "Jane";
+		String lastName = "Smith";
+
+		KeyHolder generatedKeyHolder = new GeneratedKeyHolder();
+
+		int rowsAffected = this.jdbcClient.sql(INSERT_WITH_NAMED_PARAMS)
+				.param("firstName", firstName)
+				.param("lastName", lastName)
+				.update(generatedKeyHolder, "id");
+
+		assertThat(rowsAffected).isEqualTo(1);
+		assertThat(generatedKeyHolder.getKey()).isEqualTo(expectedId);
+		assertNumUsers(2);
+		assertUser(expectedId, firstName, lastName);
+	}
+
+
+	@Nested  // gh-34768
+	class ReusedNamedParameterTests {
+
+		private static final String QUERY1 = """
+				select * from users
+					where
+						first_name in ('Bogus', :name) or
+						last_name in (:name, 'Bogus')
+					order by last_name
+				""";
+
+		private static final String QUERY2 = """
+				select * from users
+					where
+						first_name in (:names) or
+						last_name in (:names)
+					order by last_name
+				""";
+
+
+		@BeforeEach
+		void insertTestUsers() {
+			jdbcClient.sql(INSERT_WITH_JDBC_PARAMS).params("John", "John").update();
+			jdbcClient.sql(INSERT_WITH_JDBC_PARAMS).params("John", "Smith").update();
+			jdbcClient.sql(INSERT_WITH_JDBC_PARAMS).params("Smith", "Smith").update();
+			assertNumUsers(4);
+		}
+
+		@Test
+		void selectWithReusedNamedParameter() {
+			List<User> users = jdbcClient.sql(QUERY1)
+					.param("name", "John")
+					.query(User.class)
+					.list();
+
+			assertResults(users);
+		}
+
+		@Test
+		void selectWithReusedNamedParameterFromBeanProperties() {
+			List<User> users = jdbcClient.sql(QUERY1)
+					.paramSource(new Name("John"))
+					.query(User.class)
+					.list();
+
+			assertResults(users);
+		}
+
+		@Test
+		void selectWithReusedNamedParameterAndMaxRows() {
+			List<User> users = jdbcClient.sql(QUERY1)
+					.withFetchSize(1)
+					.withMaxRows(1)
+					.withQueryTimeout(1)
+					.param("name", "John")
+					.query(User.class)
+					.list();
+
+			assertSingleResult(users);
+		}
+
+		@Test
+		void selectWithReusedNamedParameterList() {
+			List<User> users = jdbcClient.sql(QUERY2)
+					.param("names", List.of("John", "Bogus"))
+					.query(User.class)
+					.list();
+
+			assertResults(users);
+		}
+
+		@Test
+		void selectWithReusedNamedParameterListFromBeanProperties() {
+			List<User> users = jdbcClient.sql(QUERY2)
+					.paramSource(new Names(List.of("John", "Bogus")))
+					.query(User.class)
+					.list();
+
+			assertResults(users);
+		}
+
+		@Test
+		void selectWithReusedNamedParameterListAndMaxRows() {
+			List<User> users = jdbcClient.sql(QUERY2)
+					.withFetchSize(1)
+					.withMaxRows(1)
+					.withQueryTimeout(1)
+					.paramSource(new Names(List.of("John", "Bogus")))
+					.query(User.class)
+					.list();
+
+			assertSingleResult(users);
+		}
+
+		private static void assertResults(List<User> users) {
+			assertThat(users).containsExactly(new User(1, "John", "John"), new User(2, "John", "Smith"));
+		}
+
+		private static void assertSingleResult(List<User> users) {
+			assertThat(users).containsExactly(new User(1, "John", "John"));
+		}
+
+
+		record Name(String name) {}
+
+		record Names(List<String> names) {}
+	}
+
+
 	private void assertNumUsers(long count) {
 		long numUsers = this.jdbcClient.sql("select count(id) from users").query(Long.class).single();
 		assertThat(numUsers).isEqualTo(count);
@@ -113,6 +266,7 @@ class JdbcClientIntegrationTests {
 		assertThat(user).isEqualTo(new User(id, firstName, lastName));
 	}
 
-	record User(long id, String firstName, String lastName) {};
+
+	record User(long id, String firstName, String lastName) {}
 
 }

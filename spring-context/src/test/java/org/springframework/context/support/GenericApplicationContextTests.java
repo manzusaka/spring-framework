@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,11 +29,16 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.predicate.RuntimeHintsPredicates;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanCreationException;
+import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.AbstractFactoryBean;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.SmartInstantiationAwareBeanPostProcessor;
+import org.springframework.beans.factory.config.TypedStringValue;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.GenericBeanDefinition;
@@ -41,6 +46,8 @@ import org.springframework.beans.factory.support.MergedBeanDefinitionPostProcess
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.testfixture.beans.factory.ImportAwareBeanRegistrar;
+import org.springframework.context.testfixture.beans.factory.SampleBeanRegistrar;
 import org.springframework.core.DecoratingProxy;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
@@ -58,6 +65,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -126,16 +134,16 @@ class GenericApplicationContextTests {
 
 		assertThat(context.getBean(String.class)).isSameAs(context.getBean("testBean"));
 		assertThat(context.getAutowireCapableBeanFactory().getBean(String.class))
-			.isSameAs(context.getAutowireCapableBeanFactory().getBean("testBean"));
+				.isSameAs(context.getAutowireCapableBeanFactory().getBean("testBean"));
 
 		context.close();
 
 		assertThatIllegalStateException()
-			.isThrownBy(() -> context.getBean(String.class));
+				.isThrownBy(() -> context.getBean(String.class));
 		assertThatIllegalStateException()
-			.isThrownBy(() -> context.getAutowireCapableBeanFactory().getBean(String.class));
+				.isThrownBy(() -> context.getAutowireCapableBeanFactory().getBean(String.class));
 		assertThatIllegalStateException()
-			.isThrownBy(() -> context.getAutowireCapableBeanFactory().getBean("testBean"));
+				.isThrownBy(() -> context.getAutowireCapableBeanFactory().getBean("testBean"));
 	}
 
 	@Test
@@ -236,9 +244,9 @@ class GenericApplicationContextTests {
 		assertThat(context.getBeanNamesForType(BeanB.class)).containsExactly("b");
 		assertThat(context.getBeanNamesForType(BeanC.class)).containsExactly("c");
 		assertThat(context.getBeansOfType(BeanA.class)).isEmpty();
-		assertThat(context.getBeansOfType(BeanB.class).values().iterator().next())
+		assertThat(context.getBeansOfType(BeanB.class).values()).singleElement()
 			.isSameAs(context.getBean(BeanB.class));
-		assertThat(context.getBeansOfType(BeanC.class).values().iterator().next())
+		assertThat(context.getBeansOfType(BeanC.class).values()).singleElement()
 			.isSameAs(context.getBean(BeanC.class));
 	}
 
@@ -281,8 +289,8 @@ class GenericApplicationContextTests {
 		// java.nio.file.InvalidPathException: Illegal char <:> at index 4: ping:foo
 		if (resourceLoader instanceof FileSystemResourceLoader && OS.WINDOWS.isCurrentOs()) {
 			assertThatExceptionOfType(InvalidPathException.class)
-				.isThrownBy(() -> context.getResource(pingLocation))
-				.withMessageContaining(pingLocation);
+					.isThrownBy(() -> context.getResource(pingLocation))
+					.withMessageContaining(pingLocation);
 		}
 		else {
 			resource = context.getResource(pingLocation);
@@ -297,8 +305,41 @@ class GenericApplicationContextTests {
 		assertThat(resource).isInstanceOf(FileUrlResource.class);
 		resource = context.getResource(pingLocation);
 		assertThat(resource).asInstanceOf(type(ByteArrayResource.class))
-			.extracting(bar -> new String(bar.getByteArray(), UTF_8))
-			.isEqualTo("pong:foo");
+				.extracting(bar -> new String(bar.getByteArray(), UTF_8))
+				.isEqualTo("pong:foo");
+	}
+
+	@Test
+	void refreshWithRuntimeFailureOnBeanCreationDisposeExistingBeans() {
+		BeanE one = new BeanE();
+		context.registerBean("one", BeanE.class, () -> one);
+		context.registerBean("two", BeanE.class, () -> new BeanE() {
+			@Override
+			public void afterPropertiesSet() {
+				throw new IllegalStateException("Expected");
+			}
+		});
+		assertThatThrownBy(context::refresh).isInstanceOf(BeanCreationException.class)
+				.hasMessageContaining("two");
+		assertThat(one.initialized).isTrue();
+		assertThat(one.destroyed).isTrue();
+	}
+
+	@Test
+	void refreshWithRuntimeFailureOnAfterSingletonInstantiatedDisposeExistingBeans() {
+		BeanE one = new BeanE();
+		BeanE two = new BeanE();
+		context.registerBean("one", BeanE.class, () -> one);
+		context.registerBean("two", BeanE.class, () -> two);
+		context.registerBean("int", SmartInitializingSingleton.class, () -> () -> {
+			throw new IllegalStateException("expected");
+		});
+		assertThatThrownBy(context::refresh).isInstanceOf(IllegalStateException.class)
+				.hasMessageContaining("expected");
+		assertThat(one.initialized).isTrue();
+		assertThat(two.initialized).isTrue();
+		assertThat(one.destroyed).isTrue();
+		assertThat(two.destroyed).isTrue();
 	}
 
 	@Test
@@ -330,7 +371,7 @@ class GenericApplicationContextTests {
 	}
 
 	@Test
-	void refreshForAotLoadsBeanClassNameOfConstructorArgumentInnerBeanDefinition() {
+	void refreshForAotLoadsBeanClassNameOfIndexedConstructorArgumentInnerBeanDefinition() {
 		GenericApplicationContext context = new GenericApplicationContext();
 		RootBeanDefinition beanDefinition = new RootBeanDefinition(String.class);
 		GenericBeanDefinition innerBeanDefinition = new GenericBeanDefinition();
@@ -341,6 +382,23 @@ class GenericApplicationContextTests {
 		RootBeanDefinition bd = getBeanDefinition(context, "test");
 		GenericBeanDefinition value = (GenericBeanDefinition) bd.getConstructorArgumentValues()
 				.getIndexedArgumentValue(0, GenericBeanDefinition.class).getValue();
+		assertThat(value.hasBeanClass()).isTrue();
+		assertThat(value.getBeanClass()).isEqualTo(Integer.class);
+		context.close();
+	}
+
+	@Test
+	void refreshForAotLoadsBeanClassNameOfGenericConstructorArgumentInnerBeanDefinition() {
+		GenericApplicationContext context = new GenericApplicationContext();
+		RootBeanDefinition beanDefinition = new RootBeanDefinition(String.class);
+		GenericBeanDefinition innerBeanDefinition = new GenericBeanDefinition();
+		innerBeanDefinition.setBeanClassName("java.lang.Integer");
+		beanDefinition.getConstructorArgumentValues().addGenericArgumentValue(innerBeanDefinition);
+		context.registerBeanDefinition("test",beanDefinition);
+		context.refreshForAotProcessing(new RuntimeHints());
+		RootBeanDefinition bd = getBeanDefinition(context, "test");
+		GenericBeanDefinition value = (GenericBeanDefinition) bd.getConstructorArgumentValues()
+				.getGenericArgumentValues().get(0).getValue();
 		assertThat(value.hasBeanClass()).isTrue();
 		assertThat(value.getBeanClass()).isEqualTo(Integer.class);
 		context.close();
@@ -359,6 +417,49 @@ class GenericApplicationContextTests {
 		GenericBeanDefinition value = (GenericBeanDefinition) bd.getPropertyValues().get("inner");
 		assertThat(value.hasBeanClass()).isTrue();
 		assertThat(value.getBeanClass()).isEqualTo(Integer.class);
+		context.close();
+	}
+
+	@Test
+	void refreshForAotLoadsTypedStringValueClassNameInProperty() {
+		GenericApplicationContext context = new GenericApplicationContext();
+		RootBeanDefinition beanDefinition = new RootBeanDefinition("java.lang.Integer");
+		beanDefinition.getPropertyValues().add("value", new TypedStringValue("42", "java.lang.Integer"));
+		context.registerBeanDefinition("number", beanDefinition);
+		context.refreshForAotProcessing(new RuntimeHints());
+		assertThat(getBeanDefinition(context, "number").getPropertyValues().get("value"))
+				.isInstanceOfSatisfying(TypedStringValue.class, typeStringValue ->
+						assertThat(typeStringValue.getTargetType()).isEqualTo(Integer.class));
+		context.close();
+	}
+
+	@Test
+	void refreshForAotLoadsTypedStringValueClassNameInIndexedConstructorArgument() {
+		GenericApplicationContext context = new GenericApplicationContext();
+		RootBeanDefinition beanDefinition = new RootBeanDefinition("java.lang.Integer");
+		beanDefinition.getConstructorArgumentValues().addIndexedArgumentValue(0,
+				new TypedStringValue("42", "java.lang.Integer"));
+		context.registerBeanDefinition("number", beanDefinition);
+		context.refreshForAotProcessing(new RuntimeHints());
+		assertThat(getBeanDefinition(context, "number").getConstructorArgumentValues()
+				.getIndexedArgumentValue(0, TypedStringValue.class).getValue())
+				.isInstanceOfSatisfying(TypedStringValue.class, typeStringValue ->
+						assertThat(typeStringValue.getTargetType()).isEqualTo(Integer.class));
+		context.close();
+	}
+
+	@Test
+	void refreshForAotLoadsTypedStringValueClassNameInGenericConstructorArgument() {
+		GenericApplicationContext context = new GenericApplicationContext();
+		RootBeanDefinition beanDefinition = new RootBeanDefinition("java.lang.Integer");
+		beanDefinition.getConstructorArgumentValues().addGenericArgumentValue(
+				new TypedStringValue("42", "java.lang.Integer"));
+		context.registerBeanDefinition("number", beanDefinition);
+		context.refreshForAotProcessing(new RuntimeHints());
+		assertThat(getBeanDefinition(context, "number").getConstructorArgumentValues()
+				.getGenericArgumentValue(TypedStringValue.class).getValue())
+				.isInstanceOfSatisfying(TypedStringValue.class, typeStringValue ->
+						assertThat(typeStringValue.getTargetType()).isEqualTo(Integer.class));
 		context.close();
 	}
 
@@ -385,12 +486,29 @@ class GenericApplicationContextTests {
 	}
 
 	@Test
-	void refreshForAotInvokesMergedBeanDefinitionPostProcessorsOnConstructorArgument() {
+	void refreshForAotInvokesMergedBeanDefinitionPostProcessorsOnIndexedConstructorArgument() {
 		GenericApplicationContext context = new GenericApplicationContext();
 		RootBeanDefinition beanDefinition = new RootBeanDefinition(BeanD.class);
 		GenericBeanDefinition innerBeanDefinition = new GenericBeanDefinition();
 		innerBeanDefinition.setBeanClassName("java.lang.Integer");
 		beanDefinition.getConstructorArgumentValues().addIndexedArgumentValue(0, innerBeanDefinition);
+		context.registerBeanDefinition("test", beanDefinition);
+		MergedBeanDefinitionPostProcessor bpp = registerMockMergedBeanDefinitionPostProcessor(context);
+		context.refreshForAotProcessing(new RuntimeHints());
+		ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
+		verify(bpp).postProcessMergedBeanDefinition(getBeanDefinition(context, "test"), BeanD.class, "test");
+		verify(bpp).postProcessMergedBeanDefinition(any(RootBeanDefinition.class), eq(Integer.class), captor.capture());
+		assertThat(captor.getValue()).startsWith("(inner bean)");
+		context.close();
+	}
+
+	@Test
+	void refreshForAotInvokesMergedBeanDefinitionPostProcessorsOnGenericConstructorArgument() {
+		GenericApplicationContext context = new GenericApplicationContext();
+		RootBeanDefinition beanDefinition = new RootBeanDefinition(BeanD.class);
+		GenericBeanDefinition innerBeanDefinition = new GenericBeanDefinition();
+		innerBeanDefinition.setBeanClassName("java.lang.Integer");
+		beanDefinition.getConstructorArgumentValues().addGenericArgumentValue(innerBeanDefinition);
 		context.registerBeanDefinition("test", beanDefinition);
 		MergedBeanDefinitionPostProcessor bpp = registerMockMergedBeanDefinitionPostProcessor(context);
 		context.refreshForAotProcessing(new RuntimeHints());
@@ -511,6 +629,22 @@ class GenericApplicationContextTests {
 		context.close();
 	}
 
+	@Test
+	void beanRegistrar() {
+		GenericApplicationContext context = new GenericApplicationContext();
+		context.register(new SampleBeanRegistrar());
+		context.refresh();
+		assertThat(context.getBean(SampleBeanRegistrar.Bar.class).foo()).isEqualTo(context.getBean(SampleBeanRegistrar.Foo.class));
+	}
+
+	@Test
+	void importAwareBeanRegistrar() {
+		GenericApplicationContext context = new GenericApplicationContext();
+		context.register(new ImportAwareBeanRegistrar());
+		context.refresh();
+		assertThat(context.getBean(ImportAwareBeanRegistrar.ClassNameHolder.class).className()).isNull();
+	}
+
 
 	private MergedBeanDefinitionPostProcessor registerMockMergedBeanDefinitionPostProcessor(GenericApplicationContext context) {
 		MergedBeanDefinitionPostProcessor bpp = mock();
@@ -536,7 +670,7 @@ class GenericApplicationContextTests {
 		}
 	}
 
-	static class BeanB implements ApplicationContextAware  {
+	static class BeanB implements ApplicationContextAware {
 
 		ApplicationContext applicationContext;
 
@@ -565,6 +699,29 @@ class GenericApplicationContextTests {
 
 		public void setCounter(Integer counter) {
 			this.counter = counter;
+		}
+	}
+
+	static class BeanE implements InitializingBean, DisposableBean {
+
+		private boolean initialized;
+
+		private boolean destroyed;
+
+		@Override
+		public void afterPropertiesSet() {
+			if (initialized) {
+				throw new IllegalStateException("AfterPropertiesSet called twice");
+			}
+			this.initialized = true;
+		}
+
+		@Override
+		public void destroy() {
+			if (destroyed) {
+				throw new IllegalStateException("Destroy called twice");
+			}
+			this.destroyed = true;
 		}
 	}
 

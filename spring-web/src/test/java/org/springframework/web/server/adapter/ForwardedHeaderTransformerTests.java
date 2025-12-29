@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,9 +29,11 @@ import org.springframework.web.testfixture.http.server.reactive.MockServerHttpRe
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for {@link ForwardedHeaderTransformer}.
+ * Tests for {@link ForwardedHeaderTransformer}.
  *
  * @author Rossen Stoyanchev
+ * @author Sebastien Deleuze
+ * @author Mengqi Xu
  */
 class ForwardedHeaderTransformerTests {
 
@@ -170,6 +172,17 @@ class ForwardedHeaderTransformerTests {
 		assertForwardedHeadersRemoved(request);
 	}
 
+	@Test // gh-33465
+	void shouldRemoveSingleTrailingSlash() {
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("X-Forwarded-Prefix", "/prefix,/");
+		ServerHttpRequest request = this.requestMutator.apply(getRequest(headers));
+
+		assertThat(request.getURI()).isEqualTo(URI.create("https://example.com/prefix/path"));
+		assertThat(request.getPath().value()).isEqualTo("/prefix/path");
+		assertForwardedHeadersRemoved(request);
+	}
+
 	@Test
 	void forwardedForNotPresent() {
 		HttpHeaders headers = new HttpHeaders();
@@ -221,6 +234,25 @@ class ForwardedHeaderTransformerTests {
 		assertThat(request.getRemoteAddress().getHostName()).isEqualTo("203.0.113.195");
 	}
 
+	@Test
+	void forwardedBy() {
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("Forwarded", "by=\"203.0.113.195:4711\";host=84.198.58.199;proto=https");
+
+		InetSocketAddress localAddress = new InetSocketAddress("example.client", 47011);
+
+		ServerHttpRequest request = MockServerHttpRequest
+				.method(HttpMethod.GET, URI.create("https://example.com/a%20b?q=a%2Bb"))
+				.localAddress(localAddress)
+				.headers(headers)
+				.build();
+
+		request = this.requestMutator.apply(request);
+		assertThat(request.getLocalAddress()).isNotNull();
+		assertThat(request.getLocalAddress().getHostName()).isEqualTo("203.0.113.195");
+		assertThat(request.getLocalAddress().getPort()).isEqualTo(4711);
+	}
+
 
 	private MockServerHttpRequest getRequest(HttpHeaders headers) {
 		return MockServerHttpRequest.get(BASE_URL).headers(headers).build();
@@ -228,7 +260,7 @@ class ForwardedHeaderTransformerTests {
 
 	private void assertForwardedHeadersRemoved(ServerHttpRequest request) {
 		ForwardedHeaderTransformer.FORWARDED_HEADER_NAMES
-				.forEach(name -> assertThat(request.getHeaders().containsKey(name)).isFalse());
+				.forEach(name -> assertThat(request.getHeaders().containsHeader(name)).isFalse());
 	}
 
 }

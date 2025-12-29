@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package org.springframework.dao;
 
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Root of the hierarchy of data access exceptions that are considered transient -
@@ -34,7 +34,7 @@ public abstract class TransientDataAccessException extends DataAccessException {
 	 * Constructor for TransientDataAccessException.
 	 * @param msg the detail message
 	 */
-	public TransientDataAccessException(String msg) {
+	public TransientDataAccessException(@Nullable String msg) {
 		super(msg);
 	}
 
@@ -44,7 +44,7 @@ public abstract class TransientDataAccessException extends DataAccessException {
 	 * @param cause the root cause (usually from using an underlying
 	 * data access API such as JDBC)
 	 */
-	public TransientDataAccessException(String msg, @Nullable Throwable cause) {
+	public TransientDataAccessException(@Nullable String msg, @Nullable Throwable cause) {
 		super(msg, cause);
 	}
 

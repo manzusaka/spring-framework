@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,9 +72,12 @@ public interface SmartLifecycle extends Lifecycle, Phased {
 	 * {@link Lifecycle} implementations, putting the typically auto-started
 	 * {@code SmartLifecycle} beans into a later startup phase and an earlier
 	 * shutdown phase.
+	 * <p>Note that certain {@code SmartLifecycle} components come with a different
+	 * default phase: for example, executors/schedulers with {@code Integer.MAX_VALUE / 2}.
 	 * @since 5.1
 	 * @see #getPhase()
-	 * @see org.springframework.context.support.DefaultLifecycleProcessor#getPhase(Lifecycle)
+	 * @see org.springframework.scheduling.concurrent.ExecutorConfigurationSupport#DEFAULT_PHASE
+	 * @see org.springframework.context.support.DefaultLifecycleProcessor#setTimeoutPerShutdownPhase
 	 */
 	int DEFAULT_PHASE = Integer.MAX_VALUE;
 
@@ -82,7 +85,7 @@ public interface SmartLifecycle extends Lifecycle, Phased {
 	/**
 	 * Returns {@code true} if this {@code Lifecycle} component should get
 	 * started automatically by the container at the time that the containing
-	 * {@link ApplicationContext} gets refreshed.
+	 * {@link ApplicationContext} gets refreshed or restarted.
 	 * <p>A value of {@code false} indicates that the component is intended to
 	 * be started through an explicit {@link #start()} call instead, analogous
 	 * to a plain {@link Lifecycle} implementation.
@@ -90,9 +93,32 @@ public interface SmartLifecycle extends Lifecycle, Phased {
 	 * @see #start()
 	 * @see #getPhase()
 	 * @see LifecycleProcessor#onRefresh()
+	 * @see LifecycleProcessor#onRestart()
 	 * @see ConfigurableApplicationContext#refresh()
+	 * @see ConfigurableApplicationContext#restart()
 	 */
 	default boolean isAutoStartup() {
+		return true;
+	}
+
+	/**
+	 * Returns {@code true} if this {@code Lifecycle} component is able to
+	 * participate in a restart sequence, receiving corresponding {@link #stop()}
+	 * and {@link #start()} calls with a potential pause in-between.
+	 * <p>A value of {@code false} indicates that the component prefers to
+	 * be skipped in a pause scenario, neither receiving a {@link #stop()}
+	 * call nor a subsequent {@link #start()} call, analogous to a plain
+	 * {@link Lifecycle} implementation. It will only receive a {@link #stop()}
+	 * call on close and on explicit context-wide stopping but not on pause.
+	 * <p>The default implementation returns {@code true}.
+	 * @since 7.0
+	 * @see #stop()
+	 * @see LifecycleProcessor#onPause()
+	 * @see LifecycleProcessor#onClose()
+	 * @see ConfigurableApplicationContext#pause()
+	 * @see ConfigurableApplicationContext#close()
+	 */
+	default boolean isPauseable() {
 		return true;
 	}
 
@@ -121,7 +147,7 @@ public interface SmartLifecycle extends Lifecycle, Phased {
 	/**
 	 * Return the phase that this lifecycle object is supposed to run in.
 	 * <p>The default implementation returns {@link #DEFAULT_PHASE} in order to
-	 * let {@code stop()} callbacks execute after regular {@code Lifecycle}
+	 * let {@code stop()} callbacks execute before regular {@code Lifecycle}
 	 * implementations.
 	 * @see #isAutoStartup()
 	 * @see #start()

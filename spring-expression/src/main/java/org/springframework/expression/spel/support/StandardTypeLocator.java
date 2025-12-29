@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,16 @@ package org.springframework.expression.spel.support;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.jspecify.annotations.Nullable;
+
+import org.springframework.core.SmartClassLoader;
 import org.springframework.expression.EvaluationException;
 import org.springframework.expression.TypeLocator;
 import org.springframework.expression.spel.SpelEvaluationException;
 import org.springframework.expression.spel.SpelMessage;
-import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 
 /**
@@ -43,10 +47,11 @@ import org.springframework.util.ClassUtils;
  */
 public class StandardTypeLocator implements TypeLocator {
 
-	@Nullable
-	private final ClassLoader classLoader;
+	private final @Nullable ClassLoader classLoader;
 
 	private final List<String> importPrefixes = new ArrayList<>(1);
+
+	private final Map<String, Class<?>> typeCache = new ConcurrentHashMap<>();
 
 
 	/**
@@ -110,6 +115,21 @@ public class StandardTypeLocator implements TypeLocator {
 	 */
 	@Override
 	public Class<?> findType(String typeName) throws EvaluationException {
+		Class<?> cachedType = this.typeCache.get(typeName);
+		if (cachedType != null) {
+			return cachedType;
+		}
+		Class<?> loadedType = loadType(typeName);
+		if (loadedType != null) {
+			if (!(this.classLoader instanceof SmartClassLoader scl && scl.isClassReloadable(loadedType))) {
+				this.typeCache.put(typeName, loadedType);
+			}
+			return loadedType;
+		}
+		throw new SpelEvaluationException(SpelMessage.TYPE_NOT_FOUND, typeName);
+	}
+
+	private @Nullable Class<?> loadType(String typeName) {
 		try {
 			return ClassUtils.forName(typeName, this.classLoader);
 		}
@@ -125,7 +145,7 @@ public class StandardTypeLocator implements TypeLocator {
 				// might be a different prefix
 			}
 		}
-		throw new SpelEvaluationException(SpelMessage.TYPE_NOT_FOUND, typeName);
+		return null;
 	}
 
 }

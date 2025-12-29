@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
@@ -54,11 +55,9 @@ final class SynthesizedMergedAnnotationInvocationHandler<A extends Annotation> i
 
 	private final Map<String, Object> valueCache = new ConcurrentHashMap<>(8);
 
-	@Nullable
-	private volatile Integer hashCode;
+	private volatile @Nullable Integer hashCode;
 
-	@Nullable
-	private volatile String string;
+	private volatile @Nullable String string;
 
 
 	private SynthesizedMergedAnnotationInvocationHandler(MergedAnnotation<A> annotation, Class<A> type) {
@@ -168,33 +167,11 @@ final class SynthesizedMergedAnnotationInvocationHandler<A extends Annotation> i
 	 * @return the formatted string representation
 	 */
 	private String toString(Object value) {
-		if (value instanceof String str) {
-			return '"' + str + '"';
-		}
-		if (value instanceof Character) {
-			return '\'' + value.toString() + '\'';
-		}
-		if (value instanceof Byte) {
-			return String.format("(byte) 0x%02X", value);
-		}
-		if (value instanceof Long longValue) {
-			return Long.toString(longValue) + 'L';
-		}
-		if (value instanceof Float floatValue) {
-			return Float.toString(floatValue) + 'f';
-		}
-		if (value instanceof Double doubleValue) {
-			return Double.toString(doubleValue) + 'd';
-		}
-		if (value instanceof Enum<?> e) {
-			return e.name();
-		}
-		if (value instanceof Class<?> clazz) {
-			return getName(clazz) + ".class";
-		}
-		if (value.getClass().isArray()) {
+		Class<?> type = value.getClass();
+		if (type.isArray()) {
 			StringBuilder builder = new StringBuilder("{");
-			for (int i = 0; i < Array.getLength(value); i++) {
+			int arrayLength = Array.getLength(value);
+			for (int i = 0; i < arrayLength; i++) {
 				if (i > 0) {
 					builder.append(", ");
 				}
@@ -202,6 +179,30 @@ final class SynthesizedMergedAnnotationInvocationHandler<A extends Annotation> i
 			}
 			builder.append('}');
 			return builder.toString();
+		}
+		if (type == String.class) {
+			return '"' + ((String) value) + '"';
+		}
+		if (type == Character.class) {
+			return '\'' + value.toString() + '\'';
+		}
+		if (type == Byte.class) {
+			return String.format("(byte) 0x%02X", value);
+		}
+		if (type == Long.class) {
+			return Long.toString((Long) value) + 'L';
+		}
+		if (type == Float.class) {
+			return Float.toString((Float) value) + 'f';
+		}
+		if (type == Double.class) {
+			return Double.toString((Double) value) + 'd';
+		}
+		if (value instanceof Enum<?> e) {
+			return e.name();
+		}
+		if (type == Class.class) {
+			return getName((Class<?>) value) + ".class";
 		}
 		return String.valueOf(value);
 	}
@@ -211,7 +212,7 @@ final class SynthesizedMergedAnnotationInvocationHandler<A extends Annotation> i
 			Class<?> type = ClassUtils.resolvePrimitiveIfNecessary(method.getReturnType());
 			return this.annotation.getValue(attributeName, type).orElseThrow(
 					() -> new NoSuchElementException("No value found for attribute named '" + attributeName +
-							"' in merged annotation " + this.annotation.getType().getName()));
+							"' in merged annotation " + getName(this.annotation.getType())));
 		});
 
 		// Clone non-empty arrays so that users cannot alter the contents of values in our cache.
@@ -227,29 +228,30 @@ final class SynthesizedMergedAnnotationInvocationHandler<A extends Annotation> i
 	 * @param array the array to clone
 	 */
 	private Object cloneArray(Object array) {
-		if (array instanceof boolean[] booleans) {
-			return booleans.clone();
+		Class<?> type = array.getClass();
+		if (type == boolean[].class) {
+			return ((boolean[]) array).clone();
 		}
-		if (array instanceof byte[] bytes) {
-			return bytes.clone();
+		if (type == byte[].class) {
+			return ((byte[]) array).clone();
 		}
-		if (array instanceof char[] chars) {
-			return chars.clone();
+		if (type == char[].class) {
+			return ((char[]) array).clone();
 		}
-		if (array instanceof double[] doubles) {
-			return doubles.clone();
+		if (type == double[].class) {
+			return ((double[]) array).clone();
 		}
-		if (array instanceof float[] floats) {
-			return floats.clone();
+		if (type == float[].class) {
+			return ((float[]) array).clone();
 		}
-		if (array instanceof int[] ints) {
-			return ints.clone();
+		if (type == int[].class) {
+			return ((int[]) array).clone();
 		}
-		if (array instanceof long[] longs) {
-			return longs.clone();
+		if (type == long[].class) {
+			return ((long[]) array).clone();
 		}
-		if (array instanceof short[] shorts) {
-			return shorts.clone();
+		if (type == short[].class) {
+			return ((short[]) array).clone();
 		}
 
 		// else

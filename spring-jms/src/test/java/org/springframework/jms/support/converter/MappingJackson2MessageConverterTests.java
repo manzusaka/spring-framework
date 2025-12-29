@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,18 +22,19 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import jakarta.jms.BytesMessage;
 import jakarta.jms.JMSException;
 import jakarta.jms.Session;
 import jakarta.jms.TextMessage;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 
 import org.springframework.core.MethodParameter;
-import org.springframework.lang.Nullable;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -48,6 +49,7 @@ import static org.mockito.Mockito.verify;
  * @author Dave Syer
  * @author Stephane Nicoll
  */
+@SuppressWarnings("removal")
 class MappingJackson2MessageConverterTests {
 
 	private MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
@@ -56,7 +58,7 @@ class MappingJackson2MessageConverterTests {
 
 
 	@BeforeEach
-	public void setup() {
+	void setup() {
 		converter.setEncodingPropertyName("__encoding__");
 		converter.setTypeIdPropertyName("__typeid__");
 	}
@@ -173,7 +175,7 @@ class MappingJackson2MessageConverterTests {
 
 	@Test
 	void toTextMessageWithReturnType() throws JMSException, NoSuchMethodException {
-		Method method = this.getClass().getDeclaredMethod("summary");
+		Method method = getClass().getDeclaredMethod("summary");
 		MethodParameter returnType = new MethodParameter(method, -1);
 		testToTextMessageWithReturnType(returnType);
 		verify(sessionMock).createTextMessage("{\"name\":\"test\"}");
@@ -187,7 +189,7 @@ class MappingJackson2MessageConverterTests {
 
 	@Test
 	void toTextMessageWithReturnTypeAndNoJsonView() throws JMSException, NoSuchMethodException {
-		Method method = this.getClass().getDeclaredMethod("none");
+		Method method = getClass().getDeclaredMethod("none");
 		MethodParameter returnType = new MethodParameter(method, -1);
 
 		testToTextMessageWithReturnType(returnType);
@@ -195,15 +197,15 @@ class MappingJackson2MessageConverterTests {
 	}
 
 	@Test
-	void toTextMessageWithReturnTypeAndMultipleJsonViews() throws JMSException, NoSuchMethodException {
-		Method method = this.getClass().getDeclaredMethod("invalid");
+	void toTextMessageWithReturnTypeAndMultipleJsonViews() throws NoSuchMethodException {
+		Method method = getClass().getDeclaredMethod("invalid");
 		MethodParameter returnType = new MethodParameter(method, -1);
 
 		assertThatIllegalArgumentException().isThrownBy(() ->
 				testToTextMessageWithReturnType(returnType));
 	}
 
-	private void testToTextMessageWithReturnType(MethodParameter returnType) throws JMSException, NoSuchMethodException {
+	private void testToTextMessageWithReturnType(MethodParameter returnType) throws JMSException {
 		converter.setTargetType(MessageType.TEXT);
 		TextMessage textMessageMock = mock();
 
@@ -285,10 +287,7 @@ class MappingJackson2MessageConverterTests {
 				return false;
 			}
 			MyBean bean = (MyBean) o;
-			if (foo != null ? !foo.equals(bean.foo) : bean.foo != null) {
-				return false;
-			}
-			return true;
+			return Objects.equals(this.foo, bean.foo);
 		}
 
 		@Override

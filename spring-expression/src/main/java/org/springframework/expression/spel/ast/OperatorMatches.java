@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ public class OperatorMatches extends Operator {
 	 * @return {@code true} if the first operand matches the regex specified as the
 	 * second operand, otherwise {@code false}
 	 * @throws EvaluationException if there is a problem evaluating the expression
-	 * (e.g. the regex is invalid)
+	 * (for example, the regex is invalid)
 	 */
 	@Override
 	public BooleanTypedValue getValueInternal(ExpressionState state) throws EvaluationException {

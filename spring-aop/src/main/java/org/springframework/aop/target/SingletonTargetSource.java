@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,9 @@ package org.springframework.aop.target;
 
 import java.io.Serializable;
 
+import org.jspecify.annotations.Nullable;
+
 import org.springframework.aop.TargetSource;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
@@ -65,11 +66,6 @@ public class SingletonTargetSource implements TargetSource, Serializable {
 	@Override
 	public Object getTarget() {
 		return this.target;
-	}
-
-	@Override
-	public void releaseTarget(Object target) {
-		// nothing to do
 	}
 
 	@Override

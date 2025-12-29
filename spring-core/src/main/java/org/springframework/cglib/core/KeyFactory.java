@@ -82,7 +82,7 @@ abstract public class KeyFactory {
 			TypeUtils.parseSignature("int getSort()");
 
 	//generated numbers:
-	private final static int PRIMES[] = {
+	private static final int PRIMES[] = {
 			11, 73, 179, 331,
 			521, 787, 1213, 1823,
 			2609, 3691, 5189, 7247,
@@ -261,6 +261,8 @@ abstract public class KeyFactory {
 			}
 
 			Type[] parameterTypes = TypeUtils.getTypes(newInstance.getParameterTypes());
+			// Byte code level cannot be higher than 1.8 due to STATICHOOK methods
+			// which set static final fields outside the initializer method <clinit>.
 			ce.begin_class(Constants.V1_8,
 					Constants.ACC_PUBLIC,
 					getClassName(),

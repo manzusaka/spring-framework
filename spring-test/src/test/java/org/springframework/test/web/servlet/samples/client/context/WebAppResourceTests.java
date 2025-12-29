@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.test.web.servlet.samples.client.context;
 
+import org.hamcrest.MatcherAssert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.ContextHierarchy;
+import org.springframework.test.context.aot.DisabledInAotMode;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.reactive.server.EntityExchangeResult;
@@ -47,6 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 	@ContextConfiguration("../../context/root-context.xml"),
 	@ContextConfiguration("../../context/servlet-context.xml")
 })
+@DisabledInAotMode("@ContextHierarchy is not supported in AOT")
 public class WebAppResourceTests {
 
 	@Autowired
@@ -67,8 +70,8 @@ public class WebAppResourceTests {
 		testClient.get().uri("/resources/Spring.js")
 				.exchange()
 				.expectStatus().isOk()
-				.expectHeader().contentType("application/javascript")
-				.expectBody(String.class).value(containsString("Spring={};"));
+				.expectHeader().contentType("text/javascript")
+				.expectBody(String.class).value(v -> MatcherAssert.assertThat(v, containsString("Spring={};")));
 	}
 
 	// Forwarded to the "default" servlet via <mvc:default-servlet-handler/>

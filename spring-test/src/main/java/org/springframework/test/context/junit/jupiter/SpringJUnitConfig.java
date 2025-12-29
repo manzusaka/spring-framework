@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.core.annotation.AliasFor;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.ContextLoader;
 
 /**
  * {@code @SpringJUnitConfig} is a <em>composed annotation</em> that combines
@@ -35,17 +36,17 @@ import org.springframework.test.context.ContextConfiguration;
  * {@link ContextConfiguration @ContextConfiguration} from the <em>Spring TestContext
  * Framework</em>.
  *
- * <p>As of Spring Framework 5.3, this annotation will effectively be inherited
- * from an enclosing test class by default. See
+ * <p>This annotation will be inherited from an enclosing test class by default. See
  * {@link org.springframework.test.context.NestedTestConfiguration @NestedTestConfiguration}
  * for details.
  *
  * @author Sam Brannen
  * @since 5.0
- * @see ExtendWith
- * @see SpringExtension
- * @see ContextConfiguration
- * @see org.springframework.test.context.junit.jupiter.web.SpringJUnitWebConfig
+ * @see org.junit.jupiter.api.extension.ExtendWith @ExtendWith
+ * @see org.springframework.test.context.junit.jupiter.SpringExtension SpringExtension
+ * @see org.springframework.test.context.junit.jupiter.SpringExtensionConfig @SpringExtensionConfig
+ * @see org.springframework.test.context.junit.jupiter.web.SpringJUnitWebConfig @SpringJUnitWebConfig
+ * @see org.springframework.test.context.ContextConfiguration @ContextConfiguration
  */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration
@@ -90,6 +91,13 @@ public @interface SpringJUnitConfig {
 	 */
 	@AliasFor(annotation = ContextConfiguration.class)
 	boolean inheritInitializers() default true;
+
+	/**
+	 * Alias for {@link ContextConfiguration#loader}.
+	 * @since 6.1
+	 */
+	@AliasFor(annotation = ContextConfiguration.class)
+	Class<? extends ContextLoader> loader() default ContextLoader.class;
 
 	/**
 	 * Alias for {@link ContextConfiguration#name}.

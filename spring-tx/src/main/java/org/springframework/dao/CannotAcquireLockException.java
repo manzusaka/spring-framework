@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 package org.springframework.dao;
+
+import org.jspecify.annotations.Nullable;
 
 /**
  * Exception thrown on failure to acquire a lock during an update,
@@ -32,7 +34,7 @@ public class CannotAcquireLockException extends PessimisticLockingFailureExcepti
 	 * Constructor for CannotAcquireLockException.
 	 * @param msg the detail message
 	 */
-	public CannotAcquireLockException(String msg) {
+	public CannotAcquireLockException(@Nullable String msg) {
 		super(msg);
 	}
 
@@ -41,7 +43,7 @@ public class CannotAcquireLockException extends PessimisticLockingFailureExcepti
 	 * @param msg the detail message
 	 * @param cause the root cause from the data access API in use
 	 */
-	public CannotAcquireLockException(String msg, Throwable cause) {
+	public CannotAcquireLockException(@Nullable String msg, @Nullable Throwable cause) {
 		super(msg, cause);
 	}
 

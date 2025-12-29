@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import javax.script.SimpleBindings;
 
+import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Mono;
 
 import org.springframework.beans.BeansException;
@@ -40,7 +41,6 @@ import org.springframework.context.ApplicationContextException;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
-import org.springframework.lang.Nullable;
 import org.springframework.scripting.support.StandardScriptEvalException;
 import org.springframework.scripting.support.StandardScriptUtils;
 import org.springframework.util.Assert;
@@ -58,10 +58,6 @@ import org.springframework.web.server.ServerWebExchange;
  * {@link ScriptTemplateConfig} bean in the web application context and using
  * it to obtain the configured properties.
  *
- * <p>The Nashorn JavaScript engine requires Java 8+ and may require setting the
- * {@code sharedEngine} property to {@code false} in order to run properly. See
- * {@link ScriptTemplateConfigurer#setSharedEngine(Boolean)} for more details.
- *
  * @author Sebastien Deleuze
  * @author Juergen Hoeller
  * @since 5.0
@@ -73,32 +69,23 @@ public class ScriptTemplateView extends AbstractUrlBasedView {
 	private static final String DEFAULT_RESOURCE_LOADER_PATH = "classpath:";
 
 
-	@Nullable
-	private ScriptEngine engine;
+	private @Nullable ScriptEngine engine;
 
-	@Nullable
-	private Supplier<ScriptEngine> engineSupplier;
+	private @Nullable Supplier<ScriptEngine> engineSupplier;
 
-	@Nullable
-	private String engineName;
+	private @Nullable String engineName;
 
-	@Nullable
-	private Boolean sharedEngine;
+	private @Nullable Boolean sharedEngine;
 
-	@Nullable
-	private String[] scripts;
+	private String @Nullable [] scripts;
 
-	@Nullable
-	private String renderObject;
+	private @Nullable String renderObject;
 
-	@Nullable
-	private String renderFunction;
+	private @Nullable String renderFunction;
 
-	@Nullable
-	private String[] resourceLoaderPaths;
+	private String @Nullable [] resourceLoaderPaths;
 
-	@Nullable
-	private volatile ScriptEngineManager scriptEngineManager;
+	private volatile @Nullable ScriptEngineManager scriptEngineManager;
 
 
 	/**
@@ -305,8 +292,7 @@ public class ScriptTemplateView extends AbstractUrlBasedView {
 		}
 	}
 
-	@Nullable
-	protected Resource getResource(String location) {
+	protected @Nullable Resource getResource(String location) {
 		if (this.resourceLoaderPaths != null) {
 			for (String path : this.resourceLoaderPaths) {
 				Resource resource = obtainApplicationContext().getResource(path + location);

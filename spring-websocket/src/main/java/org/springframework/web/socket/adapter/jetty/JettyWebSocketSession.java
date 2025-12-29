@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,9 +30,9 @@ import java.util.concurrent.ExecutionException;
 import org.eclipse.jetty.websocket.api.Callback;
 import org.eclipse.jetty.websocket.api.ExtensionConfig;
 import org.eclipse.jetty.websocket.api.Session;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.http.HttpHeaders;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.socket.BinaryMessage;
@@ -45,7 +45,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.adapter.AbstractWebSocketSession;
 
 /**
- * A {@link WebSocketSession} for use with the Jetty 9.4 WebSocket API.
+ * A {@link WebSocketSession} for use with the Jetty WebSocket API.
  *
  * @author Phillip Webb
  * @author Rossen Stoyanchev
@@ -57,20 +57,15 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 
 	private final String id;
 
-	@Nullable
-	private URI uri;
+	private @Nullable URI uri;
 
-	@Nullable
-	private HttpHeaders headers;
+	private @Nullable HttpHeaders headers;
 
-	@Nullable
-	private String acceptedProtocol;
+	private @Nullable String acceptedProtocol;
 
-	@Nullable
-	private List<WebSocketExtension> extensions;
+	private @Nullable List<WebSocketExtension> extensions;
 
-	@Nullable
-	private Principal user;
+	private @Nullable Principal user;
 
 
 	/**
@@ -101,8 +96,7 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 	}
 
 	@Override
-	@Nullable
-	public URI getUri() {
+	public @Nullable URI getUri() {
 		checkNativeSessionInitialized();
 		return this.uri;
 	}
@@ -114,7 +108,7 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 	}
 
 	@Override
-	public String getAcceptedProtocol() {
+	public @Nullable String getAcceptedProtocol() {
 		checkNativeSessionInitialized();
 		return this.acceptedProtocol;
 	}
@@ -126,7 +120,7 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 	}
 
 	@Override
-	public Principal getPrincipal() {
+	public @Nullable Principal getPrincipal() {
 		return this.user;
 	}
 
@@ -142,11 +136,10 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 		return (InetSocketAddress) getNativeSession().getRemoteSocketAddress();
 	}
 
-	/**
-	 * This method is a no-op for Jetty.
-	 */
 	@Override
 	public void setTextMessageSizeLimit(int messageSizeLimit) {
+		checkNativeSessionInitialized();
+		getNativeSession().setMaxTextMessageSize(messageSizeLimit);
 	}
 
 	@Override
@@ -155,11 +148,10 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 		return (int) getNativeSession().getMaxTextMessageSize();
 	}
 
-	/**
-	 * This method is a no-op for Jetty.
-	 */
 	@Override
 	public void setBinaryMessageSizeLimit(int messageSizeLimit) {
+		checkNativeSessionInitialized();
+		getNativeSession().setMaxBinaryMessageSize(messageSizeLimit);
 	}
 
 	@Override
@@ -172,7 +164,6 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 	public boolean isOpen() {
 		return getNativeSession().isOpen();
 	}
-
 
 	@Override
 	public void initializeNativeSession(Session session) {
@@ -191,13 +182,7 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 		this.extensions = getExtensions(session);
 
 		if (this.user == null) {
-			try {
-				this.user = session.getUpgradeRequest().getUserPrincipal();
-			}
-			catch (NullPointerException ex) {
-				// Necessary until https://github.com/eclipse/jetty.project/issues/10498 is resolved
-				logger.error("Failure from UpgradeRequest while getting Principal", ex);
-			}
+			this.user = session.getUpgradeRequest().getUserPrincipal();
 		}
 	}
 
@@ -212,7 +197,6 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 		}
 		return Collections.emptyList();
 	}
-
 
 	@Override
 	protected void sendTextMessage(TextMessage message) throws IOException {
@@ -247,7 +231,6 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 		}
 		catch (ExecutionException ex) {
 			Throwable cause = ex.getCause();
-
 			if (cause instanceof IOException ioEx) {
 				throw ioEx;
 			}
@@ -262,6 +245,7 @@ public class JettyWebSocketSession extends AbstractWebSocketSession<Session> {
 			Thread.currentThread().interrupt();
 		}
 	}
+
 
 	@FunctionalInterface
 	private interface SessionConsumer {

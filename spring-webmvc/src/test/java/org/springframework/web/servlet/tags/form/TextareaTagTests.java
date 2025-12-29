@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Juergen Hoeller
  * @author Jeremy Grelle
  */
-public class TextareaTagTests extends AbstractFormTagTests {
+class TextareaTagTests extends AbstractFormTagTests {
 
 	private TextareaTag tag;
 
@@ -49,7 +49,7 @@ public class TextareaTagTests extends AbstractFormTagTests {
 	}
 
 	@Test
-	public void simpleBind() throws Exception {
+	void simpleBind() throws Exception {
 		this.tag.setPath("name");
 		this.tag.setReadonly(true);
 
@@ -61,7 +61,7 @@ public class TextareaTagTests extends AbstractFormTagTests {
 	}
 
 	@Test
-	public void simpleBindWithDynamicAttributes() throws Exception {
+	void simpleBindWithDynamicAttributes() throws Exception {
 		String dynamicAttribute1 = "attr1";
 		String dynamicAttribute2 = "attr2";
 
@@ -80,7 +80,7 @@ public class TextareaTagTests extends AbstractFormTagTests {
 	}
 
 	@Test
-	public void complexBind() throws Exception {
+	void complexBind() throws Exception {
 		String onselect = "doSelect()";
 
 		this.tag.setPath("spouse.name");
@@ -94,7 +94,7 @@ public class TextareaTagTests extends AbstractFormTagTests {
 	}
 
 	@Test
-	public void simpleBindWithHtmlEscaping() throws Exception {
+	void simpleBindWithHtmlEscaping() throws Exception {
 		final String NAME = "Rob \"I Love Mangos\" Harrop";
 		final String HTML_ESCAPED_NAME = "Rob &quot;I Love Mangos&quot; Harrop";
 
@@ -108,7 +108,7 @@ public class TextareaTagTests extends AbstractFormTagTests {
 	}
 
 	@Test
-	public void customBind() throws Exception {
+	void customBind() throws Exception {
 		BeanPropertyBindingResult result = new BeanPropertyBindingResult(createTestBean(), "testBean");
 		result.getPropertyAccessor().registerCustomEditor(Float.class, new SimpleFloatEditor());
 		exposeBindingResult(result);
@@ -120,7 +120,7 @@ public class TextareaTagTests extends AbstractFormTagTests {
 	}
 
 	@Test
-	public void firstNewLine() throws Exception {
+	void firstNewLine() throws Exception {
 		this.tag.setPath("name");
 		this.tag.setReadonly(true);
 

@@ -1,11 +1,11 @@
 /*
- * Copyright 2002-2021 the original author or authors
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * 	https://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,8 +24,8 @@ import java.sql.ResultSet
  * @author Mario Arias
  * @since 5.0
  */
-inline fun <reified T> JdbcOperations.queryForObject(sql: String): T =
-		queryForObject(sql, T::class.java) as T
+inline fun <reified T : Any> JdbcOperations.queryForObject(sql: String): T? =
+		queryForObject(sql, T::class.java)
 
 /**
  * Extensions for [JdbcOperations.queryForObject] providing a RowMapper-like function
@@ -34,8 +34,8 @@ inline fun <reified T> JdbcOperations.queryForObject(sql: String): T =
  * @author Mario Arias
  * @since 5.0
  */
-inline fun <reified T> JdbcOperations.queryForObject(sql: String, vararg args: Any, crossinline function: (ResultSet, Int) -> T): T =
-		queryForObject(sql, RowMapper { resultSet, i -> function(resultSet, i) }, *args) as T
+inline fun <reified T> JdbcOperations.queryForObject(sql: String, vararg args: Any?, crossinline function: (ResultSet, Int) -> T): T =
+		queryForObject(sql, { resultSet, i -> function(resultSet, i) }, *args)
 
 /**
  * Extension for [JdbcOperations.queryForObject] providing a
@@ -44,20 +44,18 @@ inline fun <reified T> JdbcOperations.queryForObject(sql: String, vararg args: A
  * @author Mario Arias
  * @since 5.0
  */
-inline fun <reified T> JdbcOperations.queryForObject(sql: String, args: Array<out Any>, argTypes: IntArray): T? =
-		queryForObject(sql, args, argTypes, T::class.java) as T
+inline fun <reified T : Any> JdbcOperations.queryForObject(sql: String, args: Array<out Any?>, argTypes: IntArray): T? =
+		queryForObject(sql, args, argTypes, T::class.java)
 
 /**
  * Extension for [JdbcOperations.queryForObject] providing a
- * `queryForObject<Foo>("...", arrayOf(arg1, argN))` variant.
+ * `queryForObject<Foo>("...", arg1, argN)` variant.
  *
- * @author Mario Arias
- * @since 5.0
+ * @author Sébastien Deleuze
+ * @since 7.0
  */
-@Suppress("DEPRECATION")
-// TODO Replace by the vararg variant in Spring Framework 6
-inline fun <reified T> JdbcOperations.queryForObject(sql: String, args: Array<out Any>): T? =
-		queryForObject(sql, args, T::class.java) as T
+inline fun <reified T : Any> JdbcOperations.queryForObject(sql: String, vararg args: Any?): T? =
+		queryForObject(sql, T::class.java, *args)
 
 /**
  * Extension for [JdbcOperations.queryForList] providing a `queryForList<Foo>("...")` variant.
@@ -65,8 +63,7 @@ inline fun <reified T> JdbcOperations.queryForObject(sql: String, args: Array<ou
  * @author Mario Arias
  * @since 5.0
  */
-@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
-inline fun <reified T> JdbcOperations.queryForList(sql: String): List<T> =
+inline fun <reified T : Any> JdbcOperations.queryForList(sql: String): List<T?> =
 		queryForList(sql, T::class.java)
 
 /**
@@ -76,22 +73,19 @@ inline fun <reified T> JdbcOperations.queryForList(sql: String): List<T> =
  * @author Mario Arias
  * @since 5.0
  */
-@Suppress("EXTENSION_SHADOWED_BY_MEMBER")
-inline fun <reified T> JdbcOperations.queryForList(sql: String, args: Array<out Any>,
-		argTypes: IntArray): List<T> =
+inline fun <reified T : Any> JdbcOperations.queryForList(sql: String, args: Array<out Any?>,
+												   argTypes: IntArray): List<T?> =
 		queryForList(sql, args, argTypes, T::class.java)
 
 /**
  * Extension for [JdbcOperations.queryForList] providing a
- * `queryForList<Foo>("...", arrayOf(arg1, argN))` variant.
+ * `queryForList<Foo>("...", arg1, argN)` variant.
  *
- * @author Mario Arias
- * @since 5.0
+ * @author Sebastien Deleuze
+ * @since 7.0
  */
-@Suppress("DEPRECATION")
-// TODO Replace by the vararg variant in Spring Framework 6
-inline fun <reified T> JdbcOperations.queryForList(sql: String, args: Array<out Any>): List<T> =
-		queryForList(sql, args, T::class.java)
+inline fun <reified T : Any> JdbcOperations.queryForList(sql: String, vararg args: Any?): List<T?> =
+		queryForList(sql, T::class.java, *args)
 
 
 /**
@@ -101,9 +95,9 @@ inline fun <reified T> JdbcOperations.queryForList(sql: String, args: Array<out 
  * @author Mario Arias
  * @since 5.0
  */
-inline fun <reified T> JdbcOperations.query(sql: String, vararg args: Any,
-		crossinline function: (ResultSet) -> T): T =
-		query(sql, ResultSetExtractor { function(it) }, *args) as T
+fun <T> JdbcOperations.query(sql: String, vararg args: Any?,
+		function: (ResultSet) -> T): T =
+		query(sql, ResultSetExtractor { function(it) }, *args)
 
 /**
  * Extension for [JdbcOperations.query] providing a RowCallbackHandler-like function
@@ -112,8 +106,8 @@ inline fun <reified T> JdbcOperations.query(sql: String, vararg args: Any,
  * @author Mario Arias
  * @since 5.0
  */
-fun JdbcOperations.query(sql: String, vararg args: Any, function: (ResultSet) -> Unit): Unit =
-		query(sql, RowCallbackHandler { function(it) }, *args)
+fun JdbcOperations.query(sql: String, vararg args: Any?, function: (ResultSet) -> Unit): Unit =
+		query(sql, { function(it) }, *args)
 
 /**
  * Extensions for [JdbcOperations.query] providing a RowMapper-like function variant:
@@ -122,5 +116,5 @@ fun JdbcOperations.query(sql: String, vararg args: Any, function: (ResultSet) ->
  * @author Mario Arias
  * @since 5.0
  */
-fun <T> JdbcOperations.query(sql: String, vararg args: Any, function: (ResultSet, Int) -> T): List<T> =
-		query(sql, RowMapper { rs, i -> function(rs, i) }, *args)
+fun <T> JdbcOperations.query(sql: String, vararg args: Any?, function: (ResultSet, Int) -> T): List<T> =
+		query(sql, { rs, i -> function(rs, i) }, *args)

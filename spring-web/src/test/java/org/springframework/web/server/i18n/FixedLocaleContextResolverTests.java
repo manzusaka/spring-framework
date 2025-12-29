@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package org.springframework.web.server.i18n;
 
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -34,34 +34,34 @@ import static java.util.Locale.US;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for {@link FixedLocaleContextResolver}.
+ * Tests for {@link FixedLocaleContextResolver}.
  *
  * @author Sebastien Deleuze
  */
-public class FixedLocaleContextResolverTests {
+class FixedLocaleContextResolverTests {
 
 	@BeforeEach
-	public void setup() {
+	void setup() {
 		Locale.setDefault(US);
 	}
 
 	@Test
-	public void resolveDefaultLocale() {
+	void resolveDefaultLocale() {
 		FixedLocaleContextResolver resolver = new FixedLocaleContextResolver();
 		assertThat(resolver.resolveLocaleContext(exchange()).getLocale()).isEqualTo(US);
 		assertThat(resolver.resolveLocaleContext(exchange(CANADA)).getLocale()).isEqualTo(US);
 	}
 
 	@Test
-	public void resolveCustomizedLocale() {
+	void resolveCustomizedLocale() {
 		FixedLocaleContextResolver resolver = new FixedLocaleContextResolver(FRANCE);
 		assertThat(resolver.resolveLocaleContext(exchange()).getLocale()).isEqualTo(FRANCE);
 		assertThat(resolver.resolveLocaleContext(exchange(CANADA)).getLocale()).isEqualTo(FRANCE);
 	}
 
 	@Test
-	public void resolveCustomizedAndTimeZoneLocale() {
-		TimeZone timeZone = TimeZone.getTimeZone(ZoneId.of("UTC"));
+	void resolveCustomizedAndTimeZoneLocale() {
+		TimeZone timeZone = TimeZone.getTimeZone(ZoneOffset.UTC);
 		FixedLocaleContextResolver resolver = new FixedLocaleContextResolver(FRANCE, timeZone);
 		TimeZoneAwareLocaleContext context = (TimeZoneAwareLocaleContext) resolver.resolveLocaleContext(exchange());
 		assertThat(context.getLocale()).isEqualTo(FRANCE);

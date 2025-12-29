@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,10 +30,14 @@ import org.junit.jupiter.api.io.CleanupMode;
 import org.junit.jupiter.api.io.TempDir;
 
 import org.springframework.test.context.aot.samples.basic.BasicSpringJupiterImportedConfigTests;
+import org.springframework.test.context.aot.samples.basic.BasicSpringJupiterParameterizedClassTests;
 import org.springframework.test.context.aot.samples.basic.BasicSpringJupiterSharedConfigTests;
 import org.springframework.test.context.aot.samples.basic.BasicSpringJupiterTests;
 import org.springframework.test.context.aot.samples.basic.BasicSpringTestNGTests;
 import org.springframework.test.context.aot.samples.basic.BasicSpringVintageTests;
+import org.springframework.test.context.aot.samples.basic.DisabledInAotProcessingTests;
+import org.springframework.test.context.aot.samples.basic.DisabledInAotRuntimeClassLevelTests;
+import org.springframework.test.context.aot.samples.basic.DisabledInAotRuntimeMethodLevelTests;
 import org.springframework.util.ClassUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,11 +56,14 @@ class TestAotProcessorTests extends AbstractAotTests {
 		Path classpathRoot = Files.createDirectories(tempDir.resolve("build/classes"));
 		Stream.of(
 				BasicSpringJupiterImportedConfigTests.class,
+				BasicSpringJupiterParameterizedClassTests.class,
 				BasicSpringJupiterSharedConfigTests.class,
 				BasicSpringJupiterTests.class,
-				BasicSpringJupiterTests.NestedTests.class,
 				BasicSpringTestNGTests.class,
-				BasicSpringVintageTests.class
+				BasicSpringVintageTests.class,
+				DisabledInAotProcessingTests.class,
+				DisabledInAotRuntimeClassLevelTests.class,
+				DisabledInAotRuntimeMethodLevelTests.class
 			).forEach(testClass -> copy(testClass, classpathRoot));
 
 		Set<Path> classpathRoots = Set.of(classpathRoot);
@@ -73,8 +80,7 @@ class TestAotProcessorTests extends AbstractAotTests {
 		assertThat(findFiles(sourceOutput)).containsExactlyInAnyOrderElementsOf(expectedSourceFiles());
 
 		assertThat(findFiles(resourceOutput.resolve("META-INF/native-image"))).contains(
-				Path.of(groupId, artifactId, "reflect-config.json"),
-				Path.of(groupId, artifactId, "resource-config.json"));
+				Path.of(groupId, artifactId, "reachability-metadata.json"));
 	}
 
 	private void copy(Class<?> testClass, Path destination) {

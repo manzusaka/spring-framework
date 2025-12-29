@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,32 @@
 
 package org.springframework.web.reactive.result.method.annotation;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
+import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.context.EmbeddedValueResolverAware;
+import org.springframework.core.MethodParameter;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.core.annotation.AnnotatedMethod;
 import org.springframework.core.annotation.MergedAnnotation;
+import org.springframework.core.annotation.MergedAnnotationPredicates;
 import org.springframework.core.annotation.MergedAnnotations;
-import org.springframework.lang.Nullable;
+import org.springframework.core.annotation.MergedAnnotations.SearchStrategy;
+import org.springframework.core.annotation.RepeatableContainers;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.util.StringValueResolver;
@@ -40,6 +51,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.reactive.accept.DefaultApiVersionStrategy;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolver;
 import org.springframework.web.reactive.accept.RequestedContentTypeResolverBuilder;
 import org.springframework.web.reactive.result.condition.ConsumesRequestCondition;
@@ -50,12 +62,14 @@ import org.springframework.web.service.annotation.HttpExchange;
 
 /**
  * An extension of {@link RequestMappingInfoHandlerMapping} that creates
- * {@link RequestMappingInfo} instances from class-level and method-level
- * {@link RequestMapping @RequestMapping} annotations.
+ * {@link RequestMappingInfo} instances from type-level and method-level
+ * {@link RequestMapping @RequestMapping} and {@link HttpExchange @HttpExchange}
+ * annotations.
  *
  * @author Rossen Stoyanchev
  * @author Sam Brannen
  * @author Olga Maciaszek-Sharma
+ * @author Yongjun Hong
  * @since 5.0
  */
 public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMapping
@@ -70,8 +84,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 
 	private RequestedContentTypeResolver contentTypeResolver = new RequestedContentTypeResolverBuilder().build();
 
-	@Nullable
-	private StringValueResolver embeddedValueResolver;
+	private @Nullable StringValueResolver embeddedValueResolver;
 
 	private RequestMappingInfo.BuilderConfiguration config = new RequestMappingInfo.BuilderConfiguration();
 
@@ -79,9 +92,9 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	/**
 	 * Configure path prefixes to apply to controller methods.
 	 * <p>Prefixes are used to enrich the mappings of every {@code @RequestMapping}
-	 * method whose controller type is matched by a corresponding
-	 * {@code Predicate} in the map. The prefix for the first matching predicate
-	 * is used, assuming the input map has predictable order.
+	 * method and {@code @HttpExchange} method whose controller type is matched
+	 * by a corresponding {@code Predicate} in the map. The prefix for the first
+	 * matching predicate is used, assuming the input map has predictable order.
 	 * <p>Consider using {@link org.springframework.web.method.HandlerTypePredicate
 	 * HandlerTypePredicate} to group controllers.
 	 * @param prefixes a map with path prefixes as key
@@ -129,6 +142,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		this.config = new RequestMappingInfo.BuilderConfiguration();
 		this.config.setPatternParser(getPathPatternParser());
 		this.config.setContentTypeResolver(getContentTypeResolver());
+		this.config.setApiVersionStrategy(getApiVersionStrategy());
 
 		super.afterPropertiesSet();
 	}
@@ -136,7 +150,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 
 	/**
 	 * {@inheritDoc}
-	 * Expects a handler to have a type-level @{@link Controller} annotation.
+	 * <p>Expects a handler to have a type-level @{@link Controller} annotation.
 	 */
 	@Override
 	protected boolean isHandler(Class<?> beanType) {
@@ -144,16 +158,26 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	}
 
 	/**
-	 * Uses method and type-level @{@link RequestMapping} annotations to create
-	 * the RequestMappingInfo.
-	 * @return the created RequestMappingInfo, or {@code null} if the method
-	 * does not have a {@code @RequestMapping} annotation.
+	 * Uses type-level and method-level {@link RequestMapping @RequestMapping}
+	 * and {@link HttpExchange @HttpExchange} annotations to create the
+	 * {@link RequestMappingInfo}.
+	 * <p>For CGLIB proxy classes, additional validation is performed based on
+	 * method visibility:
+	 * <ul>
+	 * <li>Private methods cannot be overridden and therefore cannot be used as
+	 * handler methods.</li>
+	 * <li>Package-private methods from different packages are inaccessible and
+	 * must be changed to public or protected.</li>
+	 * </ul>
+	 * @return the created {@code RequestMappingInfo}, or {@code null} if the method
+	 * does not have a {@code @RequestMapping} or {@code @HttpExchange} annotation
 	 * @see #getCustomMethodCondition(Method)
 	 * @see #getCustomTypeCondition(Class)
 	 */
 	@Override
-	@Nullable
-	protected RequestMappingInfo getMappingForMethod(Method method, Class<?> handlerType) {
+	protected @Nullable RequestMappingInfo getMappingForMethod(Method method, Class<?> handlerType) {
+		validateCglibProxyMethodVisibility(method, handlerType);
+
 		RequestMappingInfo info = createRequestMappingInfo(method);
 		if (info != null) {
 			RequestMappingInfo typeInfo = createRequestMappingInfo(handlerType);
@@ -169,6 +193,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 					if (this.embeddedValueResolver != null) {
 						prefix = this.embeddedValueResolver.resolveStringValue(prefix);
 					}
+					Assert.state(prefix != null, "Prefix must not be null");
 					info = RequestMappingInfo.paths(prefix).options(this.config).build().combine(info);
 					break;
 				}
@@ -177,27 +202,81 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		return info;
 	}
 
-	@Nullable
-	private RequestMappingInfo createRequestMappingInfo(AnnotatedElement element) {
+	/**
+	 * Validate the method visibility requirements specified in {@link #getMappingForMethod(Method, Class)}.
+	 * @since 7.0
+	 */
+	private static void validateCglibProxyMethodVisibility(Method method, Class<?> handlerType) {
+		if (handlerType.getName().contains(ClassUtils.CGLIB_CLASS_SEPARATOR)) {
+			int modifiers = method.getModifiers();
+
+			if (Modifier.isPrivate(modifiers)) {
+				throw new IllegalStateException("""
+						Private method [%s] on CGLIB proxy class [%s] cannot be used as a request \
+						handler method, because private methods cannot be overridden. \
+						Change the method to non-private visibility, or use interface-based JDK \
+						proxying instead.""".formatted(method.getName(), handlerType.getName()));
+			}
+
+			if (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers)) {
+				Class<?> declaringClass = method.getDeclaringClass();
+				String declaringPackage = declaringClass.getPackage().getName();
+				String handlerPackage = handlerType.getPackage().getName();
+
+				if (!Objects.equals(declaringPackage, handlerPackage)) {
+					throw new IllegalStateException("""
+							Package-private method [%s] declared in class [%s] cannot be advised by \
+							CGLIB-proxied handler class [%s], because it is effectively private. Either \
+							make the method public or protected, or use interface-based JDK proxying instead."""
+								.formatted(method.getName(), declaringClass.getName(), handlerType.getName()));
+				}
+			}
+		}
+	}
+
+	private @Nullable RequestMappingInfo createRequestMappingInfo(AnnotatedElement element) {
+
+		List<AnnotationDescriptor> descriptors =
+				MergedAnnotations.from(element, SearchStrategy.TYPE_HIERARCHY, RepeatableContainers.none()).stream()
+						.filter(MergedAnnotationPredicates.typeIn(RequestMapping.class, HttpExchange.class))
+						.filter(MergedAnnotationPredicates.firstRunOf(MergedAnnotation::getAggregateIndex))
+						.map(AnnotationDescriptor::new)
+						.distinct()
+						.toList();
+
+		RequestMappingInfo info = null;
 		RequestCondition<?> customCondition = (element instanceof Class<?> clazz ?
 				getCustomTypeCondition(clazz) : getCustomMethodCondition((Method) element));
 
-		RequestMapping requestMapping = AnnotatedElementUtils.findMergedAnnotation(element, RequestMapping.class);
-		if (requestMapping != null) {
-			return createRequestMappingInfo(requestMapping, customCondition);
+		List<AnnotationDescriptor> mappingDescriptors =
+				descriptors.stream().filter(desc -> desc.annotation instanceof RequestMapping).toList();
+
+		if (!mappingDescriptors.isEmpty()) {
+			checkMultipleAnnotations(element, mappingDescriptors);
+			info = createRequestMappingInfo((RequestMapping) mappingDescriptors.get(0).annotation, customCondition);
 		}
 
-		HttpExchange httpExchange = AnnotatedElementUtils.findMergedAnnotation(element, HttpExchange.class);
-		if (httpExchange != null) {
-			return createRequestMappingInfo(httpExchange, customCondition);
+		List<AnnotationDescriptor> exchangeDescriptors =
+				descriptors.stream().filter(desc -> desc.annotation instanceof HttpExchange).toList();
+
+		if (!exchangeDescriptors.isEmpty()) {
+			checkMultipleAnnotations(element, info, mappingDescriptors, exchangeDescriptors);
+			info = createRequestMappingInfo((HttpExchange) exchangeDescriptors.get(0).annotation, customCondition);
 		}
 
-		return null;
+		if (info != null && getApiVersionStrategy() instanceof DefaultApiVersionStrategy davs) {
+			String version = info.getVersionCondition().getVersion();
+			if (version != null) {
+				davs.addMappedVersion(version);
+			}
+		}
+
+		return info;
 	}
 
 	/**
 	 * Protected method to provide a custom type-level request condition.
-	 * The custom {@link RequestCondition} can be of any type so long as the
+	 * <p>The custom {@link RequestCondition} can be of any type so long as the
 	 * same condition type is returned from all calls to this method in order
 	 * to ensure custom request conditions can be combined and compared.
 	 * <p>Consider extending
@@ -209,14 +288,13 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 * @return the condition, or {@code null}
 	 */
 	@SuppressWarnings("UnusedParameters")
-	@Nullable
-	protected RequestCondition<?> getCustomTypeCondition(Class<?> handlerType) {
+	protected @Nullable RequestCondition<?> getCustomTypeCondition(Class<?> handlerType) {
 		return null;
 	}
 
 	/**
 	 * Protected method to provide a custom method-level request condition.
-	 * The custom {@link RequestCondition} can be of any type so long as the
+	 * <p>The custom {@link RequestCondition} can be of any type so long as the
 	 * same condition type is returned from all calls to this method in order
 	 * to ensure custom request conditions can be combined and compared.
 	 * <p>Consider extending
@@ -228,14 +306,35 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	 * @return the condition, or {@code null}
 	 */
 	@SuppressWarnings("UnusedParameters")
-	@Nullable
-	protected RequestCondition<?> getCustomMethodCondition(Method method) {
+	protected @Nullable RequestCondition<?> getCustomMethodCondition(Method method) {
 		return null;
+	}
+
+	private void checkMultipleAnnotations(
+			AnnotatedElement element, List<AnnotationDescriptor> mappingDescriptors) {
+
+		if (logger.isWarnEnabled() && mappingDescriptors.size() > 1) {
+			logger.warn("Multiple @RequestMapping annotations found on %s, but only the first will be used: %s"
+					.formatted(element, mappingDescriptors));
+		}
+	}
+
+	private static void checkMultipleAnnotations(
+			AnnotatedElement element, @Nullable RequestMappingInfo info,
+			List<AnnotationDescriptor> mappingDescriptors, List<AnnotationDescriptor> exchangeDescriptors) {
+
+		Assert.state(info == null,
+				() -> "%s is annotated with @RequestMapping and @HttpExchange annotations, but only one is allowed: %s"
+						.formatted(element, Stream.of(mappingDescriptors, exchangeDescriptors).flatMap(List::stream).toList()));
+
+		Assert.state(exchangeDescriptors.size() == 1,
+				() -> "Multiple @HttpExchange annotations found on %s, but only one is allowed: %s"
+						.formatted(element, exchangeDescriptors));
 	}
 
 	/**
 	 * Create a {@link RequestMappingInfo} from the supplied
-	 * {@link RequestMapping @RequestMapping} annotation, or meta-annotation,
+	 * {@link RequestMapping @RequestMapping} annotation, meta-annotation,
 	 * or synthesized result of merging annotation attributes within an
 	 * annotation hierarchy.
 	 */
@@ -249,6 +348,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 				.headers(requestMapping.headers())
 				.consumes(requestMapping.consumes())
 				.produces(requestMapping.produces())
+				.version(requestMapping.version())
 				.mappingName(requestMapping.name());
 
 		if (customCondition != null) {
@@ -260,7 +360,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 
 	/**
 	 * Create a {@link RequestMappingInfo} from the supplied
-	 * {@link HttpExchange @HttpExchange} annotation, or meta-annotation,
+	 * {@link HttpExchange @HttpExchange} annotation, meta-annotation,
 	 * or synthesized result of merging annotation attributes within an
 	 * annotation hierarchy.
 	 * @since 6.1
@@ -272,7 +372,8 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 				.paths(resolveEmbeddedValuesInPatterns(toStringArray(httpExchange.value())))
 				.methods(toMethodArray(httpExchange.method()))
 				.consumes(toStringArray(httpExchange.contentType()))
-				.produces(httpExchange.accept());
+				.produces(httpExchange.accept())
+				.headers(httpExchange.headers());
 
 		if (customCondition != null) {
 			builder.customCondition(customCondition);
@@ -292,7 +393,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		else {
 			String[] resolvedPatterns = new String[patterns.length];
 			for (int i = 0; i < patterns.length; i++) {
-				resolvedPatterns[i] = this.embeddedValueResolver.resolveStringValue(patterns[i]);
+				resolvedPatterns[i] = Objects.requireNonNull(this.embeddedValueResolver.resolveStringValue(patterns[i]));
 			}
 			return resolvedPatterns;
 		}
@@ -322,10 +423,11 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	private void updateConsumesCondition(RequestMappingInfo info, Method method) {
 		ConsumesRequestCondition condition = info.getConsumesCondition();
 		if (!condition.isEmpty()) {
-			for (Parameter parameter : method.getParameters()) {
-				MergedAnnotation<RequestBody> annot = MergedAnnotations.from(parameter).get(RequestBody.class);
-				if (annot.isPresent()) {
-					condition.setBodyRequired(annot.getBoolean("required"));
+			AnnotatedMethod annotatedMethod = new AnnotatedMethod(method);
+			for (MethodParameter parameter : annotatedMethod.getMethodParameters()) {
+				RequestBody requestBody = parameter.getParameterAnnotation(RequestBody.class);
+				if (requestBody != null) {
+					condition.setBodyRequired(requestBody.required());
 					break;
 				}
 			}
@@ -333,7 +435,7 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 	}
 
 	@Override
-	protected CorsConfiguration initCorsConfiguration(Object handler, Method method, RequestMappingInfo mappingInfo) {
+	protected @Nullable CorsConfiguration initCorsConfiguration(Object handler, Method method, RequestMappingInfo mappingInfo) {
 		HandlerMethod handlerMethod = createHandlerMethod(handler, method);
 		Class<?> beanType = handlerMethod.getBeanType();
 		CrossOrigin typeAnnotation = AnnotatedElementUtils.findMergedAnnotation(beanType, CrossOrigin.class);
@@ -387,6 +489,18 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 					"or an empty string (\"\"): current value is [" + allowCredentials + "]");
 		}
 
+		String allowPrivateNetwork = resolveCorsAnnotationValue(annotation.allowPrivateNetwork());
+		if ("true".equalsIgnoreCase(allowPrivateNetwork)) {
+			config.setAllowPrivateNetwork(true);
+		}
+		else if ("false".equalsIgnoreCase(allowPrivateNetwork)) {
+			config.setAllowPrivateNetwork(false);
+		}
+		else if (!allowPrivateNetwork.isEmpty()) {
+			throw new IllegalStateException("@CrossOrigin's allowPrivateNetwork value must be \"true\", \"false\", " +
+					"or an empty string (\"\"): current value is [" + allowPrivateNetwork + "]");
+		}
+
 		if (annotation.maxAge() >= 0) {
 			config.setMaxAge(annotation.maxAge());
 		}
@@ -400,6 +514,35 @@ public class RequestMappingHandlerMapping extends RequestMappingInfoHandlerMappi
 		else {
 			return value;
 		}
+	}
+
+
+	private static class AnnotationDescriptor {
+
+		private final Annotation annotation;
+
+		private final MergedAnnotation<?> root;
+
+		AnnotationDescriptor(MergedAnnotation<Annotation> annotation) {
+			this.annotation = annotation.synthesize();
+			this.root = annotation.getRoot();
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			return (obj instanceof AnnotationDescriptor that && this.annotation.equals(that.annotation));
+		}
+
+		@Override
+		public int hashCode() {
+			return this.annotation.hashCode();
+		}
+
+		@Override
+		public String toString() {
+			return this.root.synthesize().toString();
+		}
+
 	}
 
 }

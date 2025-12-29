@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ public abstract class ModelAndViewAssert {
 	 * @param expectedType expected type of the model value
 	 * @return the model value
 	 */
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({"unchecked", "NullAway"})
 	public static <T> T assertAndReturnModelAttributeOfType(ModelAndView mav, String modelName, Class<T> expectedType) {
 		Map<String, Object> model = mav.getModel();
 		Object obj = model.get(modelName);
@@ -109,6 +109,7 @@ public abstract class ModelAndViewAssert {
 	 * @param mav the ModelAndView to test against (never {@code null})
 	 * @param expectedModel the expected model
 	 */
+	@SuppressWarnings("NullAway") // Dataflow analysis limitation
 	public static void assertModelAttributeValues(ModelAndView mav, Map<String, Object> expectedModel) {
 		Map<String, Object> model = mav.getModel();
 

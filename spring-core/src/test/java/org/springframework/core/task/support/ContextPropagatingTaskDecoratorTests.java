@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,15 +52,15 @@ class ContextPropagatingTaskDecoratorTests {
 
 		private static final ThreadLocal<String> holder = new ThreadLocal<>();
 
-		public static void setValue(String value) {
+		static void setValue(String value) {
 			holder.set(value);
 		}
 
-		public static String getValue() {
+		static String getValue() {
 			return holder.get();
 		}
 
-		public static void reset() {
+		static void reset() {
 			holder.remove();
 		}
 
@@ -68,7 +68,7 @@ class ContextPropagatingTaskDecoratorTests {
 
 	static class TestThreadLocalAccessor implements ThreadLocalAccessor<String> {
 
-		public static final String KEY = "test.threadlocal";
+		static final String KEY = "test.threadlocal";
 
 		@Override
 		public Object key() {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@ package org.springframework.messaging.simp;
 
 import java.util.Map;
 
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
+
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageDeliveryException;
@@ -53,8 +54,7 @@ public class SimpMessagingTemplate extends AbstractMessageSendingTemplate<String
 
 	private volatile long sendTimeout = -1;
 
-	@Nullable
-	private MessageHeaderInitializer headerInitializer;
+	private @Nullable MessageHeaderInitializer headerInitializer;
 
 
 	/**
@@ -118,8 +118,7 @@ public class SimpMessagingTemplate extends AbstractMessageSendingTemplate<String
 	/**
 	 * Return the configured header initializer.
 	 */
-	@Nullable
-	public MessageHeaderInitializer getHeaderInitializer() {
+	public @Nullable MessageHeaderInitializer getHeaderInitializer() {
 		return this.headerInitializer;
 	}
 
@@ -130,8 +129,8 @@ public class SimpMessagingTemplate extends AbstractMessageSendingTemplate<String
 	 * SimpMessageHeaderAccessor#DESTINATION_HEADER} then the message is sent without
 	 * further changes.
 	 * <p>If a destination header is not already present ,the message is sent
-	 * to the configured {@link #setDefaultDestination(Object) defaultDestination}
-	 * or an exception an {@code IllegalStateException} is raised if that isn't
+	 * to the configured {@link AbstractMessageSendingTemplate#setDefaultDestination(Object)
+	 * defaultDestination} or an {@code IllegalStateException} is raised if that isn't
 	 * configured.
 	 * @param message the message to send (never {@code null})
 	 */
@@ -157,7 +156,7 @@ public class SimpMessagingTemplate extends AbstractMessageSendingTemplate<String
 			if (simpAccessor.isMutable()) {
 				simpAccessor.setDestination(destination);
 				simpAccessor.setMessageTypeIfNotSet(SimpMessageType.MESSAGE);
-				simpAccessor.setImmutable();
+				// ImmutableMessageChannelInterceptor will make it immutable
 				sendInternal(message);
 				return;
 			}

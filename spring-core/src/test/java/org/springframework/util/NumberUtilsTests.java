@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,8 +104,8 @@ class NumberUtilsTests {
 
 	@Test
 	void parseNumberAsHex() {
-		String aByte = "0x" + Integer.toHexString(Byte.valueOf(Byte.MAX_VALUE));
-		String aShort = "0x" + Integer.toHexString(Short.valueOf(Short.MAX_VALUE));
+		String aByte = "0x" + Integer.toHexString(Byte.MAX_VALUE);
+		String aShort = "0x" + Integer.toHexString(Short.MAX_VALUE);
 		String anInteger = "0x" + Integer.toHexString(Integer.MAX_VALUE);
 		String aLong = "0x" + Long.toHexString(Long.MAX_VALUE);
 		String aReallyBigInt = "FEBD4E677898DFEBFFEE44";
@@ -283,7 +283,7 @@ class NumberUtilsTests {
 		assertThat(NumberUtils.convertNumberToTargetClass((long) -1, Integer.class)).isEqualTo(Integer.valueOf(-1));
 		assertThat(NumberUtils.convertNumberToTargetClass(0L, Integer.class)).isEqualTo(Integer.valueOf(0));
 		assertThat(NumberUtils.convertNumberToTargetClass(1L, Integer.class)).isEqualTo(Integer.valueOf(1));
-		assertThat(NumberUtils.convertNumberToTargetClass(Long.valueOf(Integer.MAX_VALUE), Integer.class)).isEqualTo(Integer.valueOf(Integer.MAX_VALUE));
+		assertThat(NumberUtils.convertNumberToTargetClass((long) Integer.MAX_VALUE, Integer.class)).isEqualTo(Integer.valueOf(Integer.MAX_VALUE));
 		assertThat(NumberUtils.convertNumberToTargetClass((long) (Integer.MAX_VALUE + 1), Integer.class)).isEqualTo(Integer.valueOf(Integer.MIN_VALUE));
 		assertThat(NumberUtils.convertNumberToTargetClass((long) Integer.MIN_VALUE, Integer.class)).isEqualTo(Integer.valueOf(Integer.MIN_VALUE));
 		assertThat(NumberUtils.convertNumberToTargetClass((long) (Integer.MIN_VALUE - 1), Integer.class)).isEqualTo(Integer.valueOf(Integer.MAX_VALUE));

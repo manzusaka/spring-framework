@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,19 +57,10 @@ class SpringJUnitJupiterAutowiredConstructorInjectionTests {
 		}
 	}
 
-	@Nested
-	class JavaxInjectTests extends BaseClass {
-
-		@javax.inject.Inject
-		JavaxInjectTests(ApplicationContext context, Person dilbert, Dog dog, @Value("${enigma}") Integer enigma) {
-			super(context, dilbert, dog, enigma);
-		}
-	}
-
 
 	@SpringJUnitConfig(TestConfig.class)
 	@TestPropertySource(properties = "enigma = 42")
-	private static abstract class BaseClass {
+	private abstract static class BaseClass {
 
 		final ApplicationContext context;
 		final Person dilbert;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,16 +19,16 @@ package org.springframework.cache.interceptor;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 
+import org.jspecify.annotations.Nullable;
+
 import org.springframework.aop.ClassFilter;
 import org.springframework.aop.support.StaticMethodMatcherPointcut;
 import org.springframework.cache.CacheManager;
-import org.springframework.lang.Nullable;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 
 /**
  * A {@code Pointcut} that matches if the underlying {@link CacheOperationSource}
- * has an attribute for a given method.
+ * has an operation for a given method.
  *
  * @author Costin Leau
  * @author Juergen Hoeller
@@ -36,10 +36,9 @@ import org.springframework.util.ObjectUtils;
  * @since 3.1
  */
 @SuppressWarnings("serial")
-class CacheOperationSourcePointcut extends StaticMethodMatcherPointcut implements Serializable {
+final class CacheOperationSourcePointcut extends StaticMethodMatcherPointcut implements Serializable {
 
-	@Nullable
-	private CacheOperationSource cacheOperationSource;
+	private @Nullable CacheOperationSource cacheOperationSource;
 
 
 	public CacheOperationSourcePointcut() {
@@ -54,7 +53,7 @@ class CacheOperationSourcePointcut extends StaticMethodMatcherPointcut implement
 	@Override
 	public boolean matches(Method method, Class<?> targetClass) {
 		return (this.cacheOperationSource == null ||
-				!CollectionUtils.isEmpty(this.cacheOperationSource.getCacheOperations(method, targetClass)));
+				this.cacheOperationSource.hasCacheOperations(method, targetClass));
 	}
 
 	@Override
@@ -78,7 +77,7 @@ class CacheOperationSourcePointcut extends StaticMethodMatcherPointcut implement
 	 * {@link ClassFilter} that delegates to {@link CacheOperationSource#isCandidateClass}
 	 * for filtering classes whose methods are not worth searching to begin with.
 	 */
-	private class CacheOperationSourceClassFilter implements ClassFilter {
+	private final class CacheOperationSourceClassFilter implements ClassFilter {
 
 		@Override
 		public boolean matches(Class<?> clazz) {
@@ -88,14 +87,14 @@ class CacheOperationSourcePointcut extends StaticMethodMatcherPointcut implement
 			return (cacheOperationSource == null || cacheOperationSource.isCandidateClass(clazz));
 		}
 
-		private CacheOperationSource getCacheOperationSource() {
+		private @Nullable CacheOperationSource getCacheOperationSource() {
 			return cacheOperationSource;
 		}
 
 		@Override
 		public boolean equals(@Nullable Object other) {
 			return (this == other || (other instanceof CacheOperationSourceClassFilter that &&
-					ObjectUtils.nullSafeEquals(cacheOperationSource, that.getCacheOperationSource())));
+					ObjectUtils.nullSafeEquals(getCacheOperationSource(), that.getCacheOperationSource())));
 		}
 
 		@Override
@@ -105,9 +104,8 @@ class CacheOperationSourcePointcut extends StaticMethodMatcherPointcut implement
 
 		@Override
 		public String toString() {
-			return CacheOperationSourceClassFilter.class.getName() + ": " + cacheOperationSource;
+			return CacheOperationSourceClassFilter.class.getName() + ": " + getCacheOperationSource();
 		}
-
 	}
 
 }

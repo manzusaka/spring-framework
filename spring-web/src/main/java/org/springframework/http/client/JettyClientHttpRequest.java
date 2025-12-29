@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.http.client;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -28,10 +29,10 @@ import org.eclipse.jetty.client.InputStreamResponseListener;
 import org.eclipse.jetty.client.OutputStreamRequestContent;
 import org.eclipse.jetty.client.Request;
 import org.eclipse.jetty.client.Response;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.lang.Nullable;
 import org.springframework.util.StreamUtils;
 
 /**
@@ -43,6 +44,9 @@ import org.springframework.util.StreamUtils;
  * @see JettyClientHttpRequestFactory
  */
 class JettyClientHttpRequest extends AbstractStreamingClientHttpRequest {
+
+	private static final int CHUNK_SIZE = 1024;
+
 
 	private final Request request;
 
@@ -85,7 +89,8 @@ class JettyClientHttpRequest extends AbstractStreamingClientHttpRequest {
 				OutputStreamRequestContent requestContent = new OutputStreamRequestContent(contentType);
 				this.request.body(requestContent)
 						.send(responseListener);
-				try (OutputStream outputStream = requestContent.getOutputStream()) {
+				try (OutputStream outputStream =
+							new BufferedOutputStream(requestContent.getOutputStream(), CHUNK_SIZE)) {
 					body.writeTo(StreamUtils.nonClosing(outputStream));
 				}
 			}
@@ -112,7 +117,8 @@ class JettyClientHttpRequest extends AbstractStreamingClientHttpRequest {
 				throw ioEx;
 			}
 			else {
-				throw new IOException(cause.getMessage(), cause);
+				String message = (cause == null ? null : cause.getMessage());
+				throw (message == null ? new IOException(cause) : new IOException(message, cause));
 			}
 		}
 		catch (TimeoutException ex) {

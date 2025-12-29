@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
+import org.jspecify.annotations.Nullable;
 import org.reactivestreams.Publisher;
 import reactor.core.Scannable;
 import reactor.core.publisher.Flux;
@@ -30,6 +31,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.reactive.ClientHttpConnector;
@@ -37,7 +39,7 @@ import org.springframework.http.client.reactive.ClientHttpRequest;
 import org.springframework.http.client.reactive.ClientHttpRequestDecorator;
 import org.springframework.http.client.reactive.ClientHttpResponse;
 import org.springframework.http.client.reactive.ClientHttpResponseDecorator;
-import org.springframework.lang.Nullable;
+import org.springframework.test.json.JsonConverterDelegate;
 import org.springframework.util.Assert;
 
 /**
@@ -53,15 +55,19 @@ class WiretapConnector implements ClientHttpConnector {
 
 	private final ClientHttpConnector delegate;
 
+	private final @Nullable JsonConverterDelegate converterDelegate;
+
 	private final Map<String, ClientExchangeInfo> exchanges = new ConcurrentHashMap<>();
 
 
-	WiretapConnector(ClientHttpConnector delegate) {
+	WiretapConnector(ClientHttpConnector delegate, @Nullable JsonEncoderDecoder encoderDecoder) {
 		this.delegate = delegate;
+		this.converterDelegate = (encoderDecoder != null ? encoderDecoder.createJsonConverterDelegate() : null);
 	}
 
 
 	@Override
+	@SuppressWarnings("NullAway") // Dataflow analysis limitation
 	public Mono<ClientHttpResponse> connect(HttpMethod method, URI uri,
 			Function<? super ClientHttpRequest, Mono<Void>> requestCallback) {
 
@@ -73,7 +79,7 @@ class WiretapConnector implements ClientHttpConnector {
 					requestRef.set(wrapped);
 					return requestCallback.apply(wrapped);
 				})
-				.map(response ->  {
+				.map(response -> {
 					WiretapClientHttpRequest wrappedRequest = requestRef.get();
 					String header = WebTestClient.WEBTESTCLIENT_REQUEST_ID;
 					String requestId = wrappedRequest.getHeaders().getFirst(header);
@@ -95,7 +101,8 @@ class WiretapConnector implements ClientHttpConnector {
 				clientInfo.getRequest().getRecorder().getContent(),
 				clientInfo.getResponse().getRecorder().getContent(),
 				timeout, uriTemplate,
-				clientInfo.getResponse().getMockServerResult());
+				clientInfo.getResponse().getMockServerResult(),
+				this.converterDelegate);
 	}
 
 
@@ -126,13 +133,11 @@ class WiretapConnector implements ClientHttpConnector {
 	/**
 	 * Tap into a Publisher of data buffers to save the content.
 	 */
-	final static class WiretapRecorder {
+	static final class WiretapRecorder {
 
-		@Nullable
-		private final Flux<? extends DataBuffer> publisher;
+		private final @Nullable Flux<? extends DataBuffer> publisher;
 
-		@Nullable
-		private final Flux<? extends Publisher<? extends DataBuffer>> publisherNested;
+		private final @Nullable Flux<? extends Publisher<? extends DataBuffer>> publisherNested;
 
 		private final DataBuffer buffer = DefaultDataBufferFactory.sharedInstance.allocateBuffer(256);
 
@@ -181,6 +186,7 @@ class WiretapConnector implements ClientHttpConnector {
 			return this.publisherNested;
 		}
 
+		@SuppressWarnings("NullAway") // Dataflow analysis limitation
 		public Mono<byte[]> getContent() {
 			return Mono.defer(() -> {
 				if (this.content.scan(Scannable.Attr.TERMINATED) == Boolean.TRUE) {
@@ -188,14 +194,24 @@ class WiretapConnector implements ClientHttpConnector {
 				}
 				if (!this.hasContentConsumer) {
 					// Couple of possible cases:
-					//  1. Mock server never consumed request body (e.g. error before read)
+					//  1. Mock server never consumed request body (for example, error before read)
 					//  2. FluxExchangeResult: getResponseBodyContent called before getResponseBody
 					//noinspection ConstantConditions
-					(this.publisher != null ? this.publisher : this.publisherNested)
-							.onErrorMap(ex -> new IllegalStateException(
-									"Content has not been consumed, and " +
-											"an error was raised while attempting to produce it.", ex))
-							.subscribe();
+					if (this.publisher != null) {
+						this.publisher.doOnNext(DataBufferUtils::release)
+								.onErrorMap(ex -> new IllegalStateException(
+										"Content has not been consumed, and " +
+												"an error was raised while attempting to produce it.", ex))
+								.subscribe();
+					}
+					else if (this.publisherNested != null) {
+						this.publisherNested
+								.map(pub -> Flux.from(pub).doOnNext(DataBufferUtils::release))
+								.onErrorMap(ex -> new IllegalStateException(
+										"Content has not been consumed, and " +
+												"an error was raised while attempting to produce it.", ex))
+								.subscribe();
+					}
 				}
 				return this.content.asMono();
 			});
@@ -221,8 +237,7 @@ class WiretapConnector implements ClientHttpConnector {
 	 */
 	private static class WiretapClientHttpRequest extends ClientHttpRequestDecorator {
 
-		@Nullable
-		private WiretapRecorder recorder;
+		private @Nullable WiretapRecorder recorder;
 
 
 		public WiretapClientHttpRequest(ClientHttpRequest delegate) {
@@ -278,8 +293,7 @@ class WiretapConnector implements ClientHttpConnector {
 			return Flux.from(this.recorder.getPublisherToUse());
 		}
 
-		@Nullable
-		public Object getMockServerResult() {
+		public @Nullable Object getMockServerResult() {
 			return (getDelegate() instanceof MockServerClientHttpResponse mockResponse ?
 					mockResponse.getServerResult() : null);
 		}

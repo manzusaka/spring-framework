@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package org.springframework.http.converter.json;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -52,11 +52,14 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.cfg.DeserializerFactoryConfig;
+import com.fasterxml.jackson.databind.cfg.EnumFeature;
+import com.fasterxml.jackson.databind.cfg.JsonNodeFeature;
 import com.fasterxml.jackson.databind.cfg.SerializerFactoryConfig;
 import com.fasterxml.jackson.databind.deser.BasicDeserializerFactory;
 import com.fasterxml.jackson.databind.deser.Deserializers;
@@ -77,6 +80,7 @@ import com.fasterxml.jackson.dataformat.cbor.CBORFactory;
 import com.fasterxml.jackson.dataformat.smile.SmileFactory;
 import com.fasterxml.jackson.dataformat.xml.XmlFactory;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import kotlin.ranges.IntRange;
 import org.junit.jupiter.api.Test;
@@ -93,8 +97,9 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
  *
  * @author Sebastien Deleuze
  * @author Eddú Meléndez
+ * @author Hyoungjune Kim
  */
-@SuppressWarnings("deprecation")
+@SuppressWarnings({"deprecation", "removal"})
 class Jackson2ObjectMapperBuilderTests {
 
 	private static final String DATE_FORMAT = "yyyy-MM-dd";
@@ -276,21 +281,25 @@ class Jackson2ObjectMapperBuilderTests {
 	}
 
 	@Test
-	void wellKnownModules() throws JsonProcessingException, UnsupportedEncodingException {
+	void wellKnownModules() throws JsonProcessingException {
 		ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json().build();
 
 		Path file = Paths.get("foo");
-		assertThat(new String(objectMapper.writeValueAsBytes(file), "UTF-8")).endsWith("foo\"");
+		assertThat(new String(objectMapper.writeValueAsBytes(file), StandardCharsets.UTF_8))
+				.endsWith("foo\"");
 
 		Optional<String> optional = Optional.of("test");
-		assertThat(new String(objectMapper.writeValueAsBytes(optional), "UTF-8")).isEqualTo("\"test\"");
+		assertThat(new String(objectMapper.writeValueAsBytes(optional), StandardCharsets.UTF_8))
+				.isEqualTo("\"test\"");
 
 
-		assertThatCode(() -> objectMapper.readValue("{\"x\":1,\"y\":2}", ParameterModuleDto.class)).doesNotThrowAnyException();
+		assertThatCode(() -> objectMapper.readValue("{\"x\":1,\"y\":2}", ParameterModuleDto.class))
+				.doesNotThrowAnyException();
 
 		// Kotlin module
 		IntRange range = new IntRange(1, 3);
-		assertThat(new String(objectMapper.writeValueAsBytes(range), "UTF-8")).isEqualTo("{\"start\":1,\"end\":3}");
+		assertThat(new String(objectMapper.writeValueAsBytes(range), StandardCharsets.UTF_8))
+				.isEqualTo("{\"start\":1,\"end\":3}");
 	}
 
 	@Test  // gh-22576
@@ -300,7 +309,7 @@ class Jackson2ObjectMapperBuilderTests {
 		javaTimeModule.addDeserializer(OffsetDateTime.class, new OffsetDateTimeDeserializer());
 		builder.modulesToInstall(javaTimeModule);
 		builder.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-		ObjectMapper objectMapper =  builder.build();
+		ObjectMapper objectMapper = builder.build();
 		DemoPojo demoPojo = objectMapper.readValue(DATA, DemoPojo.class);
 		assertThat(demoPojo.getOffsetDateTime()).isNotNull();
 	}
@@ -367,7 +376,7 @@ class Jackson2ObjectMapperBuilderTests {
 
 	@Test
 	void propertyNamingStrategy() {
-		PropertyNamingStrategy strategy = new PropertyNamingStrategy.SnakeCaseStrategy();
+		PropertyNamingStrategy strategy = new PropertyNamingStrategies.SnakeCaseStrategy();
 		ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json().propertyNamingStrategy(strategy).build();
 		assertThat(objectMapper.getSerializationConfig().getPropertyNamingStrategy()).isSameAs(strategy);
 		assertThat(objectMapper.getDeserializationConfig().getPropertyNamingStrategy()).isSameAs(strategy);
@@ -478,10 +487,12 @@ class Jackson2ObjectMapperBuilderTests {
 				.annotationIntrospector(current -> AnnotationIntrospector.pair(current, introspector))
 				.featuresToEnable(SerializationFeature.FAIL_ON_EMPTY_BEANS,
 						DeserializationFeature.UNWRAP_ROOT_VALUE,
+						EnumFeature.WRITE_ENUMS_TO_LOWERCASE,
 						JsonParser.Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER,
 						JsonGenerator.Feature.WRITE_NUMBERS_AS_STRINGS)
 				.featuresToDisable(MapperFeature.AUTO_DETECT_GETTERS,
 						MapperFeature.AUTO_DETECT_FIELDS,
+						JsonNodeFeature.READ_NULL_PROPERTIES,
 						JsonParser.Feature.AUTO_CLOSE_SOURCE,
 						JsonGenerator.Feature.QUOTE_FIELD_NAMES)
 						.serializationInclusion(JsonInclude.Include.NON_NULL);
@@ -510,6 +521,7 @@ class Jackson2ObjectMapperBuilderTests {
 
 		assertThat(mapper.getSerializationConfig().isEnabled(SerializationFeature.FAIL_ON_EMPTY_BEANS)).isTrue();
 		assertThat(mapper.getDeserializationConfig().isEnabled(DeserializationFeature.UNWRAP_ROOT_VALUE)).isTrue();
+		assertThat(mapper.getSerializationConfig().isEnabled(EnumFeature.WRITE_ENUMS_TO_LOWERCASE)).isTrue();
 		assertThat(mapper.getFactory().isEnabled(JsonParser.Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER)).isTrue();
 		assertThat(mapper.getFactory().isEnabled(JsonGenerator.Feature.WRITE_NUMBERS_AS_STRINGS)).isTrue();
 
@@ -517,6 +529,7 @@ class Jackson2ObjectMapperBuilderTests {
 		assertThat(mapper.getDeserializationConfig().isEnabled(MapperFeature.DEFAULT_VIEW_INCLUSION)).isFalse();
 		assertThat(mapper.getDeserializationConfig().isEnabled(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)).isFalse();
 		assertThat(mapper.getDeserializationConfig().isEnabled(MapperFeature.AUTO_DETECT_FIELDS)).isFalse();
+		assertThat(mapper.getDeserializationConfig().isEnabled(JsonNodeFeature.READ_NULL_PROPERTIES)).isFalse();
 		assertThat(mapper.getFactory().isEnabled(JsonParser.Feature.AUTO_CLOSE_SOURCE)).isFalse();
 		assertThat(mapper.getFactory().isEnabled(JsonGenerator.Feature.QUOTE_FIELD_NAMES)).isFalse();
 		assertThat(mapper.getSerializationConfig().getSerializationInclusion()).isSameAs(JsonInclude.Include.NON_NULL);
@@ -579,6 +592,13 @@ class Jackson2ObjectMapperBuilderTests {
 	}
 
 	@Test
+	void yaml() {
+		ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.yaml().build();
+		assertThat(objectMapper).isNotNull();
+		assertThat(objectMapper.getFactory().getClass()).isEqualTo(YAMLFactory.class);
+	}
+
+	@Test
 	void visibility() throws JsonProcessingException {
 		ObjectMapper objectMapper = Jackson2ObjectMapperBuilder.json()
 				.visibility(PropertyAccessor.GETTER, Visibility.NONE)
@@ -596,7 +616,7 @@ class Jackson2ObjectMapperBuilderTests {
 
 		@Override
 		public String getModuleName() {
-			return this.getClass().getSimpleName();
+			return getClass().getSimpleName();
 		}
 
 		@Override
@@ -738,7 +758,7 @@ class Jackson2ObjectMapperBuilderTests {
 
 	static class FooSerializer extends JsonSerializer<Foo> {
 		@Override
-		public void serialize(Foo value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+		public void serialize(Foo value, JsonGenerator gen, SerializerProvider serializers) {
 		}
 
 		@Override
@@ -749,7 +769,7 @@ class Jackson2ObjectMapperBuilderTests {
 
 	static class BarSerializer extends JsonSerializer<Bar> {
 		@Override
-		public void serialize(Bar value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
+		public void serialize(Bar value, JsonGenerator gen, SerializerProvider serializers) {
 		}
 		@Override
 		public Class<Bar> handledType() {

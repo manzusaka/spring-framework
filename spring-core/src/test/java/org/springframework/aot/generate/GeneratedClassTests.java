@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,6 +95,14 @@ class GeneratedClassTests {
 	}
 
 	@Test
+	void generateJavaFileIsAnnotatedWithGenerated() {
+		GeneratedClass generatedClass = createGeneratedClass(TEST_CLASS_NAME);
+		assertThat(generatedClass.generateJavaFile().toString())
+				.contains("@Generated")
+				.contains("import " + Generated.class.getName() + ";");
+	}
+
+	@Test
 	void generateJavaFileIncludesGeneratedMethods() {
 		GeneratedClass generatedClass = createGeneratedClass(TEST_CLASS_NAME);
 		generatedClass.getMethods().add("test", method -> method.addJavadoc("Test Method"));
@@ -104,8 +112,8 @@ class GeneratedClassTests {
 	@Test
 	void generateJavaFileIncludesDeclaredClasses() {
 		GeneratedClass generatedClass = createGeneratedClass(TEST_CLASS_NAME);
-		generatedClass.getOrAdd("First", type -> type.modifiers.add(Modifier.STATIC));
-		generatedClass.getOrAdd("Second", type -> type.modifiers.add(Modifier.PRIVATE));
+		generatedClass.getOrAdd("First", type -> type.addModifiers(Modifier.STATIC));
+		generatedClass.getOrAdd("Second", type -> type.addModifiers(Modifier.PRIVATE));
 		assertThat(generatedClass.generateJavaFile().toString())
 				.contains("static class First").contains("private class Second");
 	}

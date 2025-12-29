@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,8 @@ package org.springframework.jdbc.core.metadata;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -27,13 +27,13 @@ import javax.sql.DataSource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.jdbc.core.SqlTypeValue;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.core.namedparam.SqlParameterSourceUtils;
 import org.springframework.jdbc.support.JdbcUtils;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -53,19 +53,13 @@ public class TableMetaDataContext {
 	protected final Log logger = LogFactory.getLog(getClass());
 
 	// Name of table for this context
-	@Nullable
-	private String tableName;
+	private @Nullable String tableName;
 
 	// Name of catalog for this context
-	@Nullable
-	private String catalogName;
+	private @Nullable String catalogName;
 
 	// Name of schema for this context
-	@Nullable
-	private String schemaName;
-
-	// List of columns objects to be used in this context
-	private List<String> tableColumns = new ArrayList<>();
+	private @Nullable String schemaName;
 
 	// Should we access insert parameter meta-data info or not
 	private boolean accessTableColumnMetaData = true;
@@ -73,15 +67,17 @@ public class TableMetaDataContext {
 	// Should we override default for including synonyms for meta-data lookups
 	private boolean overrideIncludeSynonymsDefault = false;
 
-	// Are we using generated key columns?
-	private boolean generatedKeyColumnsUsed = false;
-
 	// Are we quoting identifiers?
 	private boolean quoteIdentifiers = false;
 
 	// The provider of table meta-data
-	@Nullable
-	private TableMetaDataProvider metaDataProvider;
+	private @Nullable TableMetaDataProvider metaDataProvider;
+
+	// List of columns objects to be used in this context
+	private List<String> tableColumns = new ArrayList<>();
+
+	// Are we using generated key columns
+	private boolean generatedKeyColumnsUsed = false;
 
 
 	/**
@@ -94,8 +90,7 @@ public class TableMetaDataContext {
 	/**
 	 * Get the name of the table for this context.
 	 */
-	@Nullable
-	public String getTableName() {
+	public @Nullable String getTableName() {
 		return this.tableName;
 	}
 
@@ -109,8 +104,7 @@ public class TableMetaDataContext {
 	/**
 	 * Get the name of the catalog for this context.
 	 */
-	@Nullable
-	public String getCatalogName() {
+	public @Nullable String getCatalogName() {
 		return this.catalogName;
 	}
 
@@ -124,8 +118,7 @@ public class TableMetaDataContext {
 	/**
 	 * Get the name of the schema for this context.
 	 */
-	@Nullable
-	public String getSchemaName() {
+	public @Nullable String getSchemaName() {
 		return this.schemaName;
 	}
 
@@ -215,13 +208,13 @@ public class TableMetaDataContext {
 		if (!declaredColumns.isEmpty()) {
 			return new ArrayList<>(declaredColumns);
 		}
-		Set<String> keys = new LinkedHashSet<>(generatedKeyNames.length);
+		Set<String> keys = CollectionUtils.newLinkedHashSet(generatedKeyNames.length);
 		for (String key : generatedKeyNames) {
-			keys.add(key.toUpperCase());
+			keys.add(key.toUpperCase(Locale.ROOT));
 		}
 		List<String> columns = new ArrayList<>();
 		for (TableParameterMetaData meta : obtainMetaDataProvider().getTableParameterMetaData()) {
-			if (!keys.contains(meta.getParameterName().toUpperCase())) {
+			if (!keys.contains(meta.getParameterName().toUpperCase(Locale.ROOT))) {
 				columns.add(meta.getParameterName());
 			}
 		}
@@ -243,7 +236,7 @@ public class TableMetaDataContext {
 				values.add(SqlParameterSourceUtils.getTypedValue(parameterSource, column));
 			}
 			else {
-				String lowerCaseName = column.toLowerCase();
+				String lowerCaseName = column.toLowerCase(Locale.ROOT);
 				if (parameterSource.hasValue(lowerCaseName)) {
 					values.add(SqlParameterSourceUtils.getTypedValue(parameterSource, lowerCaseName));
 				}
@@ -276,7 +269,7 @@ public class TableMetaDataContext {
 		for (String column : this.tableColumns) {
 			Object value = inParameters.get(column);
 			if (value == null) {
-				value = inParameters.get(column.toLowerCase());
+				value = inParameters.get(column.toLowerCase(Locale.ROOT));
 				if (value == null) {
 					for (Map.Entry<String, ?> entry : inParameters.entrySet()) {
 						if (column.equalsIgnoreCase(entry.getKey())) {
@@ -296,57 +289,42 @@ public class TableMetaDataContext {
 	 * @return the insert string to be used
 	 */
 	public String createInsertString(String... generatedKeyNames) {
-		Set<String> keys = new LinkedHashSet<>(generatedKeyNames.length);
+		Set<String> keys = CollectionUtils.newLinkedHashSet(generatedKeyNames.length);
 		for (String key : generatedKeyNames) {
-			keys.add(key.toUpperCase());
+			keys.add(key.toUpperCase(Locale.ROOT));
 		}
 
 		String identifierQuoteString = (isQuoteIdentifiers() ?
 				obtainMetaDataProvider().getIdentifierQuoteString() : null);
-		boolean quoting = StringUtils.hasText(identifierQuoteString);
+		QuoteHandler quoteHandler = new QuoteHandler(identifierQuoteString);
 
 		StringBuilder insertStatement = new StringBuilder();
 		insertStatement.append("INSERT INTO ");
 
+		String catalogName = getCatalogName();
+		if (catalogName != null) {
+			quoteHandler.appendTo(insertStatement, catalogName);
+			insertStatement.append('.');
+		}
+
 		String schemaName = getSchemaName();
 		if (schemaName != null) {
-			if (quoting) {
-				insertStatement.append(identifierQuoteString);
-				insertStatement.append(this.metaDataProvider.schemaNameToUse(schemaName));
-				insertStatement.append(identifierQuoteString);
-			}
-			else {
-				insertStatement.append(schemaName);
-			}
+			quoteHandler.appendTo(insertStatement, schemaName);
 			insertStatement.append('.');
 		}
 
 		String tableName = getTableName();
-		if (quoting) {
-			insertStatement.append(identifierQuoteString);
-			insertStatement.append(this.metaDataProvider.tableNameToUse(tableName));
-			insertStatement.append(identifierQuoteString);
-		}
-		else {
-			insertStatement.append(tableName);
-		}
+		quoteHandler.appendTo(insertStatement, tableName);
 
 		insertStatement.append(" (");
 		int columnCount = 0;
 		for (String columnName : getTableColumns()) {
-			if (!keys.contains(columnName.toUpperCase())) {
+			if (!keys.contains(columnName.toUpperCase(Locale.ROOT))) {
 				columnCount++;
 				if (columnCount > 1) {
 					insertStatement.append(", ");
 				}
-				if (quoting) {
-					insertStatement.append(identifierQuoteString);
-					insertStatement.append(this.metaDataProvider.columnNameToUse(columnName));
-					insertStatement.append(identifierQuoteString);
-				}
-				else {
-					insertStatement.append(columnName);
-				}
+				quoteHandler.appendTo(insertStatement, columnName);
 			}
 		}
 		insertStatement.append(") VALUES(");
@@ -358,8 +336,8 @@ public class TableMetaDataContext {
 				}
 			}
 			else {
-				String message = "Unable to locate columns for table '" + tableName
-						+ "' so an insert statement can't be generated.";
+				String message = "Unable to locate columns for table '" + tableName +
+						"' so an insert statement can't be generated.";
 				if (isAccessTableColumnMetaData()) {
 					message += " Consider specifying explicit column names -- for example, via SimpleJdbcInsert#usingColumns().";
 				}
@@ -381,7 +359,7 @@ public class TableMetaDataContext {
 		List<TableParameterMetaData> parameters = obtainMetaDataProvider().getTableParameterMetaData();
 		Map<String, TableParameterMetaData> parameterMap = CollectionUtils.newLinkedHashMap(parameters.size());
 		for (TableParameterMetaData tpmd : parameters) {
-			parameterMap.put(tpmd.getParameterName().toUpperCase(), tpmd);
+			parameterMap.put(tpmd.getParameterName().toUpperCase(Locale.ROOT), tpmd);
 		}
 		int typeIndx = 0;
 		for (String column : getTableColumns()) {
@@ -389,7 +367,7 @@ public class TableMetaDataContext {
 				types[typeIndx] = SqlTypeValue.TYPE_UNKNOWN;
 			}
 			else {
-				TableParameterMetaData tpmd = parameterMap.get(column.toUpperCase());
+				TableParameterMetaData tpmd = parameterMap.get(column.toUpperCase(Locale.ROOT));
 				if (tpmd != null) {
 					types[typeIndx] = tpmd.getSqlType();
 				}
@@ -426,18 +404,39 @@ public class TableMetaDataContext {
 	 * retrieving generated keys is not supported.
 	 * @see #isGetGeneratedKeysSimulated()
 	 */
-	@Nullable
-	public String getSimpleQueryForGetGeneratedKey(String tableName, String keyColumnName) {
+	public @Nullable String getSimpleQueryForGetGeneratedKey(String tableName, String keyColumnName) {
 		return obtainMetaDataProvider().getSimpleQueryForGetGeneratedKey(tableName, keyColumnName);
 	}
 
 	/**
-	 * Does this database support a column name String array for retrieving generated
-	 * keys?
+	 * Does this database support a column name String array for retrieving generated keys?
 	 * @see java.sql.Connection#createStruct(String, Object[])
 	 */
 	public boolean isGeneratedKeysColumnNameArraySupported() {
 		return obtainMetaDataProvider().isGeneratedKeysColumnNameArraySupported();
+	}
+
+
+	private static final class QuoteHandler {
+
+		private final @Nullable String identifierQuoteString;
+
+		private final boolean quoting;
+
+		QuoteHandler(@Nullable String identifierQuoteString) {
+			this.identifierQuoteString = identifierQuoteString;
+			this.quoting = StringUtils.hasText(identifierQuoteString);
+		}
+
+		void appendTo(StringBuilder stringBuilder, @Nullable String item) {
+			if (this.quoting) {
+				stringBuilder.append(this.identifierQuoteString)
+						.append(item).append(this.identifierQuoteString);
+			}
+			else {
+				stringBuilder.append(item);
+			}
+		}
 	}
 
 }

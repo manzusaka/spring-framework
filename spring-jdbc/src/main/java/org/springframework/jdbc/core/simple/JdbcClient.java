@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,10 @@ import java.util.stream.Stream;
 
 import javax.sql.DataSource;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import org.springframework.core.convert.ConversionService;
 import org.springframework.dao.support.DataAccessUtils;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.jdbc.core.ResultSetExtractor;
@@ -35,7 +39,6 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
-import org.springframework.lang.Nullable;
 
 /**
  * A fluent {@code JdbcClient} with common JDBC query and update operations,
@@ -46,7 +49,7 @@ import org.springframework.lang.Nullable;
  * <pre class="code">
  * Optional&lt;Integer&gt; value = client.sql("SELECT AGE FROM CUSTOMER WHERE ID = :id")
  *     .param("id", 3)
- *     .query((rs, rowNum) -> rs.getInt(1))
+ *     .query(Integer.class)
  *     .optional();
  * </pre>
  *
@@ -106,7 +109,22 @@ public interface JdbcClient {
 	 * @param jdbcTemplate the delegate to perform operations on
 	 */
 	static JdbcClient create(NamedParameterJdbcOperations jdbcTemplate) {
-		return new DefaultJdbcClient(jdbcTemplate);
+		return new DefaultJdbcClient(jdbcTemplate, null);
+	}
+
+	/**
+	 * Create a {@code JdbcClient} for the given {@link NamedParameterJdbcOperations} delegate,
+	 * typically an {@link org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate}.
+	 * <p>Use this factory method to reuse existing {@code NamedParameterJdbcTemplate}
+	 * configuration, including its underlying {@code JdbcTemplate} and {@code DataSource},
+	 * along with a custom {@link ConversionService} for queries with mapped classes.
+	 * @param jdbcTemplate the delegate to perform operations on
+	 * @param conversionService a {@link ConversionService} for converting fetched JDBC values
+	 * to mapped classes in {@link StatementSpec#query(Class)}
+	 * @since 7.0
+	 */
+	static JdbcClient create(NamedParameterJdbcOperations jdbcTemplate, ConversionService conversionService) {
+		return new DefaultJdbcClient(jdbcTemplate, conversionService);
 	}
 
 
@@ -114,6 +132,30 @@ public interface JdbcClient {
 	 * A statement specification for parameter bindings and query/update execution.
 	 */
 	interface StatementSpec {
+
+		/**
+		 * Apply the given fetch size to any subsequent query statement.
+		 * @param fetchSize the fetch size
+		 * @since 7.0
+		 * @see org.springframework.jdbc.core.JdbcTemplate#setFetchSize
+		 */
+		StatementSpec withFetchSize(int fetchSize);
+
+		/**
+		 * Apply the given maximum number of rows to any subsequent query statement.
+		 * @param maxRows the maximum number of rows
+		 * @since 7.0
+		 * @see org.springframework.jdbc.core.JdbcTemplate#setMaxRows
+		 */
+		StatementSpec withMaxRows(int maxRows);
+
+		/**
+		 * Apply the given query timeout to any subsequent query statement.
+		 * @param queryTimeout the query timeout in seconds
+		 * @since 7.0
+		 * @see org.springframework.jdbc.core.JdbcTemplate#setQueryTimeout
+		 */
+		StatementSpec withQueryTimeout(int queryTimeout);
 
 		/**
 		 * Bind a positional JDBC statement parameter for "?" placeholder resolution
@@ -206,7 +248,7 @@ public interface JdbcClient {
 		 * <p>The given parameter object will define all named parameters
 		 * based on its JavaBean properties, record components, or raw fields.
 		 * A Map instance can be provided as a complete parameter source as well.
-		 * @param namedParamObject a custom parameter object (e.g. a JavaBean,
+		 * @param namedParamObject a custom parameter object (for example, a JavaBean,
 		 * record class, or field holder) with named properties serving as
 		 * statement parameters
 		 * @return this statement specification (for chaining)
@@ -245,7 +287,7 @@ public interface JdbcClient {
 		 * @see org.springframework.jdbc.core.SingleColumnRowMapper
 		 * @see org.springframework.jdbc.core.SimplePropertyRowMapper
 		 */
-		<T> MappedQuerySpec<T> query(Class<T> mappedClass);
+		<T> MappedQuerySpec<@Nullable T> query(Class<T> mappedClass);
 
 		/**
 		 * Proceed towards execution of a mapped query, with several options
@@ -254,7 +296,7 @@ public interface JdbcClient {
 		 * @return the mapped query specification
 		 * @see java.sql.PreparedStatement#executeQuery()
 		 */
-		<T> MappedQuerySpec<T> query(RowMapper<T> rowMapper);
+		<T extends @Nullable Object> MappedQuerySpec<T> query(RowMapper<T> rowMapper);
 
 		/**
 		 * Execute a query with the provided SQL statement,
@@ -271,7 +313,7 @@ public interface JdbcClient {
 		 * @return the value returned by the ResultSetExtractor
 		 * @see java.sql.PreparedStatement#executeQuery()
 		 */
-		<T> T query(ResultSetExtractor<T> rse);
+		<T extends @Nullable Object> T query(ResultSetExtractor<T> rse);
 
 		/**
 		 * Execute the provided SQL statement as an update.
@@ -282,12 +324,26 @@ public interface JdbcClient {
 
 		/**
 		 * Execute the provided SQL statement as an update.
+		 * <p>This method requires support for generated keys in the JDBC driver.
 		 * @param generatedKeyHolder a KeyHolder that will hold the generated keys
 		 * (typically a {@link org.springframework.jdbc.support.GeneratedKeyHolder})
 		 * @return the number of rows affected
 		 * @see java.sql.PreparedStatement#executeUpdate()
+		 * @see java.sql.DatabaseMetaData#supportsGetGeneratedKeys()
 		 */
 		int update(KeyHolder generatedKeyHolder);
+
+		/**
+		 * Execute the provided SQL statement as an update.
+		 * <p>This method requires support for generated keys in the JDBC driver.
+		 * @param generatedKeyHolder a KeyHolder that will hold the generated keys
+		 * (typically a {@link org.springframework.jdbc.support.GeneratedKeyHolder})
+		 * @param keyColumnNames names of the columns that will have keys generated for them
+		 * @return the number of rows affected
+		 * @see java.sql.PreparedStatement#executeUpdate()
+		 * @see java.sql.DatabaseMetaData#supportsGetGeneratedKeys()
+		 */
+		int update(KeyHolder generatedKeyHolder, String... keyColumnNames);
 	}
 
 
@@ -310,31 +366,44 @@ public interface JdbcClient {
 		 * with each result row represented as a map of
 		 * case-insensitive column names to column values
 		 */
-		List<Map<String, Object>> listOfRows();
+		List<Map<String, @Nullable Object>> listOfRows();
 
 		/**
 		 * Retrieve a single row result.
 		 * @return the result row represented as a map of
 		 * case-insensitive column names to column values
 		 */
-		Map<String, Object> singleRow();
+		Map<String, @Nullable Object> singleRow();
 
 		/**
 		 * Retrieve a single column result,
 		 * retaining the order from the original database result.
 		 * @return a (potentially empty) list of rows, with each
-		 * row represented as a column value of the given type
+		 * row represented as its single column value
 		 */
-		<T> List<T> singleColumn();
+		List<@Nullable Object> singleColumn();
 
 		/**
 		 * Retrieve a single value result.
-		 * @return the single row represented as its single
-		 * column value of the given type
+		 * <p>Note: As of 6.2, this will enforce non-null result values
+		 * as originally designed (just accidentally not enforced before).
+		 * (never {@code null})
+		 * @see #optionalValue()
 		 * @see DataAccessUtils#requiredSingleResult(Collection)
 		 */
-		default <T> T singleValue() {
+		default Object singleValue() {
 			return DataAccessUtils.requiredSingleResult(singleColumn());
+		}
+
+		/**
+		 * Retrieve a single value result, if available, as an {@link Optional} handle.
+		 * @return an Optional handle with the single column value from the single row
+		 * @since 6.2
+		 * @see #singleValue()
+		 * @see DataAccessUtils#optionalResult(Collection)
+		 */
+		default Optional<Object> optionalValue() {
+			return DataAccessUtils.optionalResult(singleColumn());
 		}
 	}
 
@@ -344,13 +413,13 @@ public interface JdbcClient {
 	 *
 	 * @param <T> the RowMapper-declared result type
 	 */
-	interface MappedQuerySpec<T> {
+	interface MappedQuerySpec<T extends @Nullable Object> {
 
 		/**
 		 * Retrieve the result as a lazily resolved stream of mapped objects,
 		 * retaining the order from the original database result.
 		 * @return the result Stream, containing mapped objects, needing to be
-		 * closed once fully processed (e.g. through a try-with-resources clause)
+		 * closed once fully processed (for example, through a try-with-resources clause)
 		 */
 		Stream<T> stream();
 
@@ -372,23 +441,25 @@ public interface JdbcClient {
 		}
 
 		/**
-		 * Retrieve a single result, if available, as an {@link Optional} handle.
-		 * @return an Optional handle with a single result object or none
-		 * @see #list()
-		 * @see DataAccessUtils#optionalResult(Collection)
+		 * Retrieve a single result as a required object instance.
+		 * <p>Note: As of 6.2, this will enforce non-null result values
+		 * as originally designed (just accidentally not enforced before).
+		 * @return the single result object (never {@code null})
+		 * @see #optional()
+		 * @see DataAccessUtils#requiredSingleResult(Collection)
 		 */
-		default Optional<T> optional() {
-			return DataAccessUtils.optionalResult(list());
+		default @NonNull T single() {
+			return DataAccessUtils.requiredSingleResult(list());
 		}
 
 		/**
-		 * Retrieve a single result as a required object instance.
-		 * @return the single result object (never {@code null})
-		 * @see #list()
-		 * @see DataAccessUtils#requiredSingleResult(Collection)
+		 * Retrieve a single result, if available, as an {@link Optional} handle.
+		 * @return an Optional handle with a single result object or none
+		 * @see #single()
+		 * @see DataAccessUtils#optionalResult(Collection)
 		 */
-		default T single() {
-			return DataAccessUtils.requiredSingleResult(list());
+		default Optional<@NonNull T> optional() {
+			return DataAccessUtils.optionalResult(list());
 		}
 	}
 

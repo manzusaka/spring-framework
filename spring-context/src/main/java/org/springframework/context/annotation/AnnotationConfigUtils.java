@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,12 @@
 package org.springframework.context.annotation;
 
 import java.lang.annotation.Annotation;
-import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
+import org.jspecify.annotations.Nullable;
+
+import org.springframework.aop.framework.autoproxy.AutoProxyUtils;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -32,10 +35,11 @@ import org.springframework.context.event.EventListenerMethodProcessor;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.annotation.AnnotationAttributes;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
+import org.springframework.core.annotation.MergedAnnotation;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.core.type.AnnotationMetadata;
-import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
+import org.springframework.util.CollectionUtils;
 
 /**
  * Utility class that allows for convenient registration of common
@@ -112,13 +116,10 @@ public abstract class AnnotationConfigUtils {
 
 	private static final ClassLoader classLoader = AnnotationConfigUtils.class.getClassLoader();
 
-	private static final boolean jakartaAnnotationsPresent =
+	private static final boolean JAKARTA_ANNOTATIONS_PRESENT =
 			ClassUtils.isPresent("jakarta.annotation.PostConstruct", classLoader);
 
-	private static final boolean jsr250Present =
-			ClassUtils.isPresent("javax.annotation.PostConstruct", classLoader);
-
-	private static final boolean jpaPresent =
+	private static final boolean JPA_PRESENT =
 			ClassUtils.isPresent("jakarta.persistence.EntityManagerFactory", classLoader) &&
 					ClassUtils.isPresent(PERSISTENCE_ANNOTATION_PROCESSOR_CLASS_NAME, classLoader);
 
@@ -152,7 +153,7 @@ public abstract class AnnotationConfigUtils {
 			}
 		}
 
-		Set<BeanDefinitionHolder> beanDefs = new LinkedHashSet<>(8);
+		Set<BeanDefinitionHolder> beanDefs = CollectionUtils.newLinkedHashSet(6);
 
 		if (!registry.containsBeanDefinition(CONFIGURATION_ANNOTATION_PROCESSOR_BEAN_NAME)) {
 			RootBeanDefinition def = new RootBeanDefinition(ConfigurationClassPostProcessor.class);
@@ -167,15 +168,14 @@ public abstract class AnnotationConfigUtils {
 		}
 
 		// Check for Jakarta Annotations support, and if present add the CommonAnnotationBeanPostProcessor.
-		if ((jakartaAnnotationsPresent || jsr250Present) &&
-				!registry.containsBeanDefinition(COMMON_ANNOTATION_PROCESSOR_BEAN_NAME)) {
+		if (JAKARTA_ANNOTATIONS_PRESENT && !registry.containsBeanDefinition(COMMON_ANNOTATION_PROCESSOR_BEAN_NAME)) {
 			RootBeanDefinition def = new RootBeanDefinition(CommonAnnotationBeanPostProcessor.class);
 			def.setSource(source);
 			beanDefs.add(registerPostProcessor(registry, def, COMMON_ANNOTATION_PROCESSOR_BEAN_NAME));
 		}
 
 		// Check for JPA support, and if present add the PersistenceAnnotationBeanPostProcessor.
-		if (jpaPresent && !registry.containsBeanDefinition(PERSISTENCE_ANNOTATION_PROCESSOR_BEAN_NAME)) {
+		if (JPA_PRESENT && !registry.containsBeanDefinition(PERSISTENCE_ANNOTATION_PROCESSOR_BEAN_NAME)) {
 			RootBeanDefinition def = new RootBeanDefinition();
 			try {
 				def.setBeanClass(ClassUtils.forName(PERSISTENCE_ANNOTATION_PROCESSOR_CLASS_NAME,
@@ -212,8 +212,7 @@ public abstract class AnnotationConfigUtils {
 		return new BeanDefinitionHolder(definition, beanName);
 	}
 
-	@Nullable
-	private static DefaultListableBeanFactory unwrapDefaultListableBeanFactory(BeanDefinitionRegistry registry) {
+	private static @Nullable DefaultListableBeanFactory unwrapDefaultListableBeanFactory(BeanDefinitionRegistry registry) {
 		if (registry instanceof DefaultListableBeanFactory dlbf) {
 			return dlbf;
 		}
@@ -244,6 +243,9 @@ public abstract class AnnotationConfigUtils {
 		if (metadata.isAnnotated(Primary.class.getName())) {
 			abd.setPrimary(true);
 		}
+		if (metadata.isAnnotated(Fallback.class.getName())) {
+			abd.setFallback(true);
+		}
 		AnnotationAttributes dependsOn = attributesFor(metadata, DependsOn.class);
 		if (dependsOn != null) {
 			abd.setDependsOn(dependsOn.getStringArray("value"));
@@ -256,6 +258,20 @@ public abstract class AnnotationConfigUtils {
 		AnnotationAttributes description = attributesFor(metadata, Description.class);
 		if (description != null) {
 			abd.setDescription(description.getString("value"));
+		}
+
+		AnnotationAttributes proxyable = attributesFor(metadata, Proxyable.class);
+		if (proxyable != null) {
+			ProxyType mode = proxyable.getEnum("value");
+			if (mode == ProxyType.TARGET_CLASS) {
+				abd.setAttribute(AutoProxyUtils.PRESERVE_TARGET_CLASS_ATTRIBUTE, Boolean.TRUE);
+			}
+			else {
+				Class<?>[] ifcs = proxyable.getClassArray("interfaces");
+				if (ifcs.length > 0 || mode == ProxyType.INTERFACES) {
+					abd.setAttribute(AutoProxyUtils.EXPOSED_INTERFACES_ATTRIBUTE, ifcs);
+				}
+			}
 		}
 	}
 
@@ -270,20 +286,19 @@ public abstract class AnnotationConfigUtils {
 		return ScopedProxyCreator.createScopedProxy(definition, registry, proxyTargetClass);
 	}
 
-	@Nullable
-	static AnnotationAttributes attributesFor(AnnotatedTypeMetadata metadata, Class<?> annotationType) {
+	static @Nullable AnnotationAttributes attributesFor(AnnotatedTypeMetadata metadata, Class<?> annotationType) {
 		return attributesFor(metadata, annotationType.getName());
 	}
 
-	@Nullable
-	static AnnotationAttributes attributesFor(AnnotatedTypeMetadata metadata, String annotationTypeName) {
+	static @Nullable AnnotationAttributes attributesFor(AnnotatedTypeMetadata metadata, String annotationTypeName) {
 		return AnnotationAttributes.fromMap(metadata.getAnnotationAttributes(annotationTypeName));
 	}
 
 	static Set<AnnotationAttributes> attributesForRepeatable(AnnotationMetadata metadata,
-			Class<? extends Annotation> annotationType, Class<? extends Annotation> containerType) {
+			Class<? extends Annotation> annotationType, Class<? extends Annotation> containerType,
+			Predicate<MergedAnnotation<? extends Annotation>> predicate) {
 
-		return metadata.getMergedRepeatableAnnotationAttributes(annotationType, containerType, false);
+		return metadata.getMergedRepeatableAnnotationAttributes(annotationType, containerType, predicate, false, false);
 	}
 
 	static Set<AnnotationAttributes> attributesForRepeatable(AnnotationMetadata metadata,

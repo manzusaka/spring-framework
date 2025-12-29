@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,16 +20,17 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.jspecify.annotations.Nullable;
+
 import org.springframework.expression.EvaluationException;
 import org.springframework.expression.TypedValue;
 import org.springframework.expression.spel.ExpressionState;
 import org.springframework.expression.spel.SpelNode;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
 /**
- * Represent a map in an expression, e.g. '{name:'foo',age:12}'
+ * Represent a map in an expression, for example, '{name:'foo',age:12}'.
  *
  * @author Andy Clement
  * @author Sam Brannen
@@ -39,8 +40,7 @@ import org.springframework.util.Assert;
  */
 public class InlineMap extends SpelNodeImpl {
 
-	@Nullable
-	private final TypedValue constant;
+	private final @Nullable TypedValue constant;
 
 
 	public InlineMap(int startPos, int endPos, SpelNodeImpl... args) {
@@ -55,8 +55,7 @@ public class InlineMap extends SpelNodeImpl {
 	 * <p>This will speed up later getValue calls and reduce the amount of garbage
 	 * created.
 	 */
-	@Nullable
-	private TypedValue computeConstantValue() {
+	private @Nullable TypedValue computeConstantValue() {
 		for (int c = 0, max = getChildCount(); c < max; c++) {
 			SpelNode child = getChild(c);
 			if (!(child instanceof Literal)) {
@@ -134,7 +133,7 @@ public class InlineMap extends SpelNodeImpl {
 					key = keyChild.getValue(expressionState);
 				}
 				Object value = getChild(c).getValue(expressionState);
-				returnValue.put(key,  value);
+				returnValue.put(key, value);
 			}
 			return new TypedValue(returnValue);
 		}
@@ -143,8 +142,7 @@ public class InlineMap extends SpelNodeImpl {
 	@Override
 	public String toStringAST() {
 		StringBuilder sb = new StringBuilder("{");
-		int count = getChildCount();
-		for (int c = 0; c < count; c++) {
+		for (int c = 0; c < getChildCount(); c++) {
 			if (c > 0) {
 				sb.append(',');
 			}
@@ -164,8 +162,7 @@ public class InlineMap extends SpelNodeImpl {
 	}
 
 	@SuppressWarnings("unchecked")
-	@Nullable
-	public Map<Object, Object> getConstantValue() {
+	public @Nullable Map<Object, Object> getConstantValue() {
 		Assert.state(this.constant != null, "No constant");
 		return (Map<Object, Object>) this.constant.getValue();
 	}

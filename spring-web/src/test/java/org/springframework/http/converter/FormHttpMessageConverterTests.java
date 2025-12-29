@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.StreamingHttpOutputMessage;
 import org.springframework.http.converter.support.AllEncompassingFormHttpMessageConverter;
 import org.springframework.http.converter.xml.SourceHttpMessageConverter;
 import org.springframework.util.LinkedMultiValueMap;
@@ -47,7 +48,9 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.testfixture.http.MockHttpInputMessage;
 import org.springframework.web.testfixture.http.MockHttpOutputMessage;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.MULTIPART_FORM_DATA;
@@ -56,7 +59,7 @@ import static org.springframework.http.MediaType.MULTIPART_RELATED;
 import static org.springframework.http.MediaType.TEXT_XML;
 
 /**
- * Unit tests for {@link FormHttpMessageConverter} and
+ * Tests for {@link FormHttpMessageConverter} and
  * {@link AllEncompassingFormHttpMessageConverter}.
  *
  * @author Arjen Poutsma
@@ -64,13 +67,13 @@ import static org.springframework.http.MediaType.TEXT_XML;
  * @author Sam Brannen
  * @author Sebastien Deleuze
  */
-public class FormHttpMessageConverterTests {
+class FormHttpMessageConverterTests {
 
 	private final FormHttpMessageConverter converter = new AllEncompassingFormHttpMessageConverter();
 
 
 	@Test
-	public void canRead() {
+	void canRead() {
 		assertCanRead(MultiValueMap.class, null);
 		assertCanRead(APPLICATION_FORM_URLENCODED);
 
@@ -79,7 +82,7 @@ public class FormHttpMessageConverterTests {
 	}
 
 	@Test
-	public void cannotReadMultipart() {
+	void cannotReadMultipart() {
 		// Without custom multipart types supported
 		asssertCannotReadMultipart();
 
@@ -88,18 +91,18 @@ public class FormHttpMessageConverterTests {
 	}
 
 	@Test
-	public void canWrite() {
+	void canWrite() {
 		assertCanWrite(APPLICATION_FORM_URLENCODED);
 		assertCanWrite(MULTIPART_FORM_DATA);
 		assertCanWrite(MULTIPART_MIXED);
 		assertCanWrite(MULTIPART_RELATED);
-		assertCanWrite(new MediaType("multipart", "form-data", StandardCharsets.UTF_8));
+		assertCanWrite(new MediaType("multipart", "form-data", UTF_8));
 		assertCanWrite(MediaType.ALL);
 		assertCanWrite(null);
 	}
 
 	@Test
-	public void setSupportedMediaTypes() {
+	void setSupportedMediaTypes() {
 		this.converter.setSupportedMediaTypes(List.of(MULTIPART_FORM_DATA));
 		assertCannotWrite(MULTIPART_MIXED);
 
@@ -108,7 +111,7 @@ public class FormHttpMessageConverterTests {
 	}
 
 	@Test
-	public void addSupportedMediaTypes() {
+	void addSupportedMediaTypes() {
 		this.converter.setSupportedMediaTypes(List.of(MULTIPART_FORM_DATA));
 		assertCannotWrite(MULTIPART_MIXED);
 
@@ -117,7 +120,7 @@ public class FormHttpMessageConverterTests {
 	}
 
 	@Test
-	public void readForm() throws Exception {
+	void readForm() throws Exception {
 		String body = "name+1=value+1&name+2=value+2%2B1&name+2=value+2%2B2&name+3";
 		MockHttpInputMessage inputMessage = new MockHttpInputMessage(body.getBytes(StandardCharsets.ISO_8859_1));
 		inputMessage.getHeaders().setContentType(
@@ -127,14 +130,33 @@ public class FormHttpMessageConverterTests {
 		assertThat(result).as("Invalid result").hasSize(3);
 		assertThat(result.getFirst("name 1")).as("Invalid result").isEqualTo("value 1");
 		List<String> values = result.get("name 2");
-		assertThat(values).as("Invalid result").hasSize(2);
-		assertThat(values.get(0)).as("Invalid result").isEqualTo("value 2+1");
-		assertThat(values.get(1)).as("Invalid result").isEqualTo("value 2+2");
+		assertThat(values).as("Invalid result").containsExactly("value 2+1", "value 2+2");
 		assertThat(result.getFirst("name 3")).as("Invalid result").isNull();
 	}
 
 	@Test
-	public void writeForm() throws IOException {
+	void readInvalidFormWithValueThatWontUrlDecode() {
+		//java.net.URLDecoder doesn't like negative integer values after a % character
+		String body = "name+1=value+1&name+2=value+2%" + ((char)-1);
+		assertInvalidFormIsRejectedWithSpecificException(body);
+	}
+
+	@Test
+	void readInvalidFormWithNameThatWontUrlDecode() {
+		//java.net.URLDecoder doesn't like negative integer values after a % character
+		String body = "name+1=value+1&name+2%" + ((char)-1) + "=value+2";
+		assertInvalidFormIsRejectedWithSpecificException(body);
+	}
+
+	@Test
+	void readInvalidFormWithNameWithNoValueThatWontUrlDecode() {
+		//java.net.URLDecoder doesn't like negative integer values after a % character
+		String body = "name+1=value+1&name+2%" + ((char)-1);
+		assertInvalidFormIsRejectedWithSpecificException(body);
+	}
+
+	@Test
+	void writeForm() throws IOException {
 		MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
 		body.set("name 1", "value 1");
 		body.add("name 2", "value 2+1");
@@ -143,16 +165,16 @@ public class FormHttpMessageConverterTests {
 		MockHttpOutputMessage outputMessage = new MockHttpOutputMessage();
 		this.converter.write(body, APPLICATION_FORM_URLENCODED, outputMessage);
 
-		assertThat(outputMessage.getBodyAsString(StandardCharsets.UTF_8))
+		assertThat(outputMessage.getBodyAsString(UTF_8))
 				.as("Invalid result").isEqualTo("name+1=value+1&name+2=value+2%2B1&name+2=value+2%2B2&name+3");
-		assertThat(outputMessage.getHeaders().getContentType().toString())
-				.as("Invalid content-type").isEqualTo("application/x-www-form-urlencoded;charset=UTF-8");
+		assertThat(outputMessage.getHeaders().getContentType())
+				.as("Invalid content-type").isEqualTo(APPLICATION_FORM_URLENCODED);
 		assertThat(outputMessage.getHeaders().getContentLength())
 				.as("Invalid content-length").isEqualTo(outputMessage.getBodyAsBytes().length);
 	}
 
 	@Test
-	public void writeMultipart() throws Exception {
+	void writeMultipart() throws Exception {
 
 		MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
 		parts.add("name 1", "value 1");
@@ -180,10 +202,10 @@ public class FormHttpMessageConverterTests {
 		parts.add("json", entity);
 
 		Map<String, String> parameters = new LinkedHashMap<>(2);
-		parameters.put("charset", StandardCharsets.UTF_8.name());
+		parameters.put("charset", UTF_8.name());
 		parameters.put("foo", "bar");
 
-		MockHttpOutputMessage outputMessage = new MockHttpOutputMessage();
+		StreamingMockHttpOutputMessage outputMessage = new StreamingMockHttpOutputMessage();
 		this.converter.write(parts, new MediaType("multipart", "form-data", parameters), outputMessage);
 
 		final MediaType contentType = outputMessage.getHeaders().getContentType();
@@ -227,10 +249,12 @@ public class FormHttpMessageConverterTests {
 		item = items.get(5);
 		assertThat(item.getFieldName()).isEqualTo("json");
 		assertThat(item.getContentType()).isEqualTo("application/json");
+
+		assertThat(outputMessage.wasRepeatable()).isTrue();
 	}
 
 	@Test
-	public void writeMultipartWithSourceHttpMessageConverter() throws Exception {
+	void writeMultipartWithSourceHttpMessageConverter() throws Exception {
 
 		converter.setPartConverters(List.of(
 				new StringHttpMessageConverter(),
@@ -262,10 +286,10 @@ public class FormHttpMessageConverterTests {
 		parts.add("xml", entity);
 
 		Map<String, String> parameters = new LinkedHashMap<>(2);
-		parameters.put("charset", StandardCharsets.UTF_8.name());
+		parameters.put("charset", UTF_8.name());
 		parameters.put("foo", "bar");
 
-		MockHttpOutputMessage outputMessage = new MockHttpOutputMessage();
+		StreamingMockHttpOutputMessage outputMessage = new StreamingMockHttpOutputMessage();
 		this.converter.write(parts, new MediaType("multipart", "form-data", parameters), outputMessage);
 
 		final MediaType contentType = outputMessage.getHeaders().getContentType();
@@ -309,6 +333,8 @@ public class FormHttpMessageConverterTests {
 		item = items.get(5);
 		assertThat(item.getFieldName()).isEqualTo("xml");
 		assertThat(item.getContentType()).isEqualTo("text/xml");
+
+		assertThat(outputMessage.wasRepeatable()).isFalse();
 	}
 
 	@Test  // SPR-13309
@@ -325,8 +351,8 @@ public class FormHttpMessageConverterTests {
 		parts.add("part2", entity);
 
 		MockHttpOutputMessage outputMessage = new MockHttpOutputMessage();
-		this.converter.setMultipartCharset(StandardCharsets.UTF_8);
-		this.converter.write(parts, new MediaType("multipart", "form-data", StandardCharsets.UTF_8), outputMessage);
+		this.converter.setMultipartCharset(UTF_8);
+		this.converter.write(parts, new MediaType("multipart", "form-data", UTF_8), outputMessage);
 
 		final MediaType contentType = outputMessage.getHeaders().getContentType();
 		assertThat(contentType.getParameter("boundary")).as("No boundary found").isNotNull();
@@ -356,7 +382,7 @@ public class FormHttpMessageConverterTests {
 	}
 
 	@Test
-	public void writeMultipartCharset() throws Exception {
+	void writeMultipartCharset() throws Exception {
 		MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
 		Resource logo = new ClassPathResource("/org/springframework/http/converter/logo.jpg");
 		parts.add("logo", logo);
@@ -411,6 +437,38 @@ public class FormHttpMessageConverterTests {
 		assertThat(this.converter.canWrite(clazz, mediaType)).as(clazz.getSimpleName() + " : " + mediaType).isFalse();
 	}
 
+	private void assertInvalidFormIsRejectedWithSpecificException(String body) {
+		MockHttpInputMessage inputMessage = new MockHttpInputMessage(body.getBytes(StandardCharsets.ISO_8859_1));
+		inputMessage.getHeaders().setContentType(
+				new MediaType("application", "x-www-form-urlencoded", StandardCharsets.ISO_8859_1));
+
+		assertThatThrownBy(() -> this.converter.read(null, inputMessage))
+				.isInstanceOf(HttpMessageNotReadableException.class)
+				.hasCauseInstanceOf(IllegalArgumentException.class)
+				.hasMessage("Could not decode HTTP form payload");
+	}
+
+
+	private static class StreamingMockHttpOutputMessage extends MockHttpOutputMessage implements StreamingHttpOutputMessage {
+
+		private boolean repeatable;
+
+		public boolean wasRepeatable() {
+			return this.repeatable;
+		}
+
+		@Override
+		public void setBody(Body body) {
+			try {
+				this.repeatable = body.repeatable();
+				body.writeTo(getBody());
+			}
+			catch (IOException ex) {
+				throw new RuntimeException(ex);
+			}
+		}
+	}
+
 
 	private static class MockHttpOutputMessageRequestContext implements UploadContext {
 
@@ -436,7 +494,7 @@ public class FormHttpMessageConverterTests {
 		}
 
 		@Override
-		public InputStream getInputStream() throws IOException {
+		public InputStream getInputStream() {
 			return new ByteArrayInputStream(body);
 		}
 

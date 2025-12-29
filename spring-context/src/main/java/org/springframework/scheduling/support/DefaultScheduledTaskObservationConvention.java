@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,8 @@ package org.springframework.scheduling.support;
 import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
 
+import org.springframework.scheduling.support.ScheduledTaskObservationDocumentation.LowCardinalityKeyNames;
 import org.springframework.util.StringUtils;
-
-import static org.springframework.scheduling.support.ScheduledTaskObservationDocumentation.LowCardinalityKeyNames;
 
 /**
  * Default implementation for {@link ScheduledTaskObservationConvention}.
@@ -40,6 +39,8 @@ public class DefaultScheduledTaskObservationConvention implements ScheduledTaskO
 
 	private static final KeyValue OUTCOME_UNKNOWN = KeyValue.of(LowCardinalityKeyNames.OUTCOME, "UNKNOWN");
 
+	private static final KeyValue CODE_NAMESPACE_ANONYMOUS = KeyValue.of(LowCardinalityKeyNames.CODE_NAMESPACE, "ANONYMOUS");
+
 	@Override
 	public String getName() {
 		return DEFAULT_NAME;
@@ -47,8 +48,8 @@ public class DefaultScheduledTaskObservationConvention implements ScheduledTaskO
 
 	@Override
 	public String getContextualName(ScheduledTaskObservationContext context) {
-		return "task " + StringUtils.uncapitalize(context.getTargetClass().getSimpleName())
-				+ "." + context.getMethod().getName();
+		return "task " + StringUtils.uncapitalize(context.getTargetClass().getSimpleName()) +
+				"." + context.getMethod().getName();
 	}
 
 	@Override
@@ -61,7 +62,10 @@ public class DefaultScheduledTaskObservationConvention implements ScheduledTaskO
 	}
 
 	protected KeyValue codeNamespace(ScheduledTaskObservationContext context) {
-		return KeyValue.of(LowCardinalityKeyNames.CODE_NAMESPACE, context.getTargetClass().getCanonicalName());
+		if (context.getTargetClass().getCanonicalName() != null) {
+			return KeyValue.of(LowCardinalityKeyNames.CODE_NAMESPACE, context.getTargetClass().getCanonicalName());
+		}
+		return CODE_NAMESPACE_ANONYMOUS;
 	}
 
 	protected KeyValue exception(ScheduledTaskObservationContext context) {

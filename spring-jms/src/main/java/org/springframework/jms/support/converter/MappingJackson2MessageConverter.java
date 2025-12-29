@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,10 +35,10 @@ import jakarta.jms.JMSException;
 import jakarta.jms.Message;
 import jakarta.jms.Session;
 import jakarta.jms.TextMessage;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.core.MethodParameter;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 
@@ -60,7 +60,9 @@ import org.springframework.util.ClassUtils;
  * @author Juergen Hoeller
  * @author Stephane Nicoll
  * @since 3.1.4
+ * @deprecated since 7.0 in favor of {@link JacksonJsonMessageConverter}
  */
+@Deprecated(since = "7.0", forRemoval = true)
 public class MappingJackson2MessageConverter implements SmartMessageConverter, BeanClassLoaderAware {
 
 	/**
@@ -73,21 +75,17 @@ public class MappingJackson2MessageConverter implements SmartMessageConverter, B
 
 	private MessageType targetType = MessageType.BYTES;
 
-	@Nullable
-	private String encoding;
+	private @Nullable String encoding;
 
-	@Nullable
-	private String encodingPropertyName;
+	private @Nullable String encodingPropertyName;
 
-	@Nullable
-	private String typeIdPropertyName;
+	private @Nullable String typeIdPropertyName;
 
 	private Map<String, Class<?>> idClassMappings = new HashMap<>();
 
 	private final Map<Class<?>, String> classIdMappings = new HashMap<>();
 
-	@Nullable
-	private ClassLoader beanClassLoader;
+	private @Nullable ClassLoader beanClassLoader;
 
 
 	/**
@@ -304,7 +302,7 @@ public class MappingJackson2MessageConverter implements SmartMessageConverter, B
 			objectWriter.writeValue(writer, object);
 		}
 		else {
-			// Jackson usually defaults to UTF-8 but can also go straight to bytes, e.g. for Smile.
+			// Jackson usually defaults to UTF-8 but can also go straight to bytes, for example, for Smile.
 			// We use a direct byte array argument for the latter case to work as well.
 			objectWriter.writeValue(bos, object);
 		}
@@ -445,7 +443,7 @@ public class MappingJackson2MessageConverter implements SmartMessageConverter, B
 	 * typically parsing a type id message property.
 	 * <p>The default implementation parses the configured type id property name
 	 * and consults the configured type id mapping. This can be overridden with
-	 * a different strategy, e.g. doing some heuristics based on message origin.
+	 * a different strategy, for example, doing some heuristics based on message origin.
 	 * @param message the JMS Message from which to get the type id property
 	 * @throws JMSException if thrown by JMS methods
 	 * @see #setTypeIdOnMessage(Object, jakarta.jms.Message)
@@ -478,8 +476,7 @@ public class MappingJackson2MessageConverter implements SmartMessageConverter, B
 	 * converter for the current conversion attempt
 	 * @return the serialization view class, or {@code null} if none
 	 */
-	@Nullable
-	protected Class<?> getSerializationView(@Nullable Object conversionHint) {
+	protected @Nullable Class<?> getSerializationView(@Nullable Object conversionHint) {
 		if (conversionHint instanceof MethodParameter methodParam) {
 			JsonView annotation = methodParam.getParameterAnnotation(JsonView.class);
 			if (annotation == null) {

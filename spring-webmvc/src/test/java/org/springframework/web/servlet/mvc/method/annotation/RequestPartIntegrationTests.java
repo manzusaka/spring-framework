@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import jakarta.servlet.MultipartConfigElement;
-import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
-import org.eclipse.jetty.ee10.servlet.ServletHolder;
+import org.eclipse.jetty.ee11.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee11.servlet.ServletHolder;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.NetworkConnector;
 import org.eclipse.jetty.server.Server;
@@ -50,7 +50,7 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.ResourceHttpMessageConverter;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.http.converter.support.AllEncompassingFormHttpMessageConverter;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.FileSystemUtils;
@@ -133,7 +133,7 @@ class RequestPartIntegrationTests {
 		converters.add(emptyBodyConverter);
 		converters.add(new ByteArrayHttpMessageConverter());
 		converters.add(new ResourceHttpMessageConverter());
-		converters.add(new MappingJackson2HttpMessageConverter());
+		converters.add(new JacksonJsonHttpMessageConverter());
 
 		AllEncompassingFormHttpMessageConverter converter = new AllEncompassingFormHttpMessageConverter();
 		converter.setPartConverters(converters);
@@ -144,13 +144,13 @@ class RequestPartIntegrationTests {
 
 
 	@Test
-	void standardMultipartResolver() throws Exception {
+	void standardMultipartResolver() {
 		testCreate(baseUrl + "/standard-resolver/test", "Jason");
 		testCreate(baseUrl + "/standard-resolver/test", "Arjen");
 	}
 
 	@Test  // SPR-13319
-	void standardMultipartResolverWithEncodedFileName() throws Exception {
+	void standardMultipartResolverWithEncodedFileName() {
 		String boundaryText = MimeTypeUtils.generateMultipartBoundaryString();
 		Map<String, String> params = Collections.singletonMap("boundary", boundaryText);
 
@@ -245,7 +245,6 @@ class RequestPartIntegrationTests {
 		private String name;
 
 		public TestData() {
-			super();
 		}
 
 		public TestData(String name) {

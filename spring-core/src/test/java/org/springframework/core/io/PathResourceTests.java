@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 /**
- * Unit tests for the {@link PathResource} class.
+ * Tests for {@link PathResource}.
  *
  * @author Philippe Marschall
  * @author Phillip Webb
@@ -50,6 +50,7 @@ import static org.mockito.Mockito.mock;
  * @author Juergen Hoeller
  * @author Arjen Poutsma
  */
+@SuppressWarnings("removal")
 class PathResourceTests {
 
 	private static final String TEST_DIR =
@@ -161,13 +162,13 @@ class PathResourceTests {
 	}
 
 	@Test
-	void getInputStreamForDir() throws IOException {
+	void getInputStreamForDir() {
 		PathResource resource = new PathResource(TEST_DIR);
 		assertThatExceptionOfType(FileNotFoundException.class).isThrownBy(resource::getInputStream);
 	}
 
 	@Test
-	void getInputStreamForNonExistingFile() throws IOException {
+	void getInputStreamForNonExistingFile() {
 		PathResource resource = new PathResource(NON_EXISTING_FILE);
 		assertThatExceptionOfType(FileNotFoundException.class).isThrownBy(resource::getInputStream);
 	}
@@ -185,19 +186,20 @@ class PathResourceTests {
 	}
 
 	@Test
-	void getFile() throws IOException {
+	void getFile() {
 		PathResource resource = new PathResource(TEST_FILE);
 		File file = new File(TEST_FILE);
 		assertThat(resource.getFile().getAbsoluteFile()).isEqualTo(file.getAbsoluteFile());
+		assertThat(resource.getFilePath()).isEqualTo(file.toPath());
 	}
 
 	@Test
-	void getFileUnsupported() throws IOException {
+	void getFileUnsupported() {
 		Path path = mock();
 		given(path.normalize()).willReturn(path);
 		given(path.toFile()).willThrow(new UnsupportedOperationException());
 		PathResource resource = new PathResource(path);
-		assertThatExceptionOfType(FileNotFoundException.class).isThrownBy(resource::getFile);
+		assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(resource::getFile);
 	}
 
 	@Test
@@ -222,26 +224,26 @@ class PathResourceTests {
 	}
 
 	@Test
-	void createRelativeFromDir() throws IOException {
+	void createRelativeFromDir() {
 		Resource resource = new PathResource(TEST_DIR).createRelative("example.properties");
 		assertThat(resource).isEqualTo(new PathResource(TEST_FILE));
 	}
 
 	@Test
-	void createRelativeFromFile() throws IOException {
+	void createRelativeFromFile() {
 		Resource resource = new PathResource(TEST_FILE).createRelative("../example.properties");
 		assertThat(resource).isEqualTo(new PathResource(TEST_FILE));
 	}
 
 	@Test
 	void filename() {
-		Resource resource = new PathResource(TEST_FILE);
+		PathResource resource = new PathResource(TEST_FILE);
 		assertThat(resource.getFilename()).isEqualTo("example.properties");
 	}
 
 	@Test
 	void description() {
-		Resource resource = new PathResource(TEST_FILE);
+		PathResource resource = new PathResource(TEST_FILE);
 		assertThat(resource.getDescription()).contains("path [");
 		assertThat(resource.getDescription()).contains(TEST_FILE);
 	}
@@ -260,9 +262,9 @@ class PathResourceTests {
 
 	@Test
 	void equalsAndHashCode() {
-		Resource resource1 = new PathResource(TEST_FILE);
-		Resource resource2 = new PathResource(TEST_FILE);
-		Resource resource3 = new PathResource(TEST_DIR);
+		PathResource resource1 = new PathResource(TEST_FILE);
+		PathResource resource2 = new PathResource(TEST_FILE);
+		PathResource resource3 = new PathResource(TEST_DIR);
 		assertThat(resource1).isEqualTo(resource1);
 		assertThat(resource1).isEqualTo(resource2);
 		assertThat(resource2).isEqualTo(resource1);
@@ -316,7 +318,7 @@ class PathResourceTests {
 	}
 
 	@Test
-	void getReadableByteChannelForNonExistingFile() throws IOException {
+	void getReadableByteChannelForNonExistingFile() {
 		PathResource resource = new PathResource(NON_EXISTING_FILE);
 		assertThatExceptionOfType(FileNotFoundException.class).isThrownBy(resource::readableChannel);
 	}

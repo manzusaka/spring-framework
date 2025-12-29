@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.aop.target.SingletonTargetSource;
 import org.springframework.orm.jpa.AbstractContainerEntityManagerFactoryIntegrationTests;
 import org.springframework.orm.jpa.EntityManagerFactoryInfo;
@@ -36,8 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Juergen Hoeller
  * @author Rod Johnson
  */
-@SuppressWarnings("deprecation")
-public class HibernateEntityManagerFactoryIntegrationTests extends AbstractContainerEntityManagerFactoryIntegrationTests {
+class HibernateEntityManagerFactoryIntegrationTests extends AbstractContainerEntityManagerFactoryIntegrationTests {
 
 	@Override
 	protected String[] getConfigLocations() {
@@ -47,18 +47,23 @@ public class HibernateEntityManagerFactoryIntegrationTests extends AbstractConta
 
 
 	@Test
-	public void testCanCastNativeEntityManagerFactoryToHibernateEntityManagerFactoryImpl() {
+	void testAdvisedEntityManagerProxyFromSmartFactoryBean() {
+		assertThat(AopUtils.isAopProxy(sharedEntityManager)).isTrue();
+	}
+
+	@Test
+	void testCanCastNativeEntityManagerFactoryToHibernateEntityManagerFactoryImpl() {
 		EntityManagerFactoryInfo emfi = (EntityManagerFactoryInfo) entityManagerFactory;
-		assertThat(emfi.getNativeEntityManagerFactory() instanceof SessionFactory).isTrue();
+		assertThat(emfi.getNativeEntityManagerFactory()).isInstanceOf(SessionFactory.class);
 	}
 
 	@Test
-	public void testCanCastSharedEntityManagerProxyToHibernateEntityManager() {
-		assertThat(((EntityManagerProxy) sharedEntityManager).getTargetEntityManager() instanceof Session).isTrue();
+	void testCanCastSharedEntityManagerProxyToHibernateEntityManager() {
+		assertThat(((EntityManagerProxy) sharedEntityManager).getTargetEntityManager()).isInstanceOf(Session.class);
 	}
 
 	@Test
-	public void testCanUnwrapAopProxy() {
+	void testCanUnwrapAopProxy() {
 		EntityManager em = entityManagerFactory.createEntityManager();
 		EntityManager proxy = ProxyFactory.getProxy(EntityManager.class, new SingletonTargetSource(em));
 		assertThat(proxy.unwrap(Session.class)).isSameAs(em);

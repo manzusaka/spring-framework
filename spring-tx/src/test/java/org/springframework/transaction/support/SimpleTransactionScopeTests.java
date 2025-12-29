@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,15 +30,15 @@ import org.springframework.transaction.testfixture.CallCountingTransactionManage
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 /**
  * @author Juergen Hoeller
  */
-public class SimpleTransactionScopeTests {
+class SimpleTransactionScopeTests {
 
 	@Test
-	@SuppressWarnings("resource")
-	public void getFromScope() throws Exception {
+	void getFromScope() {
 		GenericApplicationContext context = new GenericApplicationContext();
 		context.getBeanFactory().registerScope("tx", new SimpleTransactionScope());
 
@@ -55,18 +55,16 @@ public class SimpleTransactionScopeTests {
 
 		context.refresh();
 
-		assertThatExceptionOfType(BeanCreationException.class).isThrownBy(() ->
-				context.getBean(TestBean.class))
-			.withCauseInstanceOf(IllegalStateException.class);
+		assertThatExceptionOfType(BeanCreationException.class).isThrownBy(() -> context.getBean(TestBean.class))
+				.withCauseInstanceOf(IllegalStateException.class);
 
-		assertThatExceptionOfType(BeanCreationException.class).isThrownBy(() ->
-				context.getBean(DerivedTestBean.class))
-			.withCauseInstanceOf(IllegalStateException.class);
+		assertThatExceptionOfType(BeanCreationException.class).isThrownBy(() -> context.getBean(DerivedTestBean.class))
+				.withCauseInstanceOf(IllegalStateException.class);
 
-		TestBean bean1 = null;
-		DerivedTestBean bean2 = null;
-		DerivedTestBean bean2a = null;
-		DerivedTestBean bean2b = null;
+		TestBean bean1;
+		DerivedTestBean bean2;
+		DerivedTestBean bean2a;
+		DerivedTestBean bean2b;
 
 		TransactionSynchronizationManager.initSynchronization();
 		try {
@@ -98,19 +96,17 @@ public class SimpleTransactionScopeTests {
 
 		assertThat(bean2a.wasDestroyed()).isFalse();
 		assertThat(bean2b.wasDestroyed()).isTrue();
-		assertThat(TransactionSynchronizationManager.getResourceMap().isEmpty()).isTrue();
+		assertThat(TransactionSynchronizationManager.getResourceMap()).isEmpty();
 
-		assertThatExceptionOfType(BeanCreationException.class).isThrownBy(() ->
-				context.getBean(TestBean.class))
-			.withCauseInstanceOf(IllegalStateException.class);
+		assertThatExceptionOfType(BeanCreationException.class).isThrownBy(() -> context.getBean(TestBean.class))
+				.withCauseInstanceOf(IllegalStateException.class);
 
-		assertThatExceptionOfType(BeanCreationException.class).isThrownBy(() ->
-				context.getBean(DerivedTestBean.class))
-			.withCauseInstanceOf(IllegalStateException.class);
+		assertThatExceptionOfType(BeanCreationException.class).isThrownBy(() -> context.getBean(DerivedTestBean.class))
+				.withCauseInstanceOf(IllegalStateException.class);
 	}
 
 	@Test
-	public void getWithTransactionManager() throws Exception {
+	void getWithTransactionManager() {
 		try (GenericApplicationContext context = new GenericApplicationContext()) {
 			context.getBeanFactory().registerScope("tx", new SimpleTransactionScope());
 
@@ -174,6 +170,48 @@ public class SimpleTransactionScopeTests {
 
 			assertThat(finallyDestroy.iterator().next().wasDestroyed()).isTrue();
 		}
+	}
+
+	@Test
+	void bindSynchronizedResource() {
+		CallCountingTransactionManager tm = new CallCountingTransactionManager();
+		TransactionTemplate tt = new TransactionTemplate(tm);
+
+		tt.execute(status -> {
+			TestBean tb = new TestBean();
+			TransactionSynchronizationManager.bindSynchronizedResource("tb", tb);
+			assertThat(TransactionSynchronizationManager.hasResource("tb")).isTrue();
+			assertThat(TransactionSynchronizationManager.getResource("tb")).isSameAs(tb);
+			return null;
+		});
+		assertThat(TransactionSynchronizationManager.hasResource("tb")).isFalse();
+	}
+
+	@Test
+	void bindSynchronizedResourceWithOldValue() {
+		CallCountingTransactionManager tm = new CallCountingTransactionManager();
+		TransactionTemplate tt = new TransactionTemplate(tm);
+
+		TestBean oldValue = new TestBean();
+		TransactionSynchronizationManager.bindResource("tb", oldValue);
+
+		tt.execute(status -> {
+			TestBean tb = new TestBean();
+			TransactionSynchronizationManager.bindSynchronizedResource("tb", tb);
+			assertThat(TransactionSynchronizationManager.hasResource("tb")).isTrue();
+			assertThat(TransactionSynchronizationManager.getResource("tb")).isSameAs(tb);
+			return null;
+		});
+		assertThat(TransactionSynchronizationManager.hasResource("tb")).isTrue();
+		assertThat(TransactionSynchronizationManager.getResource("tb")).isSameAs(oldValue);
+		TransactionSynchronizationManager.unbindResource("tb");
+	}
+
+	@Test
+	void bindSynchronizedResourceWithoutTransaction() {
+		assertThatIllegalStateException().isThrownBy(
+				() -> TransactionSynchronizationManager.bindSynchronizedResource("tb", new TestBean()));
+		assertThat(TransactionSynchronizationManager.hasResource("tb")).isFalse();
 	}
 
 }

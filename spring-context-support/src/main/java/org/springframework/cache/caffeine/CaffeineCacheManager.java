@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,10 +29,10 @@ import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.CaffeineSpec;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 
@@ -48,11 +48,12 @@ import org.springframework.util.ObjectUtils;
  * A {@link CaffeineSpec}-compliant expression value can also be applied
  * via the {@link #setCacheSpecification "cacheSpecification"} bean property.
  *
- * <p>Supports the {@link Cache#retrieve(Object)} and
+ * <p>Supports the asynchronous {@link Cache#retrieve(Object)} and
  * {@link Cache#retrieve(Object, Supplier)} operations through Caffeine's
- * {@link AsyncCache}, when configured via {@link #setAsyncCacheMode}.
+ * {@link AsyncCache}, when configured via {@link #setAsyncCacheMode},
+ * with early-determined cache misses.
  *
- * <p>Requires Caffeine 3.0 or higher, as of Spring Framework 6.1.
+ * <p>Requires Caffeine 3.0 or higher.
  *
  * @author Ben Manes
  * @author Juergen Hoeller
@@ -69,14 +70,13 @@ public class CaffeineCacheManager implements CacheManager {
 
 	private Caffeine<Object, Object> cacheBuilder = Caffeine.newBuilder();
 
-	@Nullable
-	private AsyncCacheLoader<Object, Object> cacheLoader;
+	private @Nullable AsyncCacheLoader<Object, Object> cacheLoader;
 
 	private boolean asyncCacheMode = false;
 
 	private boolean allowNullValues = true;
 
-	private boolean dynamic = true;
+	private volatile boolean dynamic = true;
 
 	private final Map<String, Cache> cacheMap = new ConcurrentHashMap<>(16);
 
@@ -101,10 +101,15 @@ public class CaffeineCacheManager implements CacheManager {
 
 	/**
 	 * Specify the set of cache names for this CacheManager's 'static' mode.
-	 * <p>The number of caches and their names will be fixed after a call to this method,
-	 * with no creation of further cache regions at runtime.
-	 * <p>Calling this with a {@code null} collection argument resets the
-	 * mode to 'dynamic', allowing for further creation of caches again.
+	 * <p>The number of caches and their names will be fixed after a call
+	 * to this method, with no creation of further cache regions at runtime.
+	 * <p>Note that this method replaces existing caches of the given names
+	 * and prevents the creation of further cache regions from here on - but
+	 * does <i>not</i> remove unrelated existing caches. For a full reset,
+	 * consider calling {@link #resetCaches()} before calling this method.
+	 * <p>Calling this method with a {@code null} collection argument resets
+	 * the mode to 'dynamic', allowing for further creation of caches again.
+	 * @see #resetCaches()
 	 */
 	public void setCacheNames(@Nullable Collection<String> cacheNames) {
 		if (cacheNames != null) {
@@ -193,15 +198,27 @@ public class CaffeineCacheManager implements CacheManager {
 	 * Set the common cache type that this cache manager builds to async.
 	 * This applies to {@link #setCacheNames} as well as on-demand caches.
 	 * <p>Individual cache registrations (such as {@link #registerCustomCache(String, AsyncCache)}
-	 * and {@link #registerCustomCache(String, com.github.benmanes.caffeine.cache.Cache)}
+	 * and {@link #registerCustomCache(String, com.github.benmanes.caffeine.cache.Cache)})
 	 * are not dependent on this setting.
 	 * <p>By default, this cache manager builds regular native Caffeine caches.
 	 * To switch to async caches which can also be used through the synchronous API
 	 * but come with support for {@code Cache#retrieve}, set this flag to {@code true}.
+	 * <p>Note that while null values in the cache are tolerated in async cache mode,
+	 * the recommendation is to disallow null values through
+	 * {@link #setAllowNullValues setAllowNullValues(false)}. This makes the semantics
+	 * of CompletableFuture-based access simpler and optimizes retrieval performance
+	 * since a Caffeine-provided CompletableFuture handle does not have to get wrapped.
+	 * <p>If you come here for the adaptation of reactive types such as a Reactor
+	 * {@code Mono} or {@code Flux} onto asynchronous caching, we recommend the standard
+	 * arrangement for caching the produced values asynchronously in 6.1 through enabling
+	 * this Caffeine mode. If this is not immediately possible/desirable for existing
+	 * apps, you may set the system property "spring.cache.reactivestreams.ignore=true"
+	 * to restore 6.0 behavior where reactive handles are treated as regular values.
 	 * @since 6.1
 	 * @see Caffeine#buildAsync()
 	 * @see Cache#retrieve(Object)
 	 * @see Cache#retrieve(Object, Supplier)
+	 * @see org.springframework.cache.interceptor.CacheAspectSupport#IGNORE_REACTIVESTREAMS_PROPERTY_NAME
 	 */
 	public void setAsyncCacheMode(boolean asyncCacheMode) {
 		if (this.asyncCacheMode != asyncCacheMode) {
@@ -233,13 +250,7 @@ public class CaffeineCacheManager implements CacheManager {
 
 
 	@Override
-	public Collection<String> getCacheNames() {
-		return Collections.unmodifiableSet(this.cacheMap.keySet());
-	}
-
-	@Override
-	@Nullable
-	public Cache getCache(String name) {
+	public @Nullable Cache getCache(String name) {
 		Cache cache = this.cacheMap.get(name);
 		if (cache == null && this.dynamic) {
 			cache = this.cacheMap.computeIfAbsent(name, this::createCaffeineCache);
@@ -247,6 +258,34 @@ public class CaffeineCacheManager implements CacheManager {
 		return cache;
 	}
 
+	@Override
+	public Collection<String> getCacheNames() {
+		return Collections.unmodifiableSet(this.cacheMap.keySet());
+	}
+
+	/**
+	 * Reset this cache manager's caches, removing them completely for on-demand
+	 * re-creation in 'dynamic' mode, or simply clearing their entries otherwise.
+	 * @since 6.2.14
+	 */
+	@Override
+	public void resetCaches() {
+		this.cacheMap.values().forEach(Cache::clear);
+		if (this.dynamic) {
+			this.cacheMap.keySet().retainAll(this.customCacheNames);
+		}
+	}
+
+	/**
+	 * Remove the specified cache from this cache manager, applying to
+	 * custom caches as well as dynamically registered caches at runtime.
+	 * @param name the name of the cache
+	 * @since 6.1.15
+	 */
+	public void removeCache(String name) {
+		this.customCacheNames.remove(name);
+		this.cacheMap.remove(name);
+	}
 
 	/**
 	 * Register the given native Caffeine Cache instance with this cache manager,
@@ -290,6 +329,7 @@ public class CaffeineCacheManager implements CacheManager {
 		this.cacheMap.put(name, adaptCaffeineCache(name, cache));
 	}
 
+
 	/**
 	 * Adapt the given new native Caffeine Cache instance to Spring's {@link Cache}
 	 * abstraction for the specified cache name.
@@ -322,7 +362,7 @@ public class CaffeineCacheManager implements CacheManager {
 	 * Build a common {@link CaffeineCache} instance for the specified cache name,
 	 * using the common Caffeine configuration specified on this cache manager.
 	 * <p>Delegates to {@link #adaptCaffeineCache} as the adaptation method to
-	 * Spring's cache abstraction (allowing for centralized decoration etc),
+	 * Spring's cache abstraction (allowing for centralized decoration etc.),
 	 * passing in a freshly built native Caffeine Cache instance.
 	 * @param name the name of the cache
 	 * @return the Spring CaffeineCache adapter (or a decorator thereof)

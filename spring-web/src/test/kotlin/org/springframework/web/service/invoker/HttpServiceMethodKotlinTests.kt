@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +56,10 @@ class KotlinHttpServiceMethodTests {
 		assertThat(flowBody.toList()).containsExactly("exchange", "For", "Body", "Flux")
 		verifyClientInvocation("exchangeForBodyFlux", object : ParameterizedTypeReference<String>() {})
 
+		val suspendingFlowBody = service.suspendingFlowBody()
+		assertThat(suspendingFlowBody.toList()).containsExactly("exchange", "For", "Body", "Flux")
+		verifyClientInvocation("exchangeForBodyFlux", object : ParameterizedTypeReference<String>() {})
+
 		val stringEntity = service.stringEntity()
 		assertThat(stringEntity).isEqualTo(ResponseEntity.ok<String>("exchangeForEntityMono"))
 		verifyClientInvocation("exchangeForEntityMono", object : ParameterizedTypeReference<String>() {})
@@ -69,43 +73,43 @@ class KotlinHttpServiceMethodTests {
 		verifyClientInvocation("exchangeForEntityFlux", object : ParameterizedTypeReference<String>() {})
 	}
 
-    @Test
-    fun blockingServiceWithExchangeResponseFunction() {
-        val service = proxyFactory.createClient(BlockingFunctionsService::class.java)
+	@Test
+	fun blockingServiceWithExchangeResponseFunction() {
+		val service = proxyFactory.createClient(BlockingFunctionsService::class.java)
 
-        val stringBody = service.stringBodyBlocking()
-        assertThat(stringBody).isEqualTo("exchangeForBody")
-        verifyTemplateInvocation("exchangeForBody", object : ParameterizedTypeReference<String>() {})
+		val stringBody = service.stringBodyBlocking()
+		assertThat(stringBody).isEqualTo("exchangeForBody")
+		verifyTemplateInvocation("exchangeForBody", object : ParameterizedTypeReference<String>() {})
 
-        val listBody = service.listBodyBlocking()
-        assertThat(listBody.size).isEqualTo(1)
-        verifyTemplateInvocation("exchangeForBody", object : ParameterizedTypeReference<MutableList<String>>() {})
+		val listBody = service.listBodyBlocking()
+		assertThat(listBody.size).isEqualTo(1)
+		verifyTemplateInvocation("exchangeForBody", object : ParameterizedTypeReference<MutableList<String>>() {})
 
-        val stringEntity = service.stringEntityBlocking()
-        assertThat(stringEntity).isEqualTo(ResponseEntity.ok<String>("exchangeForEntity"))
-        verifyTemplateInvocation("exchangeForEntity", object : ParameterizedTypeReference<String>() {})
+		val stringEntity = service.stringEntityBlocking()
+		assertThat(stringEntity).isEqualTo(ResponseEntity.ok<String>("exchangeForEntity"))
+		verifyTemplateInvocation("exchangeForEntity", object : ParameterizedTypeReference<String>() {})
 
-        service.listEntityBlocking()
-        verifyTemplateInvocation("exchangeForEntity", object : ParameterizedTypeReference<MutableList<String>>() {})
-    }
+		service.listEntityBlocking()
+		verifyTemplateInvocation("exchangeForEntity", object : ParameterizedTypeReference<MutableList<String>>() {})
+	}
 
-    @Test
-    fun coroutineServiceWithExchangeResponseFunction() {
-        assertThatIllegalStateException().isThrownBy {
-            proxyFactory.createClient(FunctionsService::class.java)
-        }
+	@Test
+	fun coroutineServiceWithExchangeResponseFunction() {
+		assertThatIllegalStateException().isThrownBy {
+			proxyFactory.createClient(FunctionsService::class.java)
+		}
 
-        assertThatIllegalStateException().isThrownBy {
-            proxyFactory.createClient(SuspendingFunctionsService::class.java)
-        }
-    }
+		assertThatIllegalStateException().isThrownBy {
+			proxyFactory.createClient(SuspendingFunctionsService::class.java)
+		}
+	}
 
-    private fun verifyTemplateInvocation(methodReference: String, expectedBodyType: ParameterizedTypeReference<*>) {
-        assertThat(exchangeAdapter.invokedMethodName).isEqualTo(methodReference)
-        assertThat(exchangeAdapter.bodyType).isEqualTo(expectedBodyType)
-    }
+	private fun verifyTemplateInvocation(methodReference: String, expectedBodyType: ParameterizedTypeReference<*>) {
+		assertThat(exchangeAdapter.invokedMethodName).isEqualTo(methodReference)
+		assertThat(exchangeAdapter.bodyType).isEqualTo(expectedBodyType)
+	}
 
-    private fun verifyClientInvocation(methodReference: String, expectedBodyType: ParameterizedTypeReference<*>) {
+	private fun verifyClientInvocation(methodReference: String, expectedBodyType: ParameterizedTypeReference<*>) {
 		assertThat(reactorExchangeAdapter.invokedMethodName).isEqualTo(methodReference)
 		assertThat(reactorExchangeAdapter.bodyType).isEqualTo(expectedBodyType)
 	}
@@ -119,35 +123,38 @@ class KotlinHttpServiceMethodTests {
 		fun flowEntity(): ResponseEntity<Flow<String>>
 	}
 
-    private interface SuspendingFunctionsService : BlockingFunctionsService {
+	private interface SuspendingFunctionsService : BlockingFunctionsService {
 
-        @GetExchange
-        suspend fun stringBody(): String
+		@GetExchange
+		suspend fun stringBody(): String
 
-        @GetExchange
-        suspend fun listBody(): MutableList<String>
+		@GetExchange
+		suspend fun listBody(): MutableList<String>
 
-        @GetExchange
-        suspend fun stringEntity(): ResponseEntity<String>
+		@GetExchange
+		suspend fun suspendingFlowBody(): Flow<String>
 
-        @GetExchange
-        suspend fun listEntity(): ResponseEntity<MutableList<String>>
-    }
+		@GetExchange
+		suspend fun stringEntity(): ResponseEntity<String>
 
-    private interface BlockingFunctionsService {
+		@GetExchange
+		suspend fun listEntity(): ResponseEntity<MutableList<String>>
+	}
 
-        @GetExchange
-        fun stringBodyBlocking(): String
+	private interface BlockingFunctionsService {
 
-        @GetExchange
-        fun listBodyBlocking(): MutableList<String>
+		@GetExchange
+		fun stringBodyBlocking(): String
 
-        @GetExchange
-        fun stringEntityBlocking(): ResponseEntity<String>
+		@GetExchange
+		fun listBodyBlocking(): MutableList<String>
 
-        @GetExchange
-        fun listEntityBlocking(): ResponseEntity<MutableList<String>>
+		@GetExchange
+		fun stringEntityBlocking(): ResponseEntity<String>
 
-    }
+		@GetExchange
+		fun listEntityBlocking(): ResponseEntity<MutableList<String>>
+
+	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,19 +16,26 @@
 
 package org.springframework.web.client.support;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.StreamingHttpOutputMessage;
 import org.springframework.util.Assert;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.service.invoker.HttpExchangeAdapter;
 import org.springframework.web.service.invoker.HttpRequestValues;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
+import org.springframework.web.util.UriBuilderFactory;
 
 /**
  * {@link HttpExchangeAdapter} that enables an {@link HttpServiceProxyFactory}
@@ -67,8 +74,9 @@ public final class RestClientAdapter implements HttpExchangeAdapter {
 	}
 
 	@Override
-	public <T> T exchangeForBody(HttpRequestValues values, ParameterizedTypeReference<T> bodyType) {
-		return newRequest(values).retrieve().body(bodyType);
+	public <T> @Nullable T exchangeForBody(HttpRequestValues values, ParameterizedTypeReference<T> bodyType) {
+		return (bodyType.getType().equals(InputStream.class) ?
+				exchangeForInputStream(values) : newRequest(values).retrieve().body(bodyType));
 	}
 
 	@Override
@@ -78,10 +86,25 @@ public final class RestClientAdapter implements HttpExchangeAdapter {
 
 	@Override
 	public <T> ResponseEntity<T> exchangeForEntity(HttpRequestValues values, ParameterizedTypeReference<T> bodyType) {
-		return newRequest(values).retrieve().toEntity(bodyType);
+		return (bodyType.getType().equals(InputStream.class) ?
+				exchangeForEntityInputStream(values) : newRequest(values).retrieve().toEntity(bodyType));
 	}
 
-	private RestClient.RequestBodySpec newRequest(HttpRequestValues values) {
+	@SuppressWarnings("unchecked")
+	private <T> T exchangeForInputStream(HttpRequestValues values) {
+		return (T) newRequest(values).exchange((request, response) -> getInputStream(response), false);
+	}
+
+	@SuppressWarnings("unchecked")
+	private <T> ResponseEntity<T> exchangeForEntityInputStream(HttpRequestValues values) {
+		return (ResponseEntity<T>) newRequest(values).exchangeForRequiredValue((request, response) ->
+				ResponseEntity.status(response.getStatusCode())
+						.headers(response.getHeaders())
+						.body(getInputStream(response)), false);
+	}
+
+	@SuppressWarnings("unchecked")
+	private <B> RestClient.RequestBodySpec newRequest(HttpRequestValues values) {
 
 		HttpMethod httpMethod = values.getHttpMethod();
 		Assert.notNull(httpMethod, "HttpMethod is required");
@@ -93,7 +116,14 @@ public final class RestClientAdapter implements HttpExchangeAdapter {
 			bodySpec = uriSpec.uri(values.getUri());
 		}
 		else if (values.getUriTemplate() != null) {
-			bodySpec = uriSpec.uri(values.getUriTemplate(), values.getUriVariables());
+			UriBuilderFactory uriBuilderFactory = values.getUriBuilderFactory();
+			if (uriBuilderFactory != null) {
+				URI uri = uriBuilderFactory.expand(values.getUriTemplate(), values.getUriVariables());
+				bodySpec = uriSpec.uri(uri);
+			}
+			else {
+				bodySpec = uriSpec.uri(values.getUriTemplate(), values.getUriVariables());
+			}
 		}
 		else {
 			throw new IllegalStateException("Neither full URL nor URI template");
@@ -110,14 +140,37 @@ public final class RestClientAdapter implements HttpExchangeAdapter {
 			bodySpec.header(HttpHeaders.COOKIE, String.join("; ", cookies));
 		}
 
+		if (values.getApiVersion() != null) {
+			bodySpec.apiVersion(values.getApiVersion());
+		}
+
 		bodySpec.attributes(attributes -> attributes.putAll(values.getAttributes()));
 
-		if (values.getBodyValue() != null) {
-			bodySpec.body(values.getBodyValue());
+		B body = (B) values.getBodyValue();
+		if (body != null) {
+			if (body instanceof StreamingHttpOutputMessage.Body streamingBody) {
+				bodySpec.body(streamingBody);
+			}
+			else if (values.getBodyValueType() != null) {
+				bodySpec.body(body, (ParameterizedTypeReference<? super B>) values.getBodyValueType());
+			}
+			else {
+				bodySpec.body(body);
+			}
 		}
 
 		return bodySpec;
 	}
+
+	private static InputStream getInputStream(
+			RestClient.RequestHeadersSpec.ConvertibleClientHttpResponse response) throws IOException {
+
+		if (response.getStatusCode().isError()) {
+			throw response.createException();
+		}
+		return response.getBody();
+	}
+
 
 
 	/**

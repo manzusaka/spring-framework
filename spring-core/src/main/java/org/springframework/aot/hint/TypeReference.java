@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.springframework.aot.hint;
 import java.util.Arrays;
 import java.util.List;
 
-import org.springframework.lang.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Type abstraction that can be used to refer to types that are not available as
@@ -29,7 +29,7 @@ import org.springframework.lang.Nullable;
  * @author Sebastien Deleuze
  * @since 6.0
  */
-public interface TypeReference {
+public interface TypeReference extends Comparable<TypeReference> {
 
 	/**
 	 * Return the fully qualified name of this type reference.
@@ -62,8 +62,7 @@ public interface TypeReference {
 	 * does not have an enclosing type.
 	 * @return the enclosing type, if any
 	 */
-	@Nullable
-	TypeReference getEnclosingType();
+	@Nullable TypeReference getEnclosingType();
 
 	/**
 	 * Create an instance based on the specified type.

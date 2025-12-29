@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 package org.springframework.build.hint;
 
+import java.util.Collections;
+
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 import org.gradle.process.CommandLineArgumentProvider;
-
-import java.util.Collections;
 
 /**
  * Argument provider for registering the runtime hints agent with a Java process.

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,10 +31,10 @@ import jakarta.servlet.ReadListener;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
-import org.springframework.lang.Nullable;
 import org.springframework.util.FastByteArrayOutputStream;
 
 /**
@@ -47,7 +47,7 @@ import org.springframework.util.FastByteArrayOutputStream;
  * content is not consumed, then the content is not cached, and cannot be
  * retrieved via {@link #getContentAsByteArray()}.
  *
- * <p>Used e.g. by {@link org.springframework.web.filter.AbstractRequestLoggingFilter}.
+ * <p>Used, for example, by {@link org.springframework.web.filter.AbstractRequestLoggingFilter}.
  *
  * @author Juergen Hoeller
  * @author Brian Clozel
@@ -56,37 +56,31 @@ import org.springframework.util.FastByteArrayOutputStream;
  */
 public class ContentCachingRequestWrapper extends HttpServletRequestWrapper {
 
-	private final FastByteArrayOutputStream cachedContent = new FastByteArrayOutputStream();
+	private final FastByteArrayOutputStream cachedContent;
 
-	@Nullable
-	private final Integer contentCacheLimit;
+	private final @Nullable Integer contentCacheLimit;
 
-	@Nullable
-	private ServletInputStream inputStream;
+	private @Nullable ServletInputStream inputStream;
 
-	@Nullable
-	private BufferedReader reader;
+	private @Nullable BufferedReader reader;
 
 
 	/**
 	 * Create a new ContentCachingRequestWrapper for the given servlet request.
 	 * @param request the original servlet request
-	 */
-	public ContentCachingRequestWrapper(HttpServletRequest request) {
-		super(request);
-		this.contentCacheLimit = null;
-	}
-
-	/**
-	 * Create a new ContentCachingRequestWrapper for the given servlet request.
-	 * @param request the original servlet request
-	 * @param contentCacheLimit the maximum number of bytes to cache per request
+	 * @param cacheLimit the maximum number of bytes to cache per request;
+	 * no limit is set if the value is 0 or less. It is recommended to set a
+	 * concrete limit in order to avoid using too much memory.
 	 * @since 4.3.6
 	 * @see #handleContentOverflow(int)
 	 */
-	public ContentCachingRequestWrapper(HttpServletRequest request, int contentCacheLimit) {
+	public ContentCachingRequestWrapper(HttpServletRequest request, int cacheLimit) {
 		super(request);
-		this.contentCacheLimit = contentCacheLimit;
+		int contentLength = request.getContentLength();
+		this.cachedContent = (contentLength > 0 ?
+				new FastByteArrayOutputStream((cacheLimit > 0 ? Math.min(contentLength, cacheLimit) : contentLength)) :
+				new FastByteArrayOutputStream());
+		this.contentCacheLimit = (cacheLimit > 0 ? cacheLimit : null);
 	}
 
 
@@ -205,7 +199,7 @@ public class ContentCachingRequestWrapper extends HttpServletRequestWrapper {
 	 * @see #getContentAsByteArray()
 	 */
 	public String getContentAsString() {
-		return new String(this.cachedContent.toByteArray(), Charset.forName(getCharacterEncoding()));
+		return this.cachedContent.toString(Charset.forName(getCharacterEncoding()));
 	}
 
 	/**

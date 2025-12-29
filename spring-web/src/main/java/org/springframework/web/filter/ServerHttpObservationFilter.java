@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,18 +21,22 @@ import java.util.Optional;
 
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
+import jakarta.servlet.AsyncEvent;
+import jakarta.servlet.AsyncListener;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.observation.DefaultServerRequestObservationConvention;
 import org.springframework.http.server.observation.ServerHttpObservationDocumentation;
 import org.springframework.http.server.observation.ServerRequestObservationContext;
 import org.springframework.http.server.observation.ServerRequestObservationConvention;
-import org.springframework.lang.Nullable;
 
 
 /**
@@ -51,18 +55,22 @@ import org.springframework.lang.Nullable;
 public class ServerHttpObservationFilter extends OncePerRequestFilter {
 
 	/**
-	 * Name of the request attribute holding the {@link ServerRequestObservationContext context} for the current observation.
+	 * Name of the request attribute holding the {@link ServerRequestObservationContext} for the current observation.
 	 */
-	public static final String CURRENT_OBSERVATION_CONTEXT_ATTRIBUTE = ServerHttpObservationFilter.class.getName() + ".context";
+	public static final String CURRENT_OBSERVATION_CONTEXT_ATTRIBUTE =
+			ServerHttpObservationFilter.class.getName() + ".context";
 
-	private static final ServerRequestObservationConvention DEFAULT_OBSERVATION_CONVENTION = new DefaultServerRequestObservationConvention();
+	private static final String CURRENT_OBSERVATION_ATTRIBUTE =
+			ServerHttpObservationFilter.class.getName() + ".observation";
 
-	private static final String CURRENT_OBSERVATION_ATTRIBUTE = ServerHttpObservationFilter.class.getName() + ".observation";
+	private static final ServerRequestObservationConvention DEFAULT_OBSERVATION_CONVENTION =
+			new DefaultServerRequestObservationConvention();
 
 
 	private final ObservationRegistry observationRegistry;
 
 	private final ServerRequestObservationConvention observationConvention;
+
 
 	/**
 	 * Create an {@code HttpRequestsObservationFilter} that records observations
@@ -85,14 +93,6 @@ public class ServerHttpObservationFilter extends OncePerRequestFilter {
 		this.observationConvention = observationConvention;
 	}
 
-	/**
-	 * Get the current {@link ServerRequestObservationContext observation context} from the given request, if available.
-	 * @param request the current request
-	 * @return the current observation context
-	 */
-	public static Optional<ServerRequestObservationContext> findObservationContext(HttpServletRequest request) {
-		return Optional.ofNullable((ServerRequestObservationContext) request.getAttribute(CURRENT_OBSERVATION_CONTEXT_ATTRIBUTE));
-	}
 
 	@Override
 	protected boolean shouldNotFilterAsyncDispatch() {
@@ -106,6 +106,7 @@ public class ServerHttpObservationFilter extends OncePerRequestFilter {
 
 		Observation observation = createOrFetchObservation(request, response);
 		try (Observation.Scope scope = observation.openScope()) {
+			onScopeOpened(scope, request, response);
 			filterChain.doFilter(request, response);
 		}
 		catch (Exception ex) {
@@ -114,8 +115,13 @@ public class ServerHttpObservationFilter extends OncePerRequestFilter {
 			throw ex;
 		}
 		finally {
-			// Only stop Observation if async processing is done or has never been started.
-			if (!request.isAsyncStarted()) {
+			// If async is started during the first dispatch, register a listener for completion notification.
+			if (request.isAsyncStarted() && request.getDispatcherType() == DispatcherType.REQUEST) {
+				request.getAsyncContext().addListener(new ObservationAsyncListener(observation));
+			}
+			// scope is opened for ASYNC dispatches, but the observation will be closed
+			// by the async listener.
+			else if (!isAsyncDispatch(request)) {
 				Throwable error = fetchException(request);
 				if (error != null) {
 					observation.error(error);
@@ -125,12 +131,24 @@ public class ServerHttpObservationFilter extends OncePerRequestFilter {
 		}
 	}
 
+	/**
+	 * Notify this filter that a new {@link Observation.Scope} is opened for the
+	 * observation that was just created.
+	 * @param scope the newly opened observation scope
+	 * @param request the HTTP client request
+	 * @param response the filter's response
+	 * @since 6.2
+	 */
+	protected void onScopeOpened(Observation.Scope scope, HttpServletRequest request, HttpServletResponse response) {
+	}
+
 	private Observation createOrFetchObservation(HttpServletRequest request, HttpServletResponse response) {
 		Observation observation = (Observation) request.getAttribute(CURRENT_OBSERVATION_ATTRIBUTE);
 		if (observation == null) {
 			ServerRequestObservationContext context = new ServerRequestObservationContext(request, response);
-			observation = ServerHttpObservationDocumentation.HTTP_SERVLET_SERVER_REQUESTS.observation(this.observationConvention,
-					DEFAULT_OBSERVATION_CONVENTION, () -> context, this.observationRegistry).start();
+			observation = ServerHttpObservationDocumentation.HTTP_SERVLET_SERVER_REQUESTS.observation(
+					this.observationConvention, DEFAULT_OBSERVATION_CONVENTION, () -> context, this.observationRegistry)
+					.start();
 			request.setAttribute(CURRENT_OBSERVATION_ATTRIBUTE, observation);
 			if (!observation.isNoop()) {
 				request.setAttribute(CURRENT_OBSERVATION_CONTEXT_ATTRIBUTE, observation.getContext());
@@ -139,13 +157,59 @@ public class ServerHttpObservationFilter extends OncePerRequestFilter {
 		return observation;
 	}
 
-	private Throwable unwrapServletException(Throwable ex) {
-		return (ex instanceof ServletException) ? ex.getCause() : ex;
+
+	/**
+	 * Get the current {@link ServerRequestObservationContext observation context} from the given request, if available.
+	 * @param request the current request
+	 * @return the current observation context
+	 */
+	public static Optional<ServerRequestObservationContext> findObservationContext(HttpServletRequest request) {
+		return Optional.ofNullable(
+				(ServerRequestObservationContext) request.getAttribute(CURRENT_OBSERVATION_CONTEXT_ATTRIBUTE));
 	}
 
-	@Nullable
-	private Throwable fetchException(HttpServletRequest request) {
+	static @Nullable Throwable fetchException(ServletRequest request) {
 		return (Throwable) request.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
+	}
+
+	static Throwable unwrapServletException(Throwable ex) {
+		if (ex instanceof ServletException) {
+			Throwable cause = ex.getCause();
+			if (cause != null) {
+				return cause;
+			}
+		}
+		return ex;
+	}
+
+
+	private static class ObservationAsyncListener implements AsyncListener {
+
+		private final Observation currentObservation;
+
+		public ObservationAsyncListener(Observation currentObservation) {
+			this.currentObservation = currentObservation;
+		}
+
+		@Override
+		public void onStartAsync(AsyncEvent event) {
+			event.getAsyncContext().addListener(this);
+		}
+
+		@Override
+		public void onTimeout(AsyncEvent event) {
+			this.currentObservation.stop();
+		}
+
+		@Override
+		public void onComplete(AsyncEvent event) {
+			this.currentObservation.stop();
+		}
+
+		@Override
+		public void onError(AsyncEvent event) {
+			this.currentObservation.error(unwrapServletException(event.getThrowable()));
+		}
 	}
 
 }

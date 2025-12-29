@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.util.List;
 
 import javax.lang.model.element.Modifier;
 
+import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Converter;
 import jakarta.persistence.EntityListeners;
@@ -32,6 +33,7 @@ import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreRemove;
 import jakarta.persistence.PreUpdate;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.aot.generate.GeneratedMethod;
 import org.springframework.aot.generate.GenerationContext;
@@ -49,7 +51,6 @@ import org.springframework.beans.factory.support.RegisteredBean;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.javapoet.CodeBlock;
 import org.springframework.javapoet.ParameterizedTypeName;
-import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
 
@@ -66,20 +67,25 @@ import org.springframework.util.ReflectionUtils;
  */
 class PersistenceManagedTypesBeanRegistrationAotProcessor implements BeanRegistrationAotProcessor {
 
-	private static final List<Class<? extends Annotation>> CALLBACK_TYPES = List.of(PreUpdate.class,
-			PostUpdate.class, PrePersist.class, PostPersist.class, PreRemove.class, PostRemove.class, PostLoad.class);
+	private static final boolean JPA_PRESENT = ClassUtils.isPresent("jakarta.persistence.Entity",
+			PersistenceManagedTypesBeanRegistrationAotProcessor.class.getClassLoader());
 
-	@Nullable
 	@Override
-	public BeanRegistrationAotContribution processAheadOfTime(RegisteredBean registeredBean) {
-		if (PersistenceManagedTypes.class.isAssignableFrom(registeredBean.getBeanClass())) {
-			return BeanRegistrationAotContribution.withCustomCodeFragments(codeFragments ->
-					new JpaManagedTypesBeanRegistrationCodeFragments(codeFragments, registeredBean));
+	public @Nullable BeanRegistrationAotContribution processAheadOfTime(RegisteredBean registeredBean) {
+		if (JPA_PRESENT) {
+			if (PersistenceManagedTypes.class.isAssignableFrom(registeredBean.getBeanClass())) {
+				return BeanRegistrationAotContribution.withCustomCodeFragments(codeFragments ->
+						new JpaManagedTypesBeanRegistrationCodeFragments(codeFragments, registeredBean));
+			}
 		}
 		return null;
 	}
 
-	private static class JpaManagedTypesBeanRegistrationCodeFragments extends BeanRegistrationCodeFragmentsDecorator {
+
+	private static final class JpaManagedTypesBeanRegistrationCodeFragments extends BeanRegistrationCodeFragmentsDecorator {
+
+		private static final List<Class<? extends Annotation>> CALLBACK_TYPES = List.of(PreUpdate.class,
+				PostUpdate.class, PrePersist.class, PostPersist.class, PreRemove.class, PostRemove.class, PostLoad.class);
 
 		private static final ParameterizedTypeName LIST_OF_STRINGS_TYPE = ParameterizedTypeName.get(List.class, String.class);
 
@@ -87,7 +93,7 @@ class PersistenceManagedTypesBeanRegistrationAotProcessor implements BeanRegistr
 
 		private final BindingReflectionHintsRegistrar bindingRegistrar = new BindingReflectionHintsRegistrar();
 
-		public JpaManagedTypesBeanRegistrationCodeFragments(BeanRegistrationCodeFragments codeFragments,
+		private JpaManagedTypesBeanRegistrationCodeFragments(BeanRegistrationCodeFragments codeFragments,
 				RegisteredBean registeredBean) {
 			super(codeFragments);
 			this.registeredBean = registeredBean;
@@ -95,11 +101,12 @@ class PersistenceManagedTypesBeanRegistrationAotProcessor implements BeanRegistr
 
 		@Override
 		public CodeBlock generateInstanceSupplierCode(GenerationContext generationContext,
-				BeanRegistrationCode beanRegistrationCode,
-				boolean allowDirectSupplierShortcut) {
+				BeanRegistrationCode beanRegistrationCode, boolean allowDirectSupplierShortcut) {
+
 			PersistenceManagedTypes persistenceManagedTypes = this.registeredBean.getBeanFactory()
 					.getBean(this.registeredBean.getBeanName(), PersistenceManagedTypes.class);
-			contributeHints(generationContext.getRuntimeHints(), persistenceManagedTypes.getManagedClassNames());
+			contributeHints(generationContext.getRuntimeHints(),
+					this.registeredBean.getBeanFactory().getBeanClassLoader(), persistenceManagedTypes.getManagedClassNames());
 			GeneratedMethod generatedMethod = beanRegistrationCode.getMethods()
 					.add("getInstance", method -> {
 						Class<?> beanType = PersistenceManagedTypes.class;
@@ -120,7 +127,7 @@ class PersistenceManagedTypesBeanRegistrationAotProcessor implements BeanRegistr
 			return CodeBlock.join(values.stream().map(value -> CodeBlock.of("$S", value)).toList(), ", ");
 		}
 
-		private void contributeHints(RuntimeHints hints, List<String> managedClassNames) {
+		private void contributeHints(RuntimeHints hints, @Nullable ClassLoader classLoader, List<String> managedClassNames) {
 			for (String managedClassName : managedClassNames) {
 				try {
 					Class<?> managedClass = ClassUtils.forName(managedClassName, null);
@@ -129,9 +136,11 @@ class PersistenceManagedTypesBeanRegistrationAotProcessor implements BeanRegistr
 					contributeIdClassHints(hints, managedClass);
 					contributeConverterHints(hints, managedClass);
 					contributeCallbackHints(hints, managedClass);
+					contributeHibernateHints(hints, classLoader, managedClass);
+					contributePackagePrivateHints(hints, managedClass);
 				}
 				catch (ClassNotFoundException ex) {
-					throw new IllegalArgumentException("Failed to instantiate the managed class: " + managedClassName, ex);
+					throw new IllegalArgumentException("Failed to instantiate JPA managed class: " + managedClassName, ex);
 				}
 			}
 		}
@@ -140,7 +149,8 @@ class PersistenceManagedTypesBeanRegistrationAotProcessor implements BeanRegistr
 			EntityListeners entityListeners = AnnotationUtils.findAnnotation(managedClass, EntityListeners.class);
 			if (entityListeners != null) {
 				for (Class<?> entityListener : entityListeners.value()) {
-					hints.reflection().registerType(entityListener, MemberCategory.INVOKE_DECLARED_CONSTRUCTORS, MemberCategory.INVOKE_PUBLIC_METHODS);
+					hints.reflection().registerType(entityListener,
+							MemberCategory.INVOKE_DECLARED_CONSTRUCTORS, MemberCategory.INVOKE_PUBLIC_METHODS);
 				}
 			}
 		}
@@ -160,12 +170,14 @@ class PersistenceManagedTypesBeanRegistrationAotProcessor implements BeanRegistr
 			}
 			Convert convertClassAnnotation = AnnotationUtils.findAnnotation(managedClass, Convert.class);
 			if (convertClassAnnotation != null) {
-				reflectionHints.registerType(convertClassAnnotation.converter(), MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+				reflectionHints.registerType(convertClassAnnotation.converter(),
+						MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
 			}
 			ReflectionUtils.doWithFields(managedClass, field -> {
 				Convert convertFieldAnnotation = AnnotationUtils.findAnnotation(field, Convert.class);
-				if (convertFieldAnnotation != null && convertFieldAnnotation.converter() != void.class) {
-					reflectionHints.registerType(convertFieldAnnotation.converter(), MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+				if (convertFieldAnnotation != null && convertFieldAnnotation.converter() != AttributeConverter.class) {
+					reflectionHints.registerType(convertFieldAnnotation.converter(),
+							MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
 				}
 			});
 		}
@@ -176,5 +188,83 @@ class PersistenceManagedTypesBeanRegistrationAotProcessor implements BeanRegistr
 					reflection.registerMethod(method, ExecutableMode.INVOKE),
 					method -> CALLBACK_TYPES.stream().anyMatch(method::isAnnotationPresent));
 		}
+
+		private void contributeHibernateHints(RuntimeHints hints, @Nullable ClassLoader classLoader, Class<?> managedClass) {
+			ReflectionHints reflection = hints.reflection();
+
+			Class<? extends Annotation> embeddableInstantiatorClass =
+					loadClass("org.hibernate.annotations.EmbeddableInstantiator", classLoader);
+			if (embeddableInstantiatorClass != null) {
+				registerForReflection(reflection,
+						AnnotationUtils.findAnnotation(managedClass, embeddableInstantiatorClass), "value");
+				ReflectionUtils.doWithFields(managedClass, field -> {
+					registerForReflection(reflection,
+							AnnotationUtils.findAnnotation(field, embeddableInstantiatorClass), "value");
+					registerForReflection(reflection,
+							AnnotationUtils.findAnnotation(field.getType(), embeddableInstantiatorClass), "value");
+				});
+				ReflectionUtils.doWithMethods(managedClass, method -> registerForReflection(reflection,
+						AnnotationUtils.findAnnotation(method, embeddableInstantiatorClass), "value"));
+			}
+
+			Class<? extends Annotation> valueGenerationTypeClass =
+					loadClass("org.hibernate.annotations.ValueGenerationType", classLoader);
+			if (valueGenerationTypeClass != null) {
+				ReflectionUtils.doWithFields(managedClass, field -> registerForReflection(reflection,
+						AnnotationUtils.findAnnotation(field, valueGenerationTypeClass), "generatedBy"));
+				ReflectionUtils.doWithMethods(managedClass, method -> registerForReflection(reflection,
+						AnnotationUtils.findAnnotation(method, valueGenerationTypeClass), "generatedBy"));
+			}
+
+			Class<? extends Annotation> idGeneratorTypeClass =
+					loadClass("org.hibernate.annotations.IdGeneratorType", classLoader);
+			if (idGeneratorTypeClass != null) {
+				ReflectionUtils.doWithFields(managedClass, field -> registerForReflection(reflection,
+						AnnotationUtils.findAnnotation(field, idGeneratorTypeClass), "value"));
+				ReflectionUtils.doWithMethods(managedClass, method -> registerForReflection(reflection,
+						AnnotationUtils.findAnnotation(method, idGeneratorTypeClass), "value"));
+			}
+
+			Class<? extends Annotation> attributeBinderTypeClass =
+					loadClass("org.hibernate.annotations.AttributeBinderType", classLoader);
+			if (attributeBinderTypeClass != null) {
+				ReflectionUtils.doWithFields(managedClass, field -> registerForReflection(reflection,
+						AnnotationUtils.findAnnotation(field, attributeBinderTypeClass), "binder"));
+				ReflectionUtils.doWithMethods(managedClass, method -> registerForReflection(reflection,
+						AnnotationUtils.findAnnotation(method, attributeBinderTypeClass), "binder"));
+			}
+		}
+
+		private void contributePackagePrivateHints(RuntimeHints hints, Class<?> managedClass) {
+			ReflectionHints reflection = hints.reflection();
+			ReflectionUtils.doWithMethods(managedClass, method ->
+							reflection.registerMethod(method, ExecutableMode.INVOKE),
+					method -> {
+						int modifiers = method.getModifiers();
+						return !(java.lang.reflect.Modifier.isProtected(modifiers) ||
+								java.lang.reflect.Modifier.isPrivate(modifiers) ||
+								java.lang.reflect.Modifier.isPublic(modifiers));
+					});
+		}
+
+		@SuppressWarnings("unchecked")
+		private static @Nullable Class<? extends Annotation> loadClass(String className, @Nullable ClassLoader classLoader) {
+			try {
+				return (Class<? extends Annotation>) ClassUtils.forName(className, classLoader);
+			}
+			catch (ClassNotFoundException ex) {
+				return null;
+			}
+		}
+
+		@SuppressWarnings("NullAway")  // Not-null assertion performed in ReflectionHints.registerType
+		private void registerForReflection(ReflectionHints reflection, @Nullable Annotation annotation, String attribute) {
+			if (annotation == null) {
+				return;
+			}
+			Class<?> type = (Class<?>) AnnotationUtils.getAnnotationAttributes(annotation).get(attribute);
+			reflection.registerType(type, MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
+		}
 	}
+
 }

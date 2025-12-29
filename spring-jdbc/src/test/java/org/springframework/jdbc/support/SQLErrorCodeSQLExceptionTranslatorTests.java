@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import java.sql.SQLException;
 
 import javax.sql.DataSource;
 
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.dao.CannotAcquireLockException;
@@ -33,16 +34,16 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.InvalidResultSetAccessException;
-import org.springframework.lang.Nullable;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
 /**
+ * Tests for {@link SQLErrorCodeSQLExceptionTranslator}.
+ *
  * @author Rod Johnson
  * @author Juergen Hoeller
  * @author Sam Brannen
@@ -87,8 +88,8 @@ class SQLErrorCodeSQLExceptionTranslatorTests {
 		SQLException dupKeyEx = new SQLException("", "", 10);
 		DataAccessException dataAccessException = translator.translate("task", "SQL", dupKeyEx);
 		assertThat(dataAccessException)
-			.isInstanceOf(DataIntegrityViolationException.class)
-			.hasCause(dupKeyEx);
+				.isInstanceOf(DataIntegrityViolationException.class)
+				.hasCause(dupKeyEx);
 
 		// Test fallback. We assume that no database will ever return this error code,
 		// but 07xxx will be bad grammar picked up by the fallback SQLState translator
@@ -102,8 +103,8 @@ class SQLErrorCodeSQLExceptionTranslatorTests {
 		SQLException sqlException = new SQLException("", "", errorCode);
 		DataAccessException dataAccessException = this.translator.translate("", "", sqlException);
 		assertThat(dataAccessException)
-			.isInstanceOf(expectedType)
-			.hasCause(sqlException);
+				.isInstanceOf(expectedType)
+				.hasCause(sqlException);
 	}
 
 	@Test
@@ -122,25 +123,24 @@ class SQLErrorCodeSQLExceptionTranslatorTests {
 		DataTruncation dataTruncation = new DataTruncation(1, true, true, 1, 1, dataAccessEx);
 		DataAccessException dataAccessException = translator.translate("task", "SQL", dataTruncation);
 		assertThat(dataAccessException)
-			.isInstanceOf(DataAccessResourceFailureException.class)
-			.hasCause(dataTruncation);
+				.isInstanceOf(DataAccessResourceFailureException.class)
+				.hasCause(dataTruncation);
 	}
 
 	@Test
 	@SuppressWarnings("serial")
 	void customTranslateMethodTranslation() {
-		final String TASK = "TASK";
-		final String SQL = "SQL SELECT *";
-		final DataAccessException customDex = new DataAccessException("") {};
+		String TASK = "TASK";
+		String SQL = "SQL SELECT *";
+		DataAccessException customDex = new DataAccessException("") {};
 
-		final SQLException badSqlEx = new SQLException("", "", 1);
+		SQLException badSqlEx = new SQLException("", "", 1);
 		SQLException integrityViolationEx = new SQLException("", "", 6);
 
 		translator = new SQLErrorCodeSQLExceptionTranslator() {
 			@SuppressWarnings("deprecation")
 			@Override
-			@Nullable
-			protected DataAccessException customTranslate(String task, @Nullable String sql, SQLException sqlException) {
+			protected @Nullable DataAccessException customTranslate(String task, @Nullable String sql, SQLException sqlException) {
 				assertThat(task).isEqualTo(TASK);
 				assertThat(sql).isEqualTo(SQL);
 				return (sqlException == badSqlEx) ? customDex : null;
@@ -152,18 +152,17 @@ class SQLErrorCodeSQLExceptionTranslatorTests {
 		assertThat(translator.translate(TASK, SQL, badSqlEx)).isEqualTo(customDex);
 
 		// Shouldn't custom translate this
-		DataAccessException dataAccessException = translator.translate(TASK, SQL, integrityViolationEx);
-		assertThat(dataAccessException)
-			.isInstanceOf(DataIntegrityViolationException.class)
-			.hasCause(integrityViolationEx);
+		assertThat(translator.translate(TASK, SQL, integrityViolationEx))
+				.isInstanceOf(DataIntegrityViolationException.class)
+				.hasCause(integrityViolationEx);
 	}
 
 	@Test
 	void customExceptionTranslation() {
-		final String TASK = "TASK";
-		final String SQL = "SQL SELECT *";
-		final SQLErrorCodes customErrorCodes = new SQLErrorCodes();
-		final CustomSQLErrorCodesTranslation customTranslation = new CustomSQLErrorCodesTranslation();
+		String TASK = "TASK";
+		String SQL = "SQL SELECT *";
+		SQLErrorCodes customErrorCodes = new SQLErrorCodes();
+		CustomSQLErrorCodesTranslation customTranslation = new CustomSQLErrorCodesTranslation();
 
 		customErrorCodes.setBadSqlGrammarCodes("1", "2");
 		customErrorCodes.setDataIntegrityViolationCodes("3", "4");
@@ -175,24 +174,22 @@ class SQLErrorCodeSQLExceptionTranslatorTests {
 
 		// Should custom translate this
 		SQLException badSqlEx = new SQLException("", "", 1);
-		DataAccessException dataAccessException = translator.translate(TASK, SQL, badSqlEx);
-		assertThat(dataAccessException)
-			.isInstanceOf(CustomErrorCodeException.class)
-			.hasCause(badSqlEx);
+		assertThat(translator.translate(TASK, SQL, badSqlEx))
+				.isInstanceOf(CustomErrorCodeException.class)
+				.hasCause(badSqlEx);
 
 		// Shouldn't custom translate this
 		SQLException invResEx = new SQLException("", "", 3);
-		dataAccessException = translator.translate(TASK, SQL, invResEx);
-		assertThat(dataAccessException)
-			.isInstanceOf(DataIntegrityViolationException.class)
-			.hasCause(invResEx);
+		assertThat(translator.translate(TASK, SQL, invResEx))
+				.isInstanceOf(DataIntegrityViolationException.class)
+				.hasCause(invResEx);
 
 		// Shouldn't custom translate this - invalid class
 		assertThatIllegalArgumentException().isThrownBy(() -> customTranslation.setExceptionClass(String.class));
 	}
 
 	@Test
-	void dataSourceInitialization() throws Exception {
+	void dataSourceInitializationWhenConnectionCannotBeObtained() throws Exception {
 		SQLException connectionException = new SQLException();
 		SQLException duplicateKeyException = new SQLException("test", "", 1);
 
@@ -201,6 +198,11 @@ class SQLErrorCodeSQLExceptionTranslatorTests {
 
 		translator = new SQLErrorCodeSQLExceptionTranslator(dataSource);
 		assertThat(translator.translate("test", null, duplicateKeyException)).isNull();
+	}
+
+	@Test
+	void dataSourceInitialization() throws Exception {
+		SQLException duplicateKeyException = new SQLException("test", "", 1);
 
 		DatabaseMetaData databaseMetaData = mock();
 		given(databaseMetaData.getDatabaseProductName()).willReturn("Oracle");
@@ -208,9 +210,12 @@ class SQLErrorCodeSQLExceptionTranslatorTests {
 		Connection connection = mock();
 		given(connection.getMetaData()).willReturn(databaseMetaData);
 
-		reset(dataSource);
+		DataSource dataSource = mock();
 		given(dataSource.getConnection()).willReturn(connection);
-		assertThat(translator.translate("test", null, duplicateKeyException)).isInstanceOf(DuplicateKeyException.class);
+
+		translator = new SQLErrorCodeSQLExceptionTranslator(dataSource);
+		assertThat(translator.translate("test", null, duplicateKeyException))
+				.isInstanceOf(DuplicateKeyException.class);
 
 		verify(connection).close();
 	}

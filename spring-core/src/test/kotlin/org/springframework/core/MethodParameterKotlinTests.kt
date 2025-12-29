@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -115,6 +115,24 @@ class MethodParameterKotlinTests {
 	}
 
 	@Test
+	fun `Parameter name for regular function`() {
+		val methodParameter = returnMethodParameter("nullable", 0)
+		assertThat(methodParameter.getParameterName()).isEqualTo("nullable")
+	}
+
+	@Test
+	fun `Parameter name for suspending function`() {
+		val methodParameter = returnMethodParameter("suspendFun", 0)
+		assertThat(methodParameter.getParameterName()).isEqualTo("p1")
+	}
+
+	@Test
+	fun `Continuation parameter name for suspending function`() {
+		val methodParameter = returnMethodParameter("suspendFun", 1)
+		assertThat(methodParameter.getParameterName()).isNull()
+	}
+
+	@Test
 	fun `Continuation parameter is optional`() {
 		val method = this::class.java.getDeclaredMethod("suspendFun", String::class.java, Continuation::class.java)
 		assertThat(MethodParameter(method, 0).isOptional).isFalse()
@@ -126,8 +144,8 @@ class MethodParameterKotlinTests {
 	private fun returnGenericParameterTypeName(funName: String) = returnGenericParameterType(funName).typeName
 	private fun returnGenericParameterTypeBoundName(funName: String) = (returnGenericParameterType(funName) as TypeVariable<*>).bounds[0].typeName
 
-	private fun returnMethodParameter(funName: String) =
-		MethodParameter(this::class.declaredFunctions.first { it.name == funName }.javaMethod!!, -1)
+	private fun returnMethodParameter(funName: String, parameterIndex: Int = -1) =
+		MethodParameter(this::class.declaredFunctions.first { it.name == funName }.javaMethod!!, parameterIndex)
 
 	@Suppress("unused_parameter")
 	fun nullable(nullable: String?): Int? = 42

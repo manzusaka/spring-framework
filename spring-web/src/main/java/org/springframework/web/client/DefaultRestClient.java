@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package org.springframework.web.client;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.net.URI;
@@ -24,9 +26,10 @@ import java.nio.charset.Charset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -35,6 +38,7 @@ import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.ResolvableType;
@@ -45,6 +49,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.StreamingHttpOutputMessage;
+import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpRequestInitializer;
@@ -58,9 +63,11 @@ import org.springframework.http.client.observation.DefaultClientRequestObservati
 import org.springframework.http.converter.GenericHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.lang.Nullable;
+import org.springframework.http.converter.SmartHttpMessageConverter;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriBuilder;
 import org.springframework.web.util.UriBuilderFactory;
 
@@ -69,6 +76,8 @@ import org.springframework.web.util.UriBuilderFactory;
  * as created by the static factory methods.
  *
  * @author Arjen Poutsma
+ * @author Sebastien Deleuze
+ * @author Rossen Stoyanchev
  * @since 6.1
  * @see RestClient#create()
  * @see RestClient#create(String)
@@ -85,19 +94,25 @@ final class DefaultRestClient implements RestClient {
 
 	private final ClientHttpRequestFactory clientRequestFactory;
 
-	@Nullable
-	private volatile ClientHttpRequestFactory interceptingRequestFactory;
+	private volatile @Nullable ClientHttpRequestFactory interceptingRequestFactory;
 
-	@Nullable
-	private final List<ClientHttpRequestInitializer> initializers;
+	private final @Nullable List<ClientHttpRequestInitializer> initializers;
 
-	@Nullable
-	private final List<ClientHttpRequestInterceptor> interceptors;
+	private final @Nullable List<ClientHttpRequestInterceptor> interceptors;
+
+	private final @Nullable BiPredicate<URI, HttpMethod> bufferingPredicate;
 
 	private final UriBuilderFactory uriBuilderFactory;
 
-	@Nullable
-	private final HttpHeaders defaultHeaders;
+	private final @Nullable HttpHeaders defaultHeaders;
+
+	private final @Nullable MultiValueMap<String, String> defaultCookies;
+
+	private final @Nullable Object defaultApiVersion;
+
+	private final @Nullable ApiVersionInserter apiVersionInserter;
+
+	private final @Nullable Consumer<RequestHeadersSpec<?>> defaultRequest;
 
 	private final List<StatusHandler> defaultStatusHandlers;
 
@@ -107,27 +122,41 @@ final class DefaultRestClient implements RestClient {
 
 	private final ObservationRegistry observationRegistry;
 
+	private final @Nullable ClientRequestObservationConvention observationConvention;
+
 
 	DefaultRestClient(ClientHttpRequestFactory clientRequestFactory,
 			@Nullable List<ClientHttpRequestInterceptor> interceptors,
+			@Nullable BiPredicate<URI, HttpMethod> bufferingPredicate,
 			@Nullable List<ClientHttpRequestInitializer> initializers,
 			UriBuilderFactory uriBuilderFactory,
 			@Nullable HttpHeaders defaultHeaders,
+			@Nullable MultiValueMap<String, String> defaultCookies,
+			@Nullable Object defaultApiVersion, @Nullable ApiVersionInserter apiVersionInserter,
+			@Nullable Consumer<RequestHeadersSpec<?>> defaultRequest,
 			@Nullable List<StatusHandler> statusHandlers,
 			List<HttpMessageConverter<?>> messageConverters,
 			ObservationRegistry observationRegistry,
+			@Nullable ClientRequestObservationConvention observationConvention,
 			DefaultRestClientBuilder builder) {
 
 		this.clientRequestFactory = clientRequestFactory;
 		this.initializers = initializers;
 		this.interceptors = interceptors;
+		this.bufferingPredicate = bufferingPredicate;
 		this.uriBuilderFactory = uriBuilderFactory;
 		this.defaultHeaders = defaultHeaders;
+		this.defaultCookies = defaultCookies;
+		this.defaultApiVersion = defaultApiVersion;
+		this.apiVersionInserter = apiVersionInserter;
+		this.defaultRequest = defaultRequest;
 		this.defaultStatusHandlers = (statusHandlers != null ? new ArrayList<>(statusHandlers) : new ArrayList<>());
 		this.messageConverters = messageConverters;
 		this.observationRegistry = observationRegistry;
+		this.observationConvention = observationConvention;
 		this.builder = builder;
 	}
+
 
 	@Override
 	public RequestHeadersUriSpec<?> get() {
@@ -171,7 +200,11 @@ final class DefaultRestClient implements RestClient {
 	}
 
 	private RequestBodyUriSpec methodInternal(HttpMethod httpMethod) {
-		return new DefaultRequestBodyUriSpec(httpMethod);
+		DefaultRequestBodyUriSpec spec = new DefaultRequestBodyUriSpec(httpMethod);
+		if (this.defaultRequest != null) {
+			this.defaultRequest.accept(spec);
+		}
+		return spec;
 	}
 
 	@Override
@@ -179,44 +212,129 @@ final class DefaultRestClient implements RestClient {
 		return new DefaultRestClientBuilder(this.builder);
 	}
 
+	@SuppressWarnings({"rawtypes", "unchecked"})
+	private <T> @Nullable T readWithMessageConverters(
+			ClientHttpResponse clientResponse, Runnable callback, Type bodyType, Class<T> bodyClass,
+			@Nullable Map<String, Object> hints) {
+
+		MediaType contentType = getContentType(clientResponse);
+
+		try {
+			callback.run();
+
+			IntrospectingClientHttpResponse responseWrapper = new IntrospectingClientHttpResponse(clientResponse);
+			if (!responseWrapper.hasMessageBody() || responseWrapper.hasEmptyMessageBody()) {
+				return null;
+			}
+
+			for (HttpMessageConverter<?> messageConverter : this.messageConverters) {
+				if (messageConverter instanceof GenericHttpMessageConverter genericMessageConverter) {
+					if (genericMessageConverter.canRead(bodyType, null, contentType)) {
+						if (logger.isDebugEnabled()) {
+							logger.debug("Reading to [" + ResolvableType.forType(bodyType) + "]");
+						}
+						return (T) genericMessageConverter.read(bodyType, null, responseWrapper);
+					}
+				}
+				else if (messageConverter instanceof SmartHttpMessageConverter smartMessageConverter) {
+					ResolvableType resolvableType = ResolvableType.forType(bodyType);
+					if (smartMessageConverter.canRead(resolvableType, contentType)) {
+						if (logger.isDebugEnabled()) {
+							logger.debug("Reading to [" + resolvableType + "]");
+						}
+						return (T) smartMessageConverter.read(resolvableType, responseWrapper, hints);
+					}
+				}
+				else if (messageConverter.canRead(bodyClass, contentType)) {
+					if (logger.isDebugEnabled()) {
+						logger.debug("Reading to [" + bodyClass.getName() + "] as \"" + contentType + "\"");
+					}
+					return (T) messageConverter.read((Class)bodyClass, responseWrapper);
+				}
+			}
+
+			throw new UnknownContentTypeException(bodyType, contentType,
+					responseWrapper.getStatusCode(), responseWrapper.getStatusText(),
+					responseWrapper.getHeaders(), RestClientUtils.getBody(responseWrapper));
+		}
+		catch (UncheckedIOException | IOException | HttpMessageNotReadableException exc) {
+			Throwable cause;
+			if (exc instanceof UncheckedIOException uncheckedIOException) {
+				cause = uncheckedIOException.getCause();
+			}
+			else {
+				cause = exc;
+			}
+			throw new RestClientException("Error while extracting response for type [" +
+					ResolvableType.forType(bodyType) + "] and content type [" + contentType + "]", cause);
+		}
+	}
+
+	private static MediaType getContentType(ClientHttpResponse clientResponse) {
+		MediaType contentType = clientResponse.getHeaders().getContentType();
+		if (contentType == null) {
+			contentType = MediaType.APPLICATION_OCTET_STREAM;
+		}
+		return contentType;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static <T> Class<T> bodyClass(Type type) {
+		if (type instanceof Class<?> clazz) {
+			return (Class<T>) clazz;
+		}
+		if (type instanceof ParameterizedType parameterizedType &&
+				parameterizedType.getRawType() instanceof Class<?> rawType) {
+			return (Class<T>) rawType;
+		}
+		return (Class<T>) Object.class;
+	}
+
 
 	private class DefaultRequestBodyUriSpec implements RequestBodyUriSpec {
 
+		private static final Object NO_VERSION = new Object();
+
 		private final HttpMethod httpMethod;
 
-		@Nullable
-		private URI uri;
+		private @Nullable URI uri;
 
-		@Nullable
-		private HttpHeaders headers;
+		private @Nullable HttpHeaders headers;
 
-		@Nullable
-		private InternalBody body;
+		private @Nullable MultiValueMap<String, String> cookies;
 
-		private final Map<String, Object> attributes = new LinkedHashMap<>(4);
+		private @Nullable Object apiVersion;
 
-		@Nullable
-		private Consumer<ClientHttpRequest> httpRequestConsumer;
+		private @Nullable InternalBody body;
+
+		private @Nullable Map<String, Object> attributes;
+
+		private @Nullable Consumer<ClientHttpRequest> httpRequestConsumer;
+
+		private @Nullable Map<String, Object> hints;
 
 		public DefaultRequestBodyUriSpec(HttpMethod httpMethod) {
 			this.httpMethod = httpMethod;
 		}
 
 		@Override
-		public RequestBodySpec uri(String uriTemplate, Object... uriVariables) {
-			attribute(URI_TEMPLATE_ATTRIBUTE, uriTemplate);
+		public RequestBodySpec uri(String uriTemplate, @Nullable Object... uriVariables) {
+			UriBuilder uriBuilder = uriBuilderFactory.uriString(uriTemplate);
+			attribute(URI_TEMPLATE_ATTRIBUTE, uriBuilder.toUriString());
 			return uri(DefaultRestClient.this.uriBuilderFactory.expand(uriTemplate, uriVariables));
 		}
 
 		@Override
 		public RequestBodySpec uri(String uriTemplate, Map<String, ?> uriVariables) {
-			attribute(URI_TEMPLATE_ATTRIBUTE, uriTemplate);
+			UriBuilder uriBuilder = uriBuilderFactory.uriString(uriTemplate);
+			attribute(URI_TEMPLATE_ATTRIBUTE, uriBuilder.toUriString());
 			return uri(DefaultRestClient.this.uriBuilderFactory.expand(uriTemplate, uriVariables));
 		}
 
 		@Override
 		public RequestBodySpec uri(String uriTemplate, Function<UriBuilder, URI> uriFunction) {
-			attribute(URI_TEMPLATE_ATTRIBUTE, uriTemplate);
+			UriBuilder uriBuilder = uriBuilderFactory.uriString(uriTemplate);
+			attribute(URI_TEMPLATE_ATTRIBUTE, uriBuilder.toUriString());
 			return uri(uriFunction.apply(DefaultRestClient.this.uriBuilderFactory.uriString(uriTemplate)));
 		}
 
@@ -227,7 +345,13 @@ final class DefaultRestClient implements RestClient {
 
 		@Override
 		public RequestBodySpec uri(URI uri) {
-			this.uri = uri;
+			if (uri.isAbsolute()) {
+				this.uri = uri;
+			}
+			else {
+				URI baseUri = DefaultRestClient.this.uriBuilderFactory.expand("");
+				this.uri = baseUri.resolve(uri);
+			}
 			return this;
 		}
 
@@ -236,6 +360,13 @@ final class DefaultRestClient implements RestClient {
 				this.headers = new HttpHeaders();
 			}
 			return this.headers;
+		}
+
+		private MultiValueMap<String, String> getCookies() {
+			if (this.cookies == null) {
+				this.cookies = new LinkedMultiValueMap<>(3);
+			}
+			return this.cookies;
 		}
 
 		@Override
@@ -265,6 +396,18 @@ final class DefaultRestClient implements RestClient {
 		}
 
 		@Override
+		public DefaultRequestBodyUriSpec cookie(String name, String value) {
+			getCookies().add(name, value);
+			return this;
+		}
+
+		@Override
+		public DefaultRequestBodyUriSpec cookies(Consumer<MultiValueMap<String, String>> cookiesConsumer) {
+			cookiesConsumer.accept(getCookies());
+			return this;
+		}
+
+		@Override
 		public DefaultRequestBodyUriSpec contentType(MediaType contentType) {
 			getHeaders().setContentType(contentType);
 			return this;
@@ -289,15 +432,30 @@ final class DefaultRestClient implements RestClient {
 		}
 
 		@Override
+		public RequestBodySpec apiVersion(@Nullable Object version) {
+			this.apiVersion = (version != null ? version : NO_VERSION);
+			return this;
+		}
+
+		@Override
 		public RequestBodySpec attribute(String name, Object value) {
-			this.attributes.put(name, value);
+			getAttributes().put(name, value);
 			return this;
 		}
 
 		@Override
 		public RequestBodySpec attributes(Consumer<Map<String, Object>> attributesConsumer) {
-			attributesConsumer.accept(this.attributes);
+			attributesConsumer.accept(getAttributes());
 			return this;
+		}
+
+		private Map<String, Object> getAttributes() {
+			Map<String, Object> attributes = this.attributes;
+			if (attributes == null) {
+				attributes = new ConcurrentHashMap<>(4);
+				this.attributes = attributes;
+			}
+			return attributes;
 		}
 
 		@Override
@@ -321,8 +479,30 @@ final class DefaultRestClient implements RestClient {
 
 		@Override
 		public RequestBodySpec body(StreamingHttpOutputMessage.Body body) {
-			this.body = request -> body.writeTo(request.getBody());
+			this.body = request -> {
+				if (request instanceof StreamingHttpOutputMessage streamingMessage) {
+					streamingMessage.setBody(body);
+				}
+				else {
+					body.writeTo(request.getBody());
+				}
+			};
 			return this;
+		}
+
+		@Override
+		public DefaultRequestBodyUriSpec hint(String key, Object value) {
+			getHints().put(key, value);
+			return this;
+		}
+
+		private Map<String, Object> getHints() {
+			Map<String, Object> hints = this.hints;
+			if (hints == null) {
+				hints = new ConcurrentHashMap<>(1);
+				this.hints = hints;
+			}
+			return hints;
 		}
 
 		@SuppressWarnings({"rawtypes", "unchecked"})
@@ -340,7 +520,15 @@ final class DefaultRestClient implements RestClient {
 						return;
 					}
 				}
-				if (messageConverter.canWrite(bodyClass, contentType)) {
+				else if (messageConverter instanceof SmartHttpMessageConverter smartMessageConverter) {
+					ResolvableType resolvableType = ResolvableType.forType(bodyType);
+					if (smartMessageConverter.canWrite(resolvableType, bodyClass, contentType)) {
+						logBody(body, contentType, smartMessageConverter);
+						smartMessageConverter.write(body, resolvableType, contentType, clientRequest, this.hints);
+						return;
+					}
+				}
+				else if (messageConverter.canWrite(bodyClass, contentType)) {
 					logBody(body, contentType, messageConverter);
 					messageConverter.write(body, contentType, clientRequest);
 					return;
@@ -369,32 +557,49 @@ final class DefaultRestClient implements RestClient {
 			}
 		}
 
-
 		@Override
 		public ResponseSpec retrieve() {
-			return exchangeInternal(DefaultResponseSpec::new, false);
+			return new DefaultResponseSpec(this);
 		}
 
 		@Override
-		public <T> T exchange(ExchangeFunction<T> exchangeFunction, boolean close) {
+		public <T extends @Nullable Object> T exchange(ExchangeFunction<T> exchangeFunction, boolean close) {
 			return exchangeInternal(exchangeFunction, close);
 		}
 
-		private <T> T exchangeInternal(ExchangeFunction<T> exchangeFunction, boolean close) {
+		@Override
+		public <T> T exchangeForRequiredValue(RequiredValueExchangeFunction<T> exchangeFunction, boolean close) {
+			T value = exchangeInternal(exchangeFunction, close);
+			Assert.state(value != null, "The exchanged value must not be null");
+			return value;
+		}
+
+		private <T extends @Nullable Object> T exchangeInternal(ExchangeFunction<T> exchangeFunction, boolean close) {
 			Assert.notNull(exchangeFunction, "ExchangeFunction must not be null");
 
 			ClientHttpResponse clientResponse = null;
 			Observation observation = null;
+			Observation.Scope observationScope = null;
 			URI uri = null;
 			try {
 				uri = initUri();
+				String serializedCookies = serializeCookies();
+				if (serializedCookies != null) {
+					getHeaders().set(HttpHeaders.COOKIE, serializedCookies);
+				}
 				HttpHeaders headers = initHeaders();
+
 				ClientHttpRequest clientRequest = createRequest(uri);
-				clientRequest.getHeaders().addAll(headers);
+				if (headers != null) {
+					clientRequest.getHeaders().addAll(headers);
+				}
+				Map<String, Object> attributes = getAttributes();
+				clientRequest.getAttributes().putAll(attributes);
 				ClientRequestObservationContext observationContext = new ClientRequestObservationContext(clientRequest);
-				observationContext.setUriTemplate((String) this.attributes.get(URI_TEMPLATE_ATTRIBUTE));
-				observation = ClientHttpObservationDocumentation.HTTP_CLIENT_EXCHANGES.observation(null,
+				observationContext.setUriTemplate((String) attributes.get(URI_TEMPLATE_ATTRIBUTE));
+				observation = ClientHttpObservationDocumentation.HTTP_CLIENT_EXCHANGES.observation(observationConvention,
 						DEFAULT_OBSERVATION_CONVENTION, () -> observationContext, observationRegistry).start();
+				observationScope = observation.openScope();
 				if (this.body != null) {
 					this.body.writeTo(clientRequest);
 				}
@@ -403,7 +608,8 @@ final class DefaultRestClient implements RestClient {
 				}
 				clientResponse = clientRequest.execute();
 				observationContext.setResponse(clientResponse);
-				return exchangeFunction.exchange(clientRequest, clientResponse);
+				ConvertibleClientHttpResponse convertibleWrapper = new DefaultConvertibleClientHttpResponse(clientResponse, this.hints);
+				return exchangeFunction.exchange(clientRequest, convertibleWrapper);
 			}
 			catch (IOException ex) {
 				ResourceAccessException resourceAccessException = createResourceAccessException(uri, this.httpMethod, ex);
@@ -419,33 +625,100 @@ final class DefaultRestClient implements RestClient {
 				throw error;
 			}
 			finally {
-				if (close && clientResponse != null) {
-					clientResponse.close();
+				if (observationScope != null) {
+					observationScope.close();
 				}
 				if (observation != null) {
 					observation.stop();
+				}
+				if (close && clientResponse != null) {
+					clientResponse.close();
 				}
 			}
 		}
 
 		private URI initUri() {
-			return (this.uri != null ? this.uri : DefaultRestClient.this.uriBuilderFactory.expand(""));
+			URI uriToUse = this.uri != null ? this.uri : DefaultRestClient.this.uriBuilderFactory.expand("");
+			Object version = getApiVersionOrDefault();
+			if (version != null) {
+				Assert.state(apiVersionInserter != null, "No ApiVersionInserter configured");
+				uriToUse = apiVersionInserter.insertVersion(version, uriToUse);
+			}
+			return uriToUse;
 		}
 
-		private HttpHeaders initHeaders() {
-			HttpHeaders defaultHeaders = DefaultRestClient.this.defaultHeaders;
-			if (CollectionUtils.isEmpty(this.headers)) {
-				return (defaultHeaders != null ? defaultHeaders : new HttpHeaders());
+		private @Nullable Object getApiVersionOrDefault() {
+			if (this.apiVersion == null) {
+				return DefaultRestClient.this.defaultApiVersion;
 			}
-			else if (CollectionUtils.isEmpty(defaultHeaders)) {
-				return this.headers;
+			else if (this.apiVersion == NO_VERSION) {
+				return null;
 			}
 			else {
-				HttpHeaders result = new HttpHeaders();
-				result.putAll(defaultHeaders);
-				result.putAll(this.headers);
-				return result;
+				return this.apiVersion;
 			}
+		}
+
+		private @Nullable String serializeCookies() {
+			MultiValueMap<String, String> map;
+			MultiValueMap<String, String> defaultCookies = DefaultRestClient.this.defaultCookies;
+			if (CollectionUtils.isEmpty(this.cookies)) {
+				map = defaultCookies;
+			}
+			else if (CollectionUtils.isEmpty(defaultCookies)) {
+				map = this.cookies;
+			}
+			else {
+				map = new LinkedMultiValueMap<>(defaultCookies.size() + this.cookies.size());
+				map.putAll(defaultCookies);
+				map.putAll(this.cookies);
+			}
+			return (!CollectionUtils.isEmpty(map) ? serializeCookies(map) : null);
+		}
+
+		private static String serializeCookies(MultiValueMap<String, String> map) {
+			boolean first = true;
+			StringBuilder sb = new StringBuilder();
+			for (Map.Entry<String, List<String>> entry : map.entrySet()) {
+				for (String value : entry.getValue()) {
+					if (!first) {
+						sb.append("; ");
+					}
+					else {
+						first = false;
+					}
+					sb.append(entry.getKey()).append("=").append(value);
+				}
+			}
+			return sb.toString();
+		}
+
+		private @Nullable HttpHeaders initHeaders() {
+			HttpHeaders defaultHeaders = DefaultRestClient.this.defaultHeaders;
+			Object version = getApiVersionOrDefault();
+			if (version == null) {
+				if (this.headers == null || this.headers.isEmpty()) {
+					return defaultHeaders;
+				}
+				else if (defaultHeaders == null || defaultHeaders.isEmpty()) {
+					return this.headers;
+				}
+			}
+
+			HttpHeaders result = new HttpHeaders();
+			if (defaultHeaders != null) {
+				result.putAll(defaultHeaders);
+			}
+			if (this.headers != null) {
+				result.putAll(this.headers);
+			}
+
+			if (version != null) {
+				Assert.state(apiVersionInserter != null, "No ApiVersionInserter configured");
+				apiVersionInserter.insertVersion(version, result);
+			}
+
+			return result;
 		}
 
 		private ClientHttpRequest createRequest(URI uri) throws IOException {
@@ -453,9 +726,15 @@ final class DefaultRestClient implements RestClient {
 			if (DefaultRestClient.this.interceptors != null) {
 				factory = DefaultRestClient.this.interceptingRequestFactory;
 				if (factory == null) {
-					factory = new InterceptingClientHttpRequestFactory(DefaultRestClient.this.clientRequestFactory, DefaultRestClient.this.interceptors);
+					factory = new InterceptingClientHttpRequestFactory(
+							DefaultRestClient.this.clientRequestFactory, DefaultRestClient.this.interceptors,
+							DefaultRestClient.this.bufferingPredicate);
 					DefaultRestClient.this.interceptingRequestFactory = factory;
 				}
+			}
+			else if (DefaultRestClient.this.bufferingPredicate != null) {
+				factory = new BufferingClientHttpRequestFactory(
+						DefaultRestClient.this.clientRequestFactory, DefaultRestClient.this.bufferingPredicate);
 			}
 			else {
 				factory = DefaultRestClient.this.clientRequestFactory;
@@ -495,19 +774,18 @@ final class DefaultRestClient implements RestClient {
 
 	private class DefaultResponseSpec implements ResponseSpec {
 
-		private final HttpRequest clientRequest;
-
-		private final ClientHttpResponse clientResponse;
+		private final RequestHeadersSpec<?> requestHeadersSpec;
 
 		private final List<StatusHandler> statusHandlers = new ArrayList<>(1);
 
 		private final int defaultStatusHandlerCount;
 
-		DefaultResponseSpec(HttpRequest clientRequest, ClientHttpResponse clientResponse) {
-			this.clientRequest = clientRequest;
-			this.clientResponse = clientResponse;
+		private @Nullable Map<String, Object> hints;
+
+		DefaultResponseSpec(RequestHeadersSpec<?> requestHeadersSpec) {
+			this.requestHeadersSpec = requestHeadersSpec;
 			this.statusHandlers.addAll(DefaultRestClient.this.defaultStatusHandlers);
-			this.statusHandlers.add(StatusHandler.defaultHandler(DefaultRestClient.this.messageConverters));
+			this.statusHandlers.add(StatusHandler.createDefaultStatusHandler(DefaultRestClient.this.messageConverters));
 			this.defaultStatusHandlerCount = this.statusHandlers.size();
 		}
 
@@ -535,15 +813,17 @@ final class DefaultRestClient implements RestClient {
 		}
 
 		@Override
-		public <T> T body(Class<T> bodyType) {
-			return readWithMessageConverters(bodyType, bodyType);
+		@SuppressWarnings("NullAway") // See https://github.com/uber/NullAway/issues/1290
+		public <T> @Nullable T body(Class<T> bodyType) {
+			return executeAndExtract((request, response) -> readBody(request, response, bodyType, bodyType, this.hints));
 		}
 
 		@Override
-		public <T> T body(ParameterizedTypeReference<T> bodyType) {
+		@SuppressWarnings("NullAway") // See https://github.com/uber/NullAway/issues/1290
+		public <T> @Nullable T body(ParameterizedTypeReference<T> bodyType) {
 			Type type = bodyType.getType();
 			Class<T> bodyClass = bodyClass(type);
-			return readWithMessageConverters(type, bodyClass);
+			return executeAndExtract((request, response) -> readBody(request, response, type, bodyClass, this.hints));
 		}
 
 		@Override
@@ -559,90 +839,142 @@ final class DefaultRestClient implements RestClient {
 		}
 
 		private <T> ResponseEntity<T> toEntityInternal(Type bodyType, Class<T> bodyClass) {
-			T body = readWithMessageConverters(bodyType, bodyClass);
-			try {
-				return ResponseEntity.status(this.clientResponse.getStatusCode())
-						.headers(this.clientResponse.getHeaders())
-						.body(body);
-			}
-			catch (IOException ex) {
-				throw new ResourceAccessException("Could not retrieve response status code: " + ex.getMessage(), ex);
-			}
+			ResponseEntity<T> entity = executeAndExtract((request, response) -> {
+				T body = readBody(request, response, bodyType, bodyClass, this.hints);
+				try {
+					return ResponseEntity.status(response.getStatusCode())
+							.headers(response.getHeaders())
+							.body(body);
+				}
+				catch (IOException ex) {
+					throw new ResourceAccessException(
+							"Could not retrieve response status code: " + ex.getMessage(), ex);
+				}
+			});
+			Assert.state(entity != null, "No ResponseEntity");
+			return entity;
 		}
 
 		@Override
 		public ResponseEntity<Void> toBodilessEntity() {
-			try (this.clientResponse) {
-				applyStatusHandlers(this.clientRequest, this.clientResponse);
-				return ResponseEntity.status(this.clientResponse.getStatusCode())
-						.headers(this.clientResponse.getHeaders())
-						.build();
+			ResponseEntity<Void> entity = executeAndExtract((request, response) -> {
+				try (response) {
+					applyStatusHandlers(request, response);
+					return ResponseEntity.status(response.getStatusCode())
+							.headers(response.getHeaders())
+							.build();
+				}
+				catch (UncheckedIOException ex) {
+					throw new ResourceAccessException(
+							"Could not retrieve response status code: " + ex.getMessage(), ex.getCause());
+				}
+				catch (IOException ex) {
+					throw new ResourceAccessException(
+							"Could not retrieve response status code: " + ex.getMessage(), ex);
+				}
+			});
+			Assert.state(entity != null, "No ResponseEntity");
+			return entity;
+		}
+
+		@Override
+		public ResponseSpec hint(String key, Object value) {
+			getHints().put(key, value);
+			return this;
+		}
+
+		private Map<String, Object> getHints() {
+			Map<String, Object> hints = this.hints;
+			if (hints == null) {
+				hints = new ConcurrentHashMap<>(1);
+				this.hints = hints;
+			}
+			return hints;
+		}
+
+		public <T extends @Nullable Object> T executeAndExtract(RequestHeadersSpec.ExchangeFunction<T> exchangeFunction) {
+			return this.requestHeadersSpec.exchange(exchangeFunction);
+		}
+
+		private <T> @Nullable T readBody(
+				HttpRequest request, ClientHttpResponse response, Type bodyType, Class<T> bodyClass,
+				@Nullable Map<String, Object> hints) {
+
+			return DefaultRestClient.this.readWithMessageConverters(
+					response, () -> applyStatusHandlers(request, response), bodyType, bodyClass, hints);
+
+		}
+
+		private void applyStatusHandlers(HttpRequest request, ClientHttpResponse response) {
+			try {
+				if (response instanceof DefaultConvertibleClientHttpResponse convertibleResponse) {
+					response = convertibleResponse.delegate;
+				}
+				for (StatusHandler handler : this.statusHandlers) {
+					if (handler.test(response)) {
+						handler.handle(request, response);
+						return;
+					}
+				}
 			}
 			catch (IOException ex) {
-				throw new ResourceAccessException("Could not retrieve response status code: " + ex.getMessage(), ex);
+				throw new UncheckedIOException(ex);
 			}
 		}
+	}
 
-		@SuppressWarnings("unchecked")
-		private static <T> Class<T> bodyClass(Type type) {
-			if (type instanceof Class<?> clazz) {
-				return (Class<T>) clazz;
-			}
-			if (type instanceof ParameterizedType parameterizedType &&
-					parameterizedType.getRawType() instanceof Class<?> rawType) {
-				return (Class<T>) rawType;
-			}
-			return (Class<T>) Object.class;
+
+	private class DefaultConvertibleClientHttpResponse implements RequestHeadersSpec.ConvertibleClientHttpResponse {
+
+		private final ClientHttpResponse delegate;
+
+		private final @Nullable Map<String, Object> hints;
+
+		public DefaultConvertibleClientHttpResponse(ClientHttpResponse delegate, @Nullable Map<String, Object> hints) {
+			this.delegate = delegate;
+			this.hints = hints;
 		}
 
-		@SuppressWarnings({"rawtypes", "unchecked"})
-		private <T> T readWithMessageConverters(Type bodyType, Class<T> bodyClass) {
-			MediaType contentType = getContentType();
-
-			try (this.clientResponse) {
-				applyStatusHandlers(this.clientRequest, this.clientResponse);
-
-				for (HttpMessageConverter<?> messageConverter : DefaultRestClient.this.messageConverters) {
-					if (messageConverter instanceof GenericHttpMessageConverter genericHttpMessageConverter) {
-						if (genericHttpMessageConverter.canRead(bodyType, bodyClass, contentType)) {
-							if (logger.isDebugEnabled()) {
-								logger.debug("Reading to [" + ResolvableType.forType(bodyType) + "]");
-							}
-							return (T) genericHttpMessageConverter.read(bodyType, bodyClass, this.clientResponse);
-						}
-					}
-					if (messageConverter.canRead(bodyClass, contentType)) {
-						if (logger.isDebugEnabled()) {
-							logger.debug("Reading to [" + bodyClass.getName() + "] as \"" + contentType + "\"");
-						}
-						return (T) messageConverter.read((Class)bodyClass, this.clientResponse);
-					}
-				}
-				throw new UnknownContentTypeException(bodyType, contentType,
-						this.clientResponse.getStatusCode(), this.clientResponse.getStatusText(),
-						this.clientResponse.getHeaders(), RestClientUtils.getBody(this.clientResponse));
-			}
-			catch (IOException | HttpMessageNotReadableException ex) {
-				throw new RestClientException("Error while extracting response for type [" +
-						ResolvableType.forType(bodyType) + "] and content type [" + contentType + "]", ex);
-			}
+		@Override
+		public HttpStatusCode getStatusCode() throws IOException {
+			return this.delegate.getStatusCode();
 		}
 
-		private MediaType getContentType() {
-			MediaType contentType = this.clientResponse.getHeaders().getContentType();
-			if (contentType == null) {
-				contentType = MediaType.APPLICATION_OCTET_STREAM;
-			}
-			return contentType;
+		@Override
+		public String getStatusText() throws IOException {
+			return this.delegate.getStatusText();
 		}
 
-		private void applyStatusHandlers(HttpRequest request, ClientHttpResponse response) throws IOException {
-			for (StatusHandler handler : this.statusHandlers) {
-				if (handler.test(response)) {
-					handler.handle(request, response);
-					return;
-				}
-			}
+		@Override
+		public HttpHeaders getHeaders() {
+			return this.delegate.getHeaders();
+		}
+
+		@Override
+		public InputStream getBody() throws IOException {
+			return this.delegate.getBody();
+		}
+
+		@Override
+		public void close() {
+			this.delegate.close();
+		}
+
+		@Override
+		public <T> @Nullable T bodyTo(Class<T> bodyType) {
+			return readWithMessageConverters(this.delegate, () -> {} , bodyType, bodyType, this.hints);
+		}
+
+		@Override
+		public <T> @Nullable T bodyTo(ParameterizedTypeReference<T> bodyType) {
+			Type type = bodyType.getType();
+			Class<T> bodyClass = bodyClass(type);
+			return readWithMessageConverters(this.delegate, () -> {}, type, bodyClass, this.hints);
+		}
+
+		@Override
+		public RestClientResponseException createException() throws IOException {
+			return StatusHandler.createException(this, DefaultRestClient.this.messageConverters);
 		}
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ class TestReactorExchangeAdapter extends TestExchangeAdapter implements ReactorH
 	@Override
 	public <T> Mono<T> exchangeForBodyMono(HttpRequestValues requestValues, ParameterizedTypeReference<T> bodyType) {
 		saveInput("exchangeForBodyMono", requestValues, bodyType);
-		return  bodyType.getType().getTypeName().contains("List") ?
+		return bodyType.getType().getTypeName().contains("List") ?
 				(Mono<T>) Mono.just(Collections.singletonList(getInvokedMethodName())) :
 				(Mono<T>) Mono.just(getInvokedMethodName());
 	}

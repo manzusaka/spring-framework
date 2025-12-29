@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 package org.springframework.web.socket.sockjs.transport.session;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.JacksonException;
 
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -40,7 +40,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 /**
- * Unit tests for {@link WebSocketServerSockJsSession}.
+ * Tests for {@link WebSocketServerSockJsSession}.
  *
  * @author Rossen Stoyanchev
  */
@@ -64,7 +64,7 @@ class WebSocketServerSockJsSessionTests extends AbstractSockJsSessionTests<TestW
 
 
 	@Test
-	void isActive() throws Exception {
+	void isActive() {
 		assertThat(this.session.isActive()).isFalse();
 
 		this.session.initializeDelegateSession(this.webSocketSession);
@@ -85,7 +85,7 @@ class WebSocketServerSockJsSessionTests extends AbstractSockJsSessionTests<TestW
 
 	@Test
 	@SuppressWarnings("resource")
-	void afterSessionInitializedOpenFrameFirst() throws Exception {
+	void afterSessionInitializedOpenFrameFirst() {
 		TextWebSocketHandler handler = new TextWebSocketHandler() {
 			@Override
 			public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -118,12 +118,12 @@ class WebSocketServerSockJsSessionTests extends AbstractSockJsSessionTests<TestW
 		this.session.handleMessage(message, this.webSocketSession);
 
 		this.session.isClosed();
-		verify(this.webSocketHandler).handleTransportError(same(this.session), any(IOException.class));
+		verify(this.webSocketHandler).handleTransportError(same(this.session), any(JacksonException.class));
 		verifyNoMoreInteractions(this.webSocketHandler);
 	}
 
 	@Test
-	void sendMessageInternal() throws Exception {
+	void sendMessageInternal() {
 		this.session.initializeDelegateSession(this.webSocketSession);
 		this.session.sendMessageInternal("x");
 

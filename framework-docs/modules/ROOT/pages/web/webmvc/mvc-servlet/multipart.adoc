@@ -6,8 +6,6 @@
 `MultipartResolver` from the `org.springframework.web.multipart` package is a strategy
 for parsing multipart requests including file uploads. There is a container-based
 `StandardServletMultipartResolver` implementation for Servlet multipart request parsing.
-Note that the outdated `CommonsMultipartResolver` based on Apache Commons FileUpload is
-not available anymore, as of Spring Framework 6.0 with its new Servlet 5.0+ baseline.
 
 To enable multipart handling, you need to declare a `MultipartResolver` bean in your
 `DispatcherServlet` Spring configuration with a name of `multipartResolver`.
@@ -32,7 +30,7 @@ The following example shows how to set a `MultipartConfigElement` on the Servlet
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	public class AppInitializer extends AbstractAnnotationConfigDispatcherServletInitializer {
 
@@ -50,7 +48,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	class AppInitializer : AbstractAnnotationConfigDispatcherServletInitializer() {
 
@@ -75,7 +73,7 @@ This resolver variant uses your Servlet container's multipart parser as-is,
 potentially exposing the application to container implementation differences.
 By default, it will try to parse any `multipart/` content type with any HTTP
 method but this may not be supported across all Servlet containers. See the
-{api-spring-framework}/web/multipart/support/StandardServletMultipartResolver.html[`StandardServletMultipartResolver`]
+{spring-framework-api}/web/multipart/support/StandardServletMultipartResolver.html[`StandardServletMultipartResolver`]
 javadoc for details and configuration options.
 ====
 

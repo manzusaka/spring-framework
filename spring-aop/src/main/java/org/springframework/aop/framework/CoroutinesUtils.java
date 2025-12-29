@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,9 @@ package org.springframework.aop.framework;
 import kotlin.coroutines.Continuation;
 import kotlinx.coroutines.reactive.ReactiveFlowKt;
 import kotlinx.coroutines.reactor.MonoKt;
+import org.jspecify.annotations.Nullable;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Mono;
-
-import org.springframework.lang.Nullable;
 
 /**
  * Package-visible class designed to avoid a hard dependency on Kotlin and Coroutines dependency at runtime.
@@ -32,14 +31,19 @@ import org.springframework.lang.Nullable;
  */
 abstract class CoroutinesUtils {
 
-	static Object asFlow(Object publisher) {
-		return ReactiveFlowKt.asFlow((Publisher<?>) publisher);
+	static Object asFlow(@Nullable Object publisher) {
+		if (publisher instanceof Publisher<?> rsPublisher) {
+			return ReactiveFlowKt.asFlow(rsPublisher);
+		}
+		else {
+			throw new IllegalArgumentException("Not a Reactive Streams Publisher: " + publisher);
+		}
 	}
 
-	@SuppressWarnings("unchecked")
-	@Nullable
-	static Object awaitSingleOrNull(Object mono, Object continuation) {
-		return MonoKt.awaitSingleOrNull((Mono<?>) mono, (Continuation<Object>) continuation);
+	@SuppressWarnings({"rawtypes", "unchecked"})
+	static @Nullable Object awaitSingleOrNull(@Nullable Object value, Object continuation) {
+		return MonoKt.awaitSingleOrNull(value instanceof Mono mono ? mono : Mono.justOrEmpty(value),
+				(Continuation<Object>) continuation);
 	}
 
 }

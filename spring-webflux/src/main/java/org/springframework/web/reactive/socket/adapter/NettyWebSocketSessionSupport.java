@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketFrame;
 
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.NettyDataBufferFactory;
+import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.reactive.socket.HandshakeInfo;
 import org.springframework.web.reactive.socket.WebSocketMessage;
@@ -60,9 +61,20 @@ public abstract class NettyWebSocketSessionSupport<T> extends AbstractWebSocketS
 		messageTypes.put(PongWebSocketFrame.class, WebSocketMessage.Type.PONG);
 	}
 
-
+	/**
+	 * Constructor that uses the hashcode of the delegate as the session id.
+	 */
 	protected NettyWebSocketSessionSupport(T delegate, HandshakeInfo info, NettyDataBufferFactory factory) {
-		super(delegate, ObjectUtils.getIdentityHexString(delegate), info, factory);
+		this(delegate, ObjectUtils.getIdentityHexString(delegate), info, factory);
+	}
+
+	/**
+	 * Variant of {@link #NettyWebSocketSessionSupport(Object, HandshakeInfo, NettyDataBufferFactory)}
+	 * with a given WebSocket session id.
+	 * @since 6.2.15
+	 */
+	protected NettyWebSocketSessionSupport(T delegate, String id, HandshakeInfo info, NettyDataBufferFactory factory) {
+		super(delegate, id, info, factory);
 	}
 
 
@@ -74,7 +86,9 @@ public abstract class NettyWebSocketSessionSupport<T> extends AbstractWebSocketS
 
 	protected WebSocketMessage toMessage(WebSocketFrame frame) {
 		DataBuffer payload = bufferFactory().wrap(frame.content());
-		return new WebSocketMessage(messageTypes.get(frame.getClass()), payload, frame);
+		WebSocketMessage.Type messageType = messageTypes.get(frame.getClass());
+		Assert.state(messageType != null, "Unexpected message type");
+		return new WebSocketMessage(messageType, payload, frame);
 	}
 
 	protected WebSocketFrame toFrame(WebSocketMessage message) {

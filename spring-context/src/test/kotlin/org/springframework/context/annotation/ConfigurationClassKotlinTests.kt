@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,10 @@ package org.springframework.context.annotation
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatExceptionOfType
 import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.config.BeanPostProcessor
 import org.springframework.beans.factory.getBean
 import org.springframework.beans.factory.parsing.BeanDefinitionParsingException
+import org.springframework.beans.factory.support.DefaultListableBeanFactory
 
 /**
  * Integration tests for Kotlin configuration classes.
@@ -43,6 +45,16 @@ class ConfigurationClassKotlinTests {
 		assertThat(context.getBean<Bar>().foo).isEqualTo(foo)
 	}
 
+	@Test
+	fun `Configuration with @JvmStatic registers a single bean`() {
+		val beanFactory = DefaultListableBeanFactory().apply {
+			isAllowBeanDefinitionOverriding = false
+		}
+		val context = AnnotationConfigApplicationContext(beanFactory)
+		context.register(ProcessorConfiguration::class.java)
+		context.refresh()
+	}
+
 
 	@Configuration
 	class FinalConfigurationWithProxy {
@@ -62,6 +74,19 @@ class ConfigurationClassKotlinTests {
 
 		@Bean
 		fun bar(foo: Foo) = Bar(foo)
+	}
+
+	@Configuration
+	open class ProcessorConfiguration {
+
+		companion object {
+
+			@Bean
+			@JvmStatic
+			fun processor(): BeanPostProcessor {
+				return object: BeanPostProcessor{}
+			}
+		}
 	}
 
 	class Foo

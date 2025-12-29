@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 package org.springframework.web.bind.support;
+
+import org.jspecify.annotations.Nullable;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.util.StringUtils;
@@ -32,7 +34,7 @@ import org.springframework.web.bind.annotation.BindParam;
 public final class BindParamNameResolver implements DataBinder.NameResolver {
 
 	@Override
-	public String resolveName(MethodParameter parameter) {
+	public @Nullable String resolveName(MethodParameter parameter) {
 		BindParam bindParam = parameter.getParameterAnnotation(BindParam.class);
 		if (bindParam != null) {
 			if (StringUtils.hasText(bindParam.value())) {
