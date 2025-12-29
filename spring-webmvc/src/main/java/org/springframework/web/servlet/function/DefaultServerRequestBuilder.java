@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,17 +42,23 @@ import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
 
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.ResolvableType;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.GenericHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.SmartHttpMessageConverter;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.validation.BindException;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.bind.ServletRequestDataBinder;
+import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.util.UriBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -313,7 +319,13 @@ class DefaultServerRequestBuilder implements ServerRequest.Builder {
 						return (T) genericMessageConverter.read(bodyType, bodyClass, inputMessage);
 					}
 				}
-				if (messageConverter.canRead(bodyClass, contentType)) {
+				else if (messageConverter instanceof SmartHttpMessageConverter<?> smartMessageConverter) {
+					ResolvableType resolvableType = ResolvableType.forType(bodyType);
+					if (smartMessageConverter.canRead(resolvableType, contentType)) {
+						return (T) smartMessageConverter.read(resolvableType, inputMessage, null);
+					}
+				}
+				else if (messageConverter.canRead(bodyClass, contentType)) {
 					HttpMessageConverter<T> theConverter =
 							(HttpMessageConverter<T>) messageConverter;
 					Class<? extends T> clazz = (Class<? extends T>) bodyClass;
@@ -321,6 +333,35 @@ class DefaultServerRequestBuilder implements ServerRequest.Builder {
 				}
 			}
 			throw new HttpMediaTypeNotSupportedException(contentType, Collections.emptyList(), method());
+		}
+
+		@Override
+		@SuppressWarnings("unchecked")
+		public <T> T bind(Class<T> bindType, Consumer<WebDataBinder> dataBinderCustomizer) throws BindException {
+			Assert.notNull(bindType, "BindType must not be null");
+			Assert.notNull(dataBinderCustomizer, "DataBinderCustomizer must not be null");
+
+			ServletRequestDataBinder dataBinder = new ServletRequestDataBinder(null);
+			dataBinder.setTargetType(ResolvableType.forClass(bindType));
+			dataBinderCustomizer.accept(dataBinder);
+
+			HttpServletRequest servletRequest = servletRequest();
+			dataBinder.construct(servletRequest);
+			dataBinder.bind(servletRequest);
+
+			BindingResult bindingResult = dataBinder.getBindingResult();
+			if (bindingResult.hasErrors()) {
+				throw new BindException(bindingResult);
+			}
+			else {
+				T result = (T) bindingResult.getTarget();
+				if (result != null) {
+					return result;
+				}
+				else {
+					throw new IllegalStateException("Binding result has neither target nor errors");
+				}
+			}
 		}
 
 		@Override

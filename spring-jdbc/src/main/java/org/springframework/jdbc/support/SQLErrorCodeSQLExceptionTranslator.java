@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ import org.springframework.util.function.SupplierUtils;
  *
  * <p>The configuration file named "sql-error-codes.xml" is by default read from
  * this package. It can be overridden through a file of the same name in the root
- * of the class path (e.g. in the "/WEB-INF/classes" directory), as long as the
+ * of the class path (for example, in the "/WEB-INF/classes" directory), as long as the
  * Spring JDBC package is loaded from the same ClassLoader.
  *
  * <p>This translator is commonly used by default if a user-provided `sql-error-codes.xml`
@@ -217,7 +217,7 @@ public class SQLErrorCodeSQLExceptionTranslator extends AbstractFallbackSQLExcep
 			}
 			else {
 				// Try to find SQLException with actual error code, looping through the causes.
-				// E.g. applicable to java.sql.DataTruncation as of JDK 1.6.
+				// For example, applicable to java.sql.DataTruncation as of JDK 1.6.
 				SQLException current = sqlEx;
 				while (current.getErrorCode() == 0 && current.getCause() instanceof SQLException sqlException) {
 					current = sqlException;
@@ -309,7 +309,9 @@ public class SQLErrorCodeSQLExceptionTranslator extends AbstractFallbackSQLExcep
 	 * resulting from custom translation. This exception should include the {@code sqlEx} parameter
 	 * as a nested root cause. This implementation always returns {@code null}, meaning that the
 	 * translator always falls back to the default error codes.
+	 * @deprecated as of 6.1, in favor of {@link #setCustomTranslator}
 	 */
+	@Deprecated(since = "6.1")
 	@Nullable
 	protected DataAccessException customTranslate(String task, @Nullable String sql, SQLException sqlEx) {
 		return null;

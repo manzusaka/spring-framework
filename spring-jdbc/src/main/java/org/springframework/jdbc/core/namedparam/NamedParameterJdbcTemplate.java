@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,12 @@ import org.springframework.util.ConcurrentLruCache;
  * The underlying {@link org.springframework.jdbc.core.JdbcTemplate} is
  * exposed to allow for convenient access to the traditional
  * {@link org.springframework.jdbc.core.JdbcTemplate} methods.
+ *
+ * <p><b>NOTE: As of 6.1, there is a unified JDBC access facade available in
+ * the form of {@link org.springframework.jdbc.core.simple.JdbcClient}.</b>
+ * {@code JdbcClient} provides a fluent API style for common JDBC queries/updates
+ * with flexible use of indexed or named parameters. It delegates to a
+ * {@code JdbcTemplate}/{@code NamedParameterJdbcTemplate} for actual execution.
  *
  * @author Thomas Risberg
  * @author Juergen Hoeller
@@ -360,11 +366,6 @@ public class NamedParameterJdbcTemplate implements NamedParameterJdbcOperations 
 	}
 
 	@Override
-	public int[] batchUpdate(String sql, Map<String, ?>[] batchValues) {
-		return batchUpdate(sql, SqlParameterSourceUtils.createBatch(batchValues));
-	}
-
-	@Override
 	public int[] batchUpdate(String sql, SqlParameterSource[] batchArgs) {
 		if (batchArgs.length == 0) {
 			return new int[0];
@@ -386,6 +387,49 @@ public class NamedParameterJdbcTemplate implements NamedParameterJdbcOperations 
 						return batchArgs.length;
 					}
 				});
+	}
+
+	@Override
+	public int[] batchUpdate(String sql, Map<String, ?>[] batchValues) {
+		return batchUpdate(sql, SqlParameterSourceUtils.createBatch(batchValues));
+	}
+
+	@Override
+	public int[] batchUpdate(String sql, SqlParameterSource[] batchArgs, KeyHolder generatedKeyHolder) {
+		return batchUpdate(sql, batchArgs, generatedKeyHolder, null);
+	}
+
+	@Override
+	public int[] batchUpdate(String sql, SqlParameterSource[] batchArgs, KeyHolder generatedKeyHolder,
+			@Nullable String[] keyColumnNames) {
+
+		if (batchArgs.length == 0) {
+			return new int[0];
+		}
+
+		ParsedSql parsedSql = getParsedSql(sql);
+		SqlParameterSource paramSource = batchArgs[0];
+		PreparedStatementCreatorFactory pscf = getPreparedStatementCreatorFactory(parsedSql, paramSource);
+		if (keyColumnNames != null) {
+			pscf.setGeneratedKeysColumnNames(keyColumnNames);
+		}
+		else {
+			pscf.setReturnGeneratedKeys(true);
+		}
+		Object[] params = NamedParameterUtils.buildValueArray(parsedSql, paramSource, null);
+		PreparedStatementCreator psc = pscf.newPreparedStatementCreator(params);
+		return getJdbcOperations().batchUpdate(psc, new BatchPreparedStatementSetter() {
+			@Override
+			public void setValues(PreparedStatement ps, int i) throws SQLException {
+				Object[] values = NamedParameterUtils.buildValueArray(parsedSql, batchArgs[i], null);
+				pscf.newPreparedStatementSetter(values).setValues(ps);
+			}
+
+			@Override
+			public int getBatchSize() {
+				return batchArgs.length;
+			}
+		}, generatedKeyHolder);
 	}
 
 
@@ -436,6 +480,7 @@ public class NamedParameterJdbcTemplate implements NamedParameterJdbcOperations 
 	 * @return a representation of the parsed SQL statement
 	 */
 	protected ParsedSql getParsedSql(String sql) {
+		Assert.notNull(sql, "SQL must not be null");
 		return this.parsedSqlCache.get(sql);
 	}
 

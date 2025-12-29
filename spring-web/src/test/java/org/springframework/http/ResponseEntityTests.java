@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -208,7 +208,7 @@ class ResponseEntityTests {
 		assertThat(responseHeaders.getFirst(HttpHeaders.CONTENT_LENGTH)).isEqualTo(String.valueOf(contentLength));
 		assertThat(responseHeaders.getFirst(HttpHeaders.CONTENT_TYPE)).isEqualTo(contentType.toString());
 
-		assertThat((Object) responseEntity.getBody()).isNull();
+		assertThat(responseEntity.getBody()).isNull();
 	}
 
 	@Test
@@ -250,7 +250,7 @@ class ResponseEntityTests {
 				ResponseEntity.ok().headers((HttpHeaders) null).build();
 
 		assertThat(responseEntityWithEmptyHeaders.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(responseEntityWithEmptyHeaders.getHeaders().isEmpty()).isTrue();
+		assertThat(responseEntityWithEmptyHeaders.getHeaders()).isEmpty();
 		assertThat(responseEntityWithNullHeaders.toString()).isEqualTo(responseEntityWithEmptyHeaders.toString());
 	}
 

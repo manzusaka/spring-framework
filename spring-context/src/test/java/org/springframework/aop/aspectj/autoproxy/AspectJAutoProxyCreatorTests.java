@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ class AspectJAutoProxyCreatorTests {
 	void aspectsAreApplied() {
 		ClassPathXmlApplicationContext bf = newContext("aspects.xml");
 
-		ITestBean tb = (ITestBean) bf.getBean("adrian");
+		ITestBean tb = bf.getBean("adrian", ITestBean.class);
 		assertThat(tb.getAge()).isEqualTo(68);
 		MethodInvokingFactoryBean factoryBean = (MethodInvokingFactoryBean) bf.getBean("&factoryBean");
 		assertThat(AopUtils.isAopProxy(factoryBean.getTargetObject())).isTrue();
@@ -96,7 +96,7 @@ class AspectJAutoProxyCreatorTests {
 	void multipleAspectsWithParameterApplied() {
 		ClassPathXmlApplicationContext bf = newContext("aspects.xml");
 
-		ITestBean tb = (ITestBean) bf.getBean("adrian");
+		ITestBean tb = bf.getBean("adrian", ITestBean.class);
 		tb.setAge(10);
 		assertThat(tb.getAge()).isEqualTo(20);
 	}
@@ -105,7 +105,7 @@ class AspectJAutoProxyCreatorTests {
 	void aspectsAreAppliedInDefinedOrder() {
 		ClassPathXmlApplicationContext bf = newContext("aspectsWithOrdering.xml");
 
-		ITestBean tb = (ITestBean) bf.getBean("adrian");
+		ITestBean tb = bf.getBean("adrian", ITestBean.class);
 		assertThat(tb.getAge()).isEqualTo(71);
 	}
 
@@ -113,8 +113,8 @@ class AspectJAutoProxyCreatorTests {
 	void aspectsAndAdvisorAreApplied() {
 		ClassPathXmlApplicationContext ac = newContext("aspectsPlusAdvisor.xml");
 
-		ITestBean shouldBeWeaved = (ITestBean) ac.getBean("adrian");
-		doTestAspectsAndAdvisorAreApplied(ac, shouldBeWeaved);
+		ITestBean shouldBeWoven = ac.getBean("adrian", ITestBean.class);
+		assertAspectsAndAdvisorAreApplied(ac, shouldBeWoven);
 	}
 
 	@Test
@@ -124,20 +124,22 @@ class AspectJAutoProxyCreatorTests {
 		GenericApplicationContext childAc = new GenericApplicationContext(ac);
 		// Create a child factory with a bean that should be woven
 		RootBeanDefinition bd = new RootBeanDefinition(TestBean.class);
-		bd.getPropertyValues().addPropertyValue(new PropertyValue("name", "Adrian"))
+		bd.getPropertyValues()
+				.addPropertyValue(new PropertyValue("name", "Adrian"))
 				.addPropertyValue(new PropertyValue("age", 34));
 		childAc.registerBeanDefinition("adrian2", bd);
 		// Register the advisor auto proxy creator with subclass
-		childAc.registerBeanDefinition(AnnotationAwareAspectJAutoProxyCreator.class.getName(), new RootBeanDefinition(
-				AnnotationAwareAspectJAutoProxyCreator.class));
+		childAc.registerBeanDefinition(AnnotationAwareAspectJAutoProxyCreator.class.getName(),
+				new RootBeanDefinition(AnnotationAwareAspectJAutoProxyCreator.class));
 		childAc.refresh();
 
-		ITestBean beanFromChildContextThatShouldBeWeaved = (ITestBean) childAc.getBean("adrian2");
-		//testAspectsAndAdvisorAreApplied(childAc, (ITestBean) ac.getBean("adrian"));
-		doTestAspectsAndAdvisorAreApplied(childAc, beanFromChildContextThatShouldBeWeaved);
+		ITestBean beanFromParentContextThatShouldBeWoven = ac.getBean("adrian", ITestBean.class);
+		ITestBean beanFromChildContextThatShouldBeWoven = childAc.getBean("adrian2", ITestBean.class);
+		assertAspectsAndAdvisorAreApplied(childAc, beanFromParentContextThatShouldBeWoven);
+		assertAspectsAndAdvisorAreApplied(childAc, beanFromChildContextThatShouldBeWoven);
 	}
 
-	protected void doTestAspectsAndAdvisorAreApplied(ApplicationContext ac, ITestBean shouldBeWeaved) {
+	protected void assertAspectsAndAdvisorAreApplied(ApplicationContext ac, ITestBean shouldBeWoven) {
 		TestBeanAdvisor tba = (TestBeanAdvisor) ac.getBean("advisor");
 
 		MultiplyReturnValue mrv = (MultiplyReturnValue) ac.getBean("aspect");
@@ -146,10 +148,10 @@ class AspectJAutoProxyCreatorTests {
 		tba.count = 0;
 		mrv.invocations = 0;
 
-		assertThat(AopUtils.isAopProxy(shouldBeWeaved)).as("Autoproxying must apply from @AspectJ aspect").isTrue();
-		assertThat(shouldBeWeaved.getName()).isEqualTo("Adrian");
+		assertThat(AopUtils.isAopProxy(shouldBeWoven)).as("Autoproxying must apply from @AspectJ aspect").isTrue();
+		assertThat(shouldBeWoven.getName()).isEqualTo("Adrian");
 		assertThat(mrv.invocations).isEqualTo(0);
-		assertThat(shouldBeWeaved.getAge()).isEqualTo((34 * mrv.getMultiple()));
+		assertThat(shouldBeWoven.getAge()).isEqualTo((34 * mrv.getMultiple()));
 		assertThat(tba.count).as("Spring advisor must be invoked").isEqualTo(2);
 		assertThat(mrv.invocations).as("Must be able to hold state in aspect").isEqualTo(1);
 	}
@@ -158,13 +160,13 @@ class AspectJAutoProxyCreatorTests {
 	void perThisAspect() {
 		ClassPathXmlApplicationContext bf = newContext("perthis.xml");
 
-		ITestBean adrian1 = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian1 = bf.getBean("adrian", ITestBean.class);
 		assertThat(AopUtils.isAopProxy(adrian1)).isTrue();
 
 		assertThat(adrian1.getAge()).isEqualTo(0);
 		assertThat(adrian1.getAge()).isEqualTo(1);
 
-		ITestBean adrian2 = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian2 = bf.getBean("adrian", ITestBean.class);
 		assertThat(adrian2).isNotSameAs(adrian1);
 		assertThat(AopUtils.isAopProxy(adrian1)).isTrue();
 		assertThat(adrian2.getAge()).isEqualTo(0);
@@ -178,7 +180,7 @@ class AspectJAutoProxyCreatorTests {
 	void perTargetAspect() throws SecurityException, NoSuchMethodException {
 		ClassPathXmlApplicationContext bf = newContext("pertarget.xml");
 
-		ITestBean adrian1 = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian1 = bf.getBean("adrian", ITestBean.class);
 		assertThat(AopUtils.isAopProxy(adrian1)).isTrue();
 
 		// Does not trigger advice or count
@@ -199,7 +201,7 @@ class AspectJAutoProxyCreatorTests {
 		adrian1.setName("Adrian");
 		//assertEquals("Any other setter does not increment", 2, adrian1.getAge());
 
-		ITestBean adrian2 = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian2 = bf.getBean("adrian", ITestBean.class);
 		assertThat(adrian2).isNotSameAs(adrian1);
 		assertThat(AopUtils.isAopProxy(adrian1)).isTrue();
 		assertThat(adrian2.getAge()).isEqualTo(34);
@@ -220,16 +222,16 @@ class AspectJAutoProxyCreatorTests {
 		try (ConfigurableApplicationContext context = new AnnotationConfigApplicationContext(configClass)) {
 			testBean1 = context.getBean(TestBean.class);
 			assertThat(AopUtils.isCglibProxy(testBean1)).as("CGLIB proxy").isTrue();
-			assertThat(testBean1.getClass().getInterfaces())
-				.containsExactlyInAnyOrder(Factory.class, SpringProxy.class, Advised.class);
+			assertThat(testBean1.getClass().getInterfaces()).containsExactlyInAnyOrder(
+					Factory.class, SpringProxy.class, Advised.class);
 		}
 
 		// Round #2
 		try (ConfigurableApplicationContext context = new AnnotationConfigApplicationContext(configClass)) {
 			testBean2 = context.getBean(TestBean.class);
 			assertThat(AopUtils.isCglibProxy(testBean2)).as("CGLIB proxy").isTrue();
-			assertThat(testBean2.getClass().getInterfaces())
-				.containsExactlyInAnyOrder(Factory.class, SpringProxy.class, Advised.class);
+			assertThat(testBean2.getClass().getInterfaces()).containsExactlyInAnyOrder(
+					Factory.class, SpringProxy.class, Advised.class);
 		}
 
 		assertThat(testBean1.getClass()).isSameAs(testBean2.getClass());
@@ -239,7 +241,7 @@ class AspectJAutoProxyCreatorTests {
 	void twoAdviceAspect() {
 		ClassPathXmlApplicationContext bf = newContext("twoAdviceAspect.xml");
 
-		ITestBean adrian1 = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian1 = bf.getBean("adrian", ITestBean.class);
 		testAgeAspect(adrian1, 0, 2);
 	}
 
@@ -247,9 +249,9 @@ class AspectJAutoProxyCreatorTests {
 	void twoAdviceAspectSingleton() {
 		ClassPathXmlApplicationContext bf = newContext("twoAdviceAspectSingleton.xml");
 
-		ITestBean adrian1 = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian1 = bf.getBean("adrian", ITestBean.class);
 		testAgeAspect(adrian1, 0, 1);
-		ITestBean adrian2 = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian2 = bf.getBean("adrian", ITestBean.class);
 		assertThat(adrian2).isNotSameAs(adrian1);
 		testAgeAspect(adrian2, 2, 1);
 	}
@@ -258,9 +260,9 @@ class AspectJAutoProxyCreatorTests {
 	void twoAdviceAspectPrototype() {
 		ClassPathXmlApplicationContext bf = newContext("twoAdviceAspectPrototype.xml");
 
-		ITestBean adrian1 = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian1 = bf.getBean("adrian", ITestBean.class);
 		testAgeAspect(adrian1, 0, 1);
-		ITestBean adrian2 = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian2 = bf.getBean("adrian", ITestBean.class);
 		assertThat(adrian2).isNotSameAs(adrian1);
 		testAgeAspect(adrian2, 0, 1);
 	}
@@ -280,7 +282,7 @@ class AspectJAutoProxyCreatorTests {
 	void adviceUsingJoinPoint() {
 		ClassPathXmlApplicationContext bf = newContext("usesJoinPointAspect.xml");
 
-		ITestBean adrian1 = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian1 = bf.getBean("adrian", ITestBean.class);
 		adrian1.getAge();
 		AdviceUsingThisJoinPoint aspectInstance = (AdviceUsingThisJoinPoint) bf.getBean("aspect");
 		//(AdviceUsingThisJoinPoint) Aspects.aspectOf(AdviceUsingThisJoinPoint.class);
@@ -292,7 +294,7 @@ class AspectJAutoProxyCreatorTests {
 	void includeMechanism() {
 		ClassPathXmlApplicationContext bf = newContext("usesInclude.xml");
 
-		ITestBean adrian = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian = bf.getBean("adrian", ITestBean.class);
 		assertThat(AopUtils.isAopProxy(adrian)).isTrue();
 		assertThat(adrian.getAge()).isEqualTo(68);
 	}
@@ -310,7 +312,7 @@ class AspectJAutoProxyCreatorTests {
 	void withAbstractFactoryBeanAreApplied() {
 		ClassPathXmlApplicationContext bf = newContext("aspectsWithAbstractBean.xml");
 
-		ITestBean adrian = (ITestBean) bf.getBean("adrian");
+		ITestBean adrian = bf.getBean("adrian", ITestBean.class);
 		assertThat(AopUtils.isAopProxy(adrian)).isTrue();
 		assertThat(adrian.getAge()).isEqualTo(68);
 	}
@@ -321,8 +323,7 @@ class AspectJAutoProxyCreatorTests {
 
 		UnreliableBean bean = (UnreliableBean) bf.getBean("unreliableBean");
 		RetryAspect aspect = (RetryAspect) bf.getBean("retryAspect");
-		int attempts = bean.unreliable();
-		assertThat(attempts).isEqualTo(2);
+		assertThat(bean.unreliable()).isEqualTo(2);
 		assertThat(aspect.getBeginCalls()).isEqualTo(2);
 		assertThat(aspect.getRollbackCalls()).isEqualTo(1);
 		assertThat(aspect.getCommitCalls()).isEqualTo(1);
@@ -332,7 +333,7 @@ class AspectJAutoProxyCreatorTests {
 	void withBeanNameAutoProxyCreator() {
 		ClassPathXmlApplicationContext bf = newContext("withBeanNameAutoProxyCreator.xml");
 
-		ITestBean tb = (ITestBean) bf.getBean("adrian");
+		ITestBean tb = bf.getBean("adrian", ITestBean.class);
 		assertThat(tb.getAge()).isEqualTo(68);
 	}
 
@@ -344,8 +345,8 @@ class AspectJAutoProxyCreatorTests {
 			Supplier<String> supplier = context.getBean(Supplier.class);
 			assertThat(AopUtils.isAopProxy(supplier)).as("AOP proxy").isTrue();
 			assertThat(AopUtils.isJdkDynamicProxy(supplier)).as("JDK Dynamic proxy").isTrue();
-			assertThat(supplier.getClass().getInterfaces())
-				.containsExactlyInAnyOrder(Supplier.class, SpringProxy.class, Advised.class, DecoratingProxy.class);
+			assertThat(supplier.getClass().getInterfaces()).containsExactlyInAnyOrder(
+					Supplier.class, SpringProxy.class, Advised.class, DecoratingProxy.class);
 			assertThat(supplier.get()).isEqualTo("advised: lambda");
 		}
 	}
@@ -357,26 +358,24 @@ class AspectJAutoProxyCreatorTests {
 			MessageGenerator messageGenerator = context.getBean(MessageGenerator.class);
 			assertThat(AopUtils.isAopProxy(messageGenerator)).as("AOP proxy").isTrue();
 			assertThat(AopUtils.isJdkDynamicProxy(messageGenerator)).as("JDK Dynamic proxy").isTrue();
-			assertThat(messageGenerator.getClass().getInterfaces())
-				.containsExactlyInAnyOrder(MessageGenerator.class, Mixin.class, SpringProxy.class, Advised.class, DecoratingProxy.class);
+			assertThat(messageGenerator.getClass().getInterfaces()).containsExactlyInAnyOrder(
+					MessageGenerator.class, Mixin.class, SpringProxy.class, Advised.class, DecoratingProxy.class);
 			assertThat(messageGenerator.generateMessage()).isEqualTo("mixin: lambda");
 		}
 	}
 
-	/**
-	 * Returns a new {@link ClassPathXmlApplicationContext} for the file ending in <var>fileSuffix</var>.
-	 */
-	private ClassPathXmlApplicationContext newContext(String fileSuffix) {
-		return new ClassPathXmlApplicationContext(qName(fileSuffix), getClass());
+	@Test
+	void nullAdviceIsSkipped() {
+		try (ConfigurableApplicationContext context = new AnnotationConfigApplicationContext(ProxyWithNullAdviceConfig.class)) {
+			@SuppressWarnings("unchecked")
+			Supplier<String> supplier = context.getBean(Supplier.class);
+			assertThat(AopUtils.isAopProxy(supplier)).as("AOP proxy").isTrue();
+			assertThat(supplier.get()).isEqualTo("lambda");
+		}
 	}
 
-	/**
-	 * Returns the relatively qualified name for <var>fileSuffix</var>.
-	 * e.g. for a fileSuffix='foo.xml', this method will return
-	 * 'AspectJAutoProxyCreatorTests-foo.xml'
-	 */
-	private String qName(String fileSuffix) {
-		return String.format("%s-%s", getClass().getSimpleName(), fileSuffix);
+	private ClassPathXmlApplicationContext newContext(String fileSuffix) {
+		return new ClassPathXmlApplicationContext(getClass().getSimpleName() + "-" + fileSuffix, getClass());
 	}
 
 }
@@ -416,7 +415,6 @@ class DummyAspectWithParameter {
 	public Object test(ProceedingJoinPoint pjp, int age) throws Throwable {
 		return pjp.proceed();
 	}
-
 }
 
 class DummyFactoryBean implements FactoryBean<Object> {
@@ -435,7 +433,6 @@ class DummyFactoryBean implements FactoryBean<Object> {
 	public boolean isSingleton() {
 		throw new UnsupportedOperationException();
 	}
-
 }
 
 @Aspect
@@ -591,7 +588,6 @@ class UnreliableBean {
 		}
 		return this.calls;
 	}
-
 }
 
 @SuppressWarnings("serial")
@@ -607,7 +603,6 @@ class TestBeanAdvisor extends StaticMethodMatcherPointcutAdvisor {
 	public boolean matches(Method method, @Nullable Class<?> targetClass) {
 		return ITestBean.class.isAssignableFrom(targetClass);
 	}
-
 }
 
 abstract class AbstractProxyTargetClassConfig {
@@ -625,7 +620,7 @@ abstract class AbstractProxyTargetClassConfig {
 	@Aspect
 	static class SupplierAdvice {
 
-		@Around("execution(public * org.springframework.aop.aspectj.autoproxy..*.*(..))")
+		@Around("execution(* java.util.function.Supplier+.get())")
 		Object aroundSupplier(ProceedingJoinPoint joinPoint) throws Throwable {
 			return "advised: " + joinPoint.proceed();
 		}
@@ -640,6 +635,16 @@ class ProxyTargetClassFalseConfig extends AbstractProxyTargetClassConfig {
 @Configuration(proxyBeanMethods = false)
 @EnableAspectJAutoProxy(proxyTargetClass = true)
 class ProxyTargetClassTrueConfig extends AbstractProxyTargetClassConfig {
+}
+
+@Configuration(proxyBeanMethods = false)
+@EnableAspectJAutoProxy(proxyTargetClass = true)
+class ProxyWithNullAdviceConfig extends AbstractProxyTargetClassConfig {
+
+	@Override
+	SupplierAdvice supplierAdvice() {
+		return null;
+	}
 }
 
 @Configuration
@@ -661,6 +666,7 @@ class PerTargetProxyTargetClassTrueConfig {
 
 @FunctionalInterface
 interface MessageGenerator {
+
 	String generateMessage();
 }
 
@@ -678,7 +684,6 @@ class MixinIntroductionInterceptor implements IntroductionInterceptor {
 	public boolean implementsInterface(Class<?> intf) {
 		return Mixin.class.isAssignableFrom(intf);
 	}
-
 }
 
 @SuppressWarnings("serial")
@@ -708,7 +713,6 @@ class MixinAdvisor extends AbstractPointcutAdvisor implements IntroductionAdviso
 	public void validateInterfaces() {
 		/* no-op */
 	}
-
 }
 
 abstract class AbstractMixinConfig {
@@ -722,7 +726,6 @@ abstract class AbstractMixinConfig {
 	MixinAdvisor mixinAdvisor() {
 		return new MixinAdvisor();
 	}
-
 }
 
 @Configuration(proxyBeanMethods = false)

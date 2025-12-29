@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -87,19 +87,15 @@ import org.springframework.util.Assert;
  * transaction. The DataSource that Hibernate uses needs to be JTA-enabled in
  * such a scenario (see container setup).
  *
- * <p>This transaction manager supports nested transactions via JDBC 3.0 Savepoints.
- * The {@link #setNestedTransactionAllowed} "nestedTransactionAllowed"} flag defaults
+ * <p>This transaction manager supports nested transactions via JDBC Savepoints.
+ * The {@link #setNestedTransactionAllowed "nestedTransactionAllowed"} flag defaults
  * to "false", though, as nested transactions will just apply to the JDBC Connection,
  * not to the Hibernate Session and its cached entity objects and related context.
  * You can manually set the flag to "true" if you want to use nested transactions
  * for JDBC access code which participates in Hibernate transactions (provided that
- * your JDBC driver supports Savepoints). <i>Note that Hibernate itself does not
+ * your JDBC driver supports savepoints). <i>Note that Hibernate itself does not
  * support nested transactions! Hence, do not expect Hibernate access code to
  * semantically participate in a nested transaction.</i>
- *
- * <p><b>NOTE: Hibernate ORM 6.x is officially only supported as a JPA provider.
- * Please use {@link org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean}
- * with {@link org.springframework.orm.jpa.JpaTransactionManager} there instead.</b>
  *
  * @author Juergen Hoeller
  * @since 4.2
@@ -189,11 +185,11 @@ public class HibernateTransactionManager extends AbstractPlatformTransactionMana
 
 	/**
 	 * Set the JDBC DataSource that this instance should manage transactions for.
-	 * The DataSource should match the one used by the Hibernate SessionFactory:
+	 * <p>The DataSource should match the one used by the Hibernate SessionFactory:
 	 * for example, you could specify the same JNDI DataSource for both.
 	 * <p>If the SessionFactory was configured with LocalDataSourceConnectionProvider,
 	 * i.e. by Spring's LocalSessionFactoryBean with a specified "dataSource",
-	 * the DataSource will be auto-detected: You can still explicitly specify the
+	 * the DataSource will be auto-detected. You can still explicitly specify the
 	 * DataSource, but you don't need to in this case.
 	 * <p>A transactional JDBC Connection for this DataSource will be provided to
 	 * application code accessing this DataSource directly via DataSourceUtils
@@ -210,7 +206,7 @@ public class HibernateTransactionManager extends AbstractPlatformTransactionMana
 	 * for the actual target DataSource. Alternatively, consider switching
 	 * {@link #setPrepareConnection "prepareConnection"} to {@code false}.</b>
 	 * In both cases, this transaction manager will not eagerly acquire a
-	 * JDBC Connection for each Hibernate Session anymore (as of Spring 5.1).
+	 * JDBC Connection for each Hibernate Session.
 	 * @see #setAutodetectDataSource
 	 * @see TransactionAwareDataSourceProxy
 	 * @see org.springframework.jdbc.datasource.LazyConnectionDataSourceProxy
@@ -285,12 +281,11 @@ public class HibernateTransactionManager extends AbstractPlatformTransactionMana
 	/**
 	 * Set whether to operate on a Hibernate-managed Session instead of a
 	 * Spring-managed Session, that is, whether to obtain the Session through
-	 * Hibernate's {@link SessionFactory#getCurrentSession()}
-	 * instead of {@link SessionFactory#openSession()} (with a Spring
-	 * {@link TransactionSynchronizationManager}
-	 * check preceding it).
+	 * Hibernate's {@link SessionFactory#getCurrentSession()} instead of
+	 * {@link SessionFactory#openSession()} (with a Spring
+	 * {@link TransactionSynchronizationManager} check preceding it).
 	 * <p>Default is "false", i.e. using a Spring-managed Session: taking the current
-	 * thread-bound Session if available (e.g. in an Open-Session-in-View scenario),
+	 * thread-bound Session if available (for example, in an Open-Session-in-View scenario),
 	 * creating a new Session for the current transaction otherwise.
 	 * <p>Switch this flag to "true" in order to enforce use of a Hibernate-managed Session.
 	 * Note that this requires {@link SessionFactory#getCurrentSession()}
@@ -313,7 +308,7 @@ public class HibernateTransactionManager extends AbstractPlatformTransactionMana
 	/**
 	 * Specify a callback for customizing every Hibernate {@code Session} resource
 	 * created for a new transaction managed by this {@code HibernateTransactionManager}.
-	 * <p>This enables convenient customizations for application purposes, e.g.
+	 * <p>This enables convenient customizations for application purposes, for example,
 	 * setting Hibernate filters.
 	 * @since 5.3
 	 * @see Session#enableFilter
@@ -631,8 +626,9 @@ public class HibernateTransactionManager extends AbstractPlatformTransactionMana
 			TransactionSynchronizationManager.unbindResource(sessionFactory);
 		}
 		TransactionSynchronizationManager.bindResource(sessionFactory, resourcesHolder.getSessionHolder());
-		if (getDataSource() != null && resourcesHolder.getConnectionHolder() != null) {
-			TransactionSynchronizationManager.bindResource(getDataSource(), resourcesHolder.getConnectionHolder());
+		ConnectionHolder connectionHolder = resourcesHolder.getConnectionHolder();
+		if (connectionHolder != null && getDataSource() != null) {
+			TransactionSynchronizationManager.bindResource(getDataSource(), connectionHolder);
 		}
 	}
 
@@ -784,8 +780,6 @@ public class HibernateTransactionManager extends AbstractPlatformTransactionMana
 	/**
 	 * Convert the given HibernateException to an appropriate exception
 	 * from the {@code org.springframework.dao} hierarchy.
-	 * <p>Will automatically apply a specified SQLExceptionTranslator to a
-	 * Hibernate JDBCException, else rely on Hibernate's default translation.
 	 * @param ex the HibernateException that occurred
 	 * @return a corresponding DataAccessException
 	 * @see SessionFactoryUtils#convertHibernateAccessException

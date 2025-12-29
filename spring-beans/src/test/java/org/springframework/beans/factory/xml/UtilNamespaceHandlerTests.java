@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.springframework.beans.factory.config.DependencyDescriptor;
 import org.springframework.beans.factory.config.FieldRetrievingFactoryBean;
 import org.springframework.beans.factory.config.PropertiesFactoryBean;
 import org.springframework.beans.factory.parsing.ComponentDefinition;
@@ -45,8 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @author Juergen Hoeller
  * @author Mark Fisher
  */
-@SuppressWarnings("rawtypes")
-public class UtilNamespaceHandlerTests {
+class UtilNamespaceHandlerTests {
 
 	private DefaultListableBeanFactory beanFactory;
 
@@ -54,7 +55,7 @@ public class UtilNamespaceHandlerTests {
 
 
 	@BeforeEach
-	void setUp() {
+	void setup() {
 		this.beanFactory = new DefaultListableBeanFactory();
 		XmlBeanDefinitionReader reader = new XmlBeanDefinitionReader(this.beanFactory);
 		reader.setEventListener(this.listener);
@@ -108,162 +109,149 @@ public class UtilNamespaceHandlerTests {
 
 	@Test
 	void testSimpleMap() {
-		Map<?, ?> map = (Map) this.beanFactory.getBean("simpleMap");
+		Map<?, ?> map = (Map<?, ?>) this.beanFactory.getBean("simpleMap");
 		assertThat(map.get("foo")).isEqualTo("bar");
-		Map<?, ?> map2 = (Map) this.beanFactory.getBean("simpleMap");
+		Map<?, ?> map2 = (Map<?, ?>) this.beanFactory.getBean("simpleMap");
 		assertThat(map).isSameAs(map2);
 	}
 
 	@Test
 	void testScopedMap() {
-		Map<?, ?> map = (Map) this.beanFactory.getBean("scopedMap");
+		Map<?, ?> map = (Map<?, ?>) this.beanFactory.getBean("scopedMap");
 		assertThat(map.get("foo")).isEqualTo("bar");
-		Map<?, ?> map2 = (Map) this.beanFactory.getBean("scopedMap");
+		Map<?, ?> map2 = (Map<?, ?>) this.beanFactory.getBean("scopedMap");
 		assertThat(map2.get("foo")).isEqualTo("bar");
 		assertThat(map).isNotSameAs(map2);
 	}
 
 	@Test
 	void testSimpleList() {
-		List<?> list = (List) this.beanFactory.getBean("simpleList");
-		assertThat(list.get(0)).isEqualTo("Rob Harrop");
-		List<?> list2 = (List) this.beanFactory.getBean("simpleList");
-		assertThat(list).isSameAs(list2);
+		assertThat(this.beanFactory.getBean("simpleList"))
+				.asInstanceOf(InstanceOfAssertFactories.LIST).element(0).isEqualTo("Rob Harrop");
+		assertThat(this.beanFactory.getBean("simpleList"))
+				.isSameAs(this.beanFactory.getBean("simpleList"));
 	}
 
 	@Test
 	void testScopedList() {
-		List<?> list = (List) this.beanFactory.getBean("scopedList");
-		assertThat(list.get(0)).isEqualTo("Rob Harrop");
-		List<?> list2 = (List) this.beanFactory.getBean("scopedList");
-		assertThat(list2.get(0)).isEqualTo("Rob Harrop");
-		assertThat(list).isNotSameAs(list2);
+		assertThat(this.beanFactory.getBean("scopedList"))
+				.asInstanceOf(InstanceOfAssertFactories.LIST).element(0).isEqualTo("Rob Harrop");
+		assertThat(this.beanFactory.getBean("scopedList"))
+				.asInstanceOf(InstanceOfAssertFactories.LIST).element(0).isEqualTo("Rob Harrop");
+		assertThat(this.beanFactory.getBean("scopedList"))
+				.isNotSameAs(this.beanFactory.getBean("scopedList"));
 	}
 
 	@Test
 	void testSimpleSet() {
-		Set<?> set = (Set) this.beanFactory.getBean("simpleSet");
-		assertThat(set.contains("Rob Harrop")).isTrue();
-		Set<?> set2 = (Set) this.beanFactory.getBean("simpleSet");
-		assertThat(set).isSameAs(set2);
+		assertThat(this.beanFactory.getBean("simpleSet")).isInstanceOf(Set.class)
+				.asInstanceOf(InstanceOfAssertFactories.collection(String.class))
+				.containsOnly("Rob Harrop");
+		assertThat(this.beanFactory.getBean("simpleSet"))
+				.isSameAs(this.beanFactory.getBean("simpleSet"));
 	}
 
 	@Test
 	void testScopedSet() {
-		Set<?> set = (Set) this.beanFactory.getBean("scopedSet");
-		assertThat(set.contains("Rob Harrop")).isTrue();
-		Set<?> set2 = (Set) this.beanFactory.getBean("scopedSet");
-		assertThat(set2.contains("Rob Harrop")).isTrue();
-		assertThat(set).isNotSameAs(set2);
+		assertThat(this.beanFactory.getBean("scopedSet")).isInstanceOf(Set.class)
+				.asInstanceOf(InstanceOfAssertFactories.collection(String.class))
+				.containsOnly("Rob Harrop");
+		assertThat(this.beanFactory.getBean("scopedSet")).isInstanceOf(Set.class)
+				.asInstanceOf(InstanceOfAssertFactories.collection(String.class))
+				.containsOnly("Rob Harrop");
+		assertThat(this.beanFactory.getBean("scopedSet"))
+				.isNotSameAs(this.beanFactory.getBean("scopedSet"));
 	}
 
 	@Test
-	void testMapWithRef() {
-		Map<?, ?> map = (Map) this.beanFactory.getBean("mapWithRef");
+	void testMapWithRef() throws Exception {
+		Map<?, ?> map = (Map<?, ?>) this.beanFactory.getBean("mapWithRef");
 		assertThat(map).isInstanceOf(TreeMap.class);
 		assertThat(map.get("bean")).isEqualTo(this.beanFactory.getBean("testBean"));
+		assertThat(this.beanFactory.resolveDependency(
+				new DependencyDescriptor(getClass().getDeclaredField("mapWithRef"), true), null))
+				.isSameAs(map);
 	}
 
 	@Test
-	void testMapWithTypes() {
-		Map<?, ?> map = (Map) this.beanFactory.getBean("mapWithTypes");
+	void testMapWithTypes() throws Exception {
+		Map<?, ?> map = (Map<?, ?>) this.beanFactory.getBean("mapWithTypes");
 		assertThat(map).isInstanceOf(LinkedCaseInsensitiveMap.class);
 		assertThat(map.get("bean")).isEqualTo(this.beanFactory.getBean("testBean"));
+		assertThat(this.beanFactory.resolveDependency(
+				new DependencyDescriptor(getClass().getDeclaredField("mapWithTypes"), true), null))
+				.isSameAs(map);
 	}
 
 	@Test
 	void testNestedCollections() {
 		TestBean bean = (TestBean) this.beanFactory.getBean("nestedCollectionsBean");
 
-		List<?> list = bean.getSomeList();
-		assertThat(list).hasSize(1);
-		assertThat(list.get(0)).isEqualTo("foo");
-
-		Set<?> set = bean.getSomeSet();
-		assertThat(set).hasSize(1);
-		assertThat(set.contains("bar")).isTrue();
-
-		Map<?, ?> map = bean.getSomeMap();
-		assertThat(map).hasSize(1);
-		assertThat(map.get("foo")).isInstanceOf(Set.class);
-		Set<?> innerSet = (Set) map.get("foo");
-		assertThat(innerSet).hasSize(1);
-		assertThat(innerSet.contains("bar")).isTrue();
+		assertThat(bean.getSomeList()).singleElement().isEqualTo("foo");
+		assertThat(bean.getSomeSet()).singleElement().isEqualTo("bar");
+		assertThat(bean.getSomeMap()).hasSize(1).allSatisfy((key, nested) -> {
+			assertThat(key).isEqualTo("foo");
+			assertThat(nested).isInstanceOf(Set.class).asInstanceOf(
+					InstanceOfAssertFactories.collection(String.class)).containsOnly("bar");
+		});
 
 		TestBean bean2 = (TestBean) this.beanFactory.getBean("nestedCollectionsBean");
-		assertThat(bean2.getSomeList()).isEqualTo(list);
-		assertThat(bean2.getSomeSet()).isEqualTo(set);
-		assertThat(bean2.getSomeMap()).isEqualTo(map);
-		assertThat(list).isNotSameAs(bean2.getSomeList());
-		assertThat(set).isNotSameAs(bean2.getSomeSet());
-		assertThat(map).isNotSameAs(bean2.getSomeMap());
+		assertThat(bean2.getSomeList()).isEqualTo(bean.getSomeList());
+		assertThat(bean2.getSomeSet()).isEqualTo(bean.getSomeSet());
+		assertThat(bean2.getSomeMap()).isEqualTo(bean.getSomeMap());
+		assertThat(bean.getSomeList()).isNotSameAs(bean2.getSomeList());
+		assertThat(bean.getSomeSet()).isNotSameAs(bean2.getSomeSet());
+		assertThat(bean.getSomeMap()).isNotSameAs(bean2.getSomeMap());
 	}
 
 	@Test
 	void testNestedShortcutCollections() {
 		TestBean bean = (TestBean) this.beanFactory.getBean("nestedShortcutCollections");
 
-		assertThat(bean.getStringArray()).hasSize(1);
-		assertThat(bean.getStringArray()[0]).isEqualTo("fooStr");
-
-		List<?> list = bean.getSomeList();
-		assertThat(list).hasSize(1);
-		assertThat(list.get(0)).isEqualTo("foo");
-
-		Set<?> set = bean.getSomeSet();
-		assertThat(set).hasSize(1);
-		assertThat(set.contains("bar")).isTrue();
+		assertThat(bean.getStringArray()).containsExactly("fooStr");
+		assertThat(bean.getSomeList()).singleElement().isEqualTo("foo");
+		assertThat(bean.getSomeSet()).singleElement().isEqualTo("bar");
 
 		TestBean bean2 = (TestBean) this.beanFactory.getBean("nestedShortcutCollections");
 		assertThat(Arrays.equals(bean.getStringArray(), bean2.getStringArray())).isTrue();
 		assertThat(bean.getStringArray()).isNotSameAs(bean2.getStringArray());
-		assertThat(bean2.getSomeList()).isEqualTo(list);
-		assertThat(bean2.getSomeSet()).isEqualTo(set);
-		assertThat(list).isNotSameAs(bean2.getSomeList());
-		assertThat(set).isNotSameAs(bean2.getSomeSet());
+		assertThat(bean2.getSomeList()).isEqualTo(bean.getSomeList());
+		assertThat(bean2.getSomeSet()).isEqualTo(bean.getSomeSet());
+		assertThat(bean.getSomeList()).isNotSameAs(bean2.getSomeList());
+		assertThat(bean.getSomeSet()).isNotSameAs(bean2.getSomeSet());
 	}
 
 	@Test
 	void testNestedInCollections() {
 		TestBean bean = (TestBean) this.beanFactory.getBean("nestedCustomTagBean");
 
-		List<?> list = bean.getSomeList();
-		assertThat(list).hasSize(1);
-		assertThat(list.get(0)).isEqualTo(Integer.MIN_VALUE);
-
-		Set<?> set = bean.getSomeSet();
-		assertThat(set).hasSize(2);
-		assertThat(set.contains(Thread.State.NEW)).isTrue();
-		assertThat(set.contains(Thread.State.RUNNABLE)).isTrue();
-
-		Map<?, ?> map = bean.getSomeMap();
-		assertThat(map).hasSize(1);
-		assertThat(map.get("min")).isEqualTo(CustomEnum.VALUE_1);
+		assertThat(bean.getSomeList()).singleElement().isEqualTo(Integer.MIN_VALUE);
+		assertThat(bean.getSomeSet()).asInstanceOf(InstanceOfAssertFactories.collection(Thread.State.class))
+				.containsOnly(Thread.State.NEW,Thread.State.RUNNABLE);
+		assertThat(bean.getSomeMap()).hasSize(1).allSatisfy((key, value) -> {
+			assertThat(key).isEqualTo("min");
+			assertThat(value).isEqualTo(CustomEnum.VALUE_1);
+		});
 
 		TestBean bean2 = (TestBean) this.beanFactory.getBean("nestedCustomTagBean");
-		assertThat(bean2.getSomeList()).isEqualTo(list);
-		assertThat(bean2.getSomeSet()).isEqualTo(set);
-		assertThat(bean2.getSomeMap()).isEqualTo(map);
-		assertThat(list).isNotSameAs(bean2.getSomeList());
-		assertThat(set).isNotSameAs(bean2.getSomeSet());
-		assertThat(map).isNotSameAs(bean2.getSomeMap());
+		assertThat(bean2.getSomeList()).isEqualTo(bean.getSomeList());
+		assertThat(bean2.getSomeSet()).isEqualTo(bean.getSomeSet());
+		assertThat(bean2.getSomeMap()).isEqualTo(bean.getSomeMap());
+		assertThat(bean.getSomeList()).isNotSameAs(bean2.getSomeList());
+		assertThat(bean.getSomeSet()).isNotSameAs(bean2.getSomeSet());
+		assertThat(bean.getSomeMap()).isNotSameAs(bean2.getSomeMap());
 	}
 
 	@Test
 	void testCircularCollections() {
 		TestBean bean = (TestBean) this.beanFactory.getBean("circularCollectionsBean");
 
-		List<?> list = bean.getSomeList();
-		assertThat(list).hasSize(1);
-		assertThat(list.get(0)).isEqualTo(bean);
-
-		Set<?> set = bean.getSomeSet();
-		assertThat(set).hasSize(1);
-		assertThat(set.contains(bean)).isTrue();
-
-		Map<?, ?> map = bean.getSomeMap();
-		assertThat(map).hasSize(1);
-		assertThat(map.get("foo")).isEqualTo(bean);
+		assertThat(bean.getSomeList()).singleElement().isSameAs(bean);
+		assertThat(bean.getSomeSet()).singleElement().isSameAs(bean);
+		assertThat(bean.getSomeMap()).hasSize(1).allSatisfy((key, value) -> {
+			assertThat(key).isEqualTo("foo");
+			assertThat(value).isSameAs(bean);
+		});
 	}
 
 	@Test
@@ -273,18 +261,18 @@ public class UtilNamespaceHandlerTests {
 
 		List<?> list = bean.getSomeList();
 		assertThat(Proxy.isProxyClass(list.getClass())).isTrue();
-		assertThat(list).hasSize(1);
-		assertThat(list.get(0)).isEqualTo(bean);
+		assertThat(list).singleElement().isSameAs(bean);
 
 		Set<?> set = bean.getSomeSet();
 		assertThat(Proxy.isProxyClass(set.getClass())).isFalse();
-		assertThat(set).hasSize(1);
-		assertThat(set.contains(bean)).isTrue();
+		assertThat(set).singleElement().isSameAs(bean);
 
 		Map<?, ?> map = bean.getSomeMap();
 		assertThat(Proxy.isProxyClass(map.getClass())).isFalse();
-		assertThat(map).hasSize(1);
-		assertThat(map.get("foo")).isEqualTo(bean);
+		assertThat(map).hasSize(1).allSatisfy((key, value) -> {
+			assertThat(key).isEqualTo("foo");
+			assertThat(value).isSameAs(bean);
+		});
 	}
 
 	@Test
@@ -294,18 +282,18 @@ public class UtilNamespaceHandlerTests {
 
 		List<?> list = bean.getSomeList();
 		assertThat(Proxy.isProxyClass(list.getClass())).isFalse();
-		assertThat(list).hasSize(1);
-		assertThat(list.get(0)).isEqualTo(bean);
+		assertThat(list).singleElement().isSameAs(bean);
 
 		Set<?> set = bean.getSomeSet();
 		assertThat(Proxy.isProxyClass(set.getClass())).isTrue();
-		assertThat(set).hasSize(1);
-		assertThat(set.contains(bean)).isTrue();
+		assertThat(set).singleElement().isSameAs(bean);
 
 		Map<?, ?> map = bean.getSomeMap();
 		assertThat(Proxy.isProxyClass(map.getClass())).isFalse();
-		assertThat(map).hasSize(1);
-		assertThat(map.get("foo")).isEqualTo(bean);
+		assertThat(map).hasSize(1).allSatisfy((key, value) -> {
+			assertThat(key).isEqualTo("foo");
+			assertThat(value).isSameAs(bean);
+		});
 	}
 
 	@Test
@@ -315,18 +303,18 @@ public class UtilNamespaceHandlerTests {
 
 		List<?> list = bean.getSomeList();
 		assertThat(Proxy.isProxyClass(list.getClass())).isFalse();
-		assertThat(list).hasSize(1);
-		assertThat(list.get(0)).isEqualTo(bean);
+		assertThat(list).singleElement().isSameAs(bean);
 
 		Set<?> set = bean.getSomeSet();
 		assertThat(Proxy.isProxyClass(set.getClass())).isFalse();
-		assertThat(set).hasSize(1);
-		assertThat(set.contains(bean)).isTrue();
+		assertThat(set).singleElement().isSameAs(bean);
 
 		Map<?, ?> map = bean.getSomeMap();
 		assertThat(Proxy.isProxyClass(map.getClass())).isTrue();
-		assertThat(map).hasSize(1);
-		assertThat(map.get("foo")).isEqualTo(bean);
+		assertThat(map).hasSize(1).allSatisfy((key, value) -> {
+			assertThat(key).isEqualTo("foo");
+			assertThat(value).isSameAs(bean);
+		});
 	}
 
 	@Test
@@ -389,5 +377,10 @@ public class UtilNamespaceHandlerTests {
 		assertThat(props).as("Incorrect property value").containsEntry("foo", "local");
 		assertThat(props).as("Incorrect property value").containsEntry("foo2", "local2");
 	}
+
+
+	// For DependencyDescriptor resolution
+	private Map<String, TestBean> mapWithRef;
+	private Map<String, TestBean> mapWithTypes;
 
 }

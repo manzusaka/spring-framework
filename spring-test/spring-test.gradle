@@ -27,21 +27,24 @@ dependencies {
 	optional("jakarta.websocket:jakarta.websocket-api")
 	optional("jakarta.websocket:jakarta.websocket-client-api")
 	optional("jakarta.xml.bind:jakarta.xml.bind-api")
+	optional("javax.inject:javax.inject")
 	optional("junit:junit")
-	optional("net.sourceforge.htmlunit:htmlunit") {
-		exclude group: "commons-logging", module: "commons-logging"
-	}
 	optional("org.apache.groovy:groovy")
 	optional("org.apache.tomcat.embed:tomcat-embed-core")
 	optional("org.aspectj:aspectjweaver")
+	optional("org.assertj:assertj-core")
 	optional("org.hamcrest:hamcrest")
+	optional("org.htmlunit:htmlunit") {
+		exclude group: "commons-logging", module: "commons-logging"
+	}
 	optional("org.jetbrains.kotlin:kotlin-reflect")
 	optional("org.jetbrains.kotlin:kotlin-stdlib")
 	optional("org.jetbrains.kotlinx:kotlinx-coroutines-core")
 	optional("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
 	optional("org.junit.jupiter:junit-jupiter-api")
 	optional("org.junit.platform:junit-platform-launcher")  // for AOT processing
-	optional("org.seleniumhq.selenium:htmlunit-driver") {
+	optional("org.mockito:mockito-core")
+	optional("org.seleniumhq.selenium:htmlunit3-driver") {
 		exclude group: "commons-logging", module: "commons-logging"
 		exclude group: "net.bytebuddy", module: "byte-buddy"
 	}
@@ -73,6 +76,8 @@ dependencies {
 	testImplementation("org.apache.httpcomponents:httpclient") {
 		exclude group: "commons-logging", module: "commons-logging"
 	}
+	testImplementation("org.awaitility:awaitility")
+	testImplementation("org.easymock:easymock")
 	testImplementation("org.hibernate:hibernate-core-jakarta")
 	testImplementation("org.hibernate:hibernate-validator")
 	testImplementation("org.hsqldb:hsqldb")
@@ -84,6 +89,7 @@ dependencies {
 	testRuntimeOnly("org.junit.vintage:junit-vintage-engine") {
 		exclude group: "junit", module: "junit"
 	}
+	testRuntimeOnly("org.yaml:snakeyaml")
 }
 
 // Prevent xml-apis from being used so that the corresponding XML APIs from
@@ -99,14 +105,10 @@ test {
 	description = "Runs JUnit 4, JUnit Jupiter, and TestNG tests."
 	useJUnitPlatform {
 		includeEngines "junit-vintage", "junit-jupiter", "testng"
-		excludeTags "failing-test-case"
 	}
-	// We use `include` instead of `filter.includeTestsMatching`, since
-	// the latter results in some tests being executed/reported
-	// multiple times.
-	include(["**/*Tests.class", "**/*Test.class"])
+	// `include` test filters and system properties are configured in
+	// org.springframework.build.TestConventions in buildSrc.
 	filter.excludeTestsMatching("*TestCase")
-	systemProperty("testGroups", project.properties.get("testGroups"))
-	// Java Util Logging for the JUnit Platform.
+	// Optionally configure Java Util Logging for the JUnit Platform.
 	// systemProperty("java.util.logging.manager", "org.apache.logging.log4j.jul.LogManager")
 }

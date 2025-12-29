@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import org.springframework.messaging.Message;
 /**
  * Contract for mapping conditions to messages.
  *
- * <p>Message conditions can be combined (e.g. type + method-level conditions),
+ * <p>Message conditions can be combined (for example, type + method-level conditions),
  * matched to a specific Message, as well as compared to each other in the
  * context of a Message to determine which one matches a request more closely.
  *

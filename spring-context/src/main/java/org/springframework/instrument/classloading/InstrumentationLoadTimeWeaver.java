@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ import org.springframework.util.ClassUtils;
  * follows where <code>spring-instrument-{version}.jar</code> is a JAR file
  * containing the {@link InstrumentationSavingAgent} class shipped with Spring
  * and where <code>{version}</code> is the release version of the Spring
- * Framework (e.g., {@code 5.1.5.RELEASE}).
+ * Framework (for example, {@code 5.1.5.RELEASE}).
  *
  * <p><code>-javaagent:path/to/spring-instrument-{version}.jar</code>
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,6 +52,7 @@ import org.hibernate.resource.jdbc.spi.PhysicalConnectionHandlingMode;
 
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.core.InfrastructureProxy;
+import org.springframework.core.SpringProperties;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
@@ -59,6 +60,7 @@ import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternUtils;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.type.classreading.CachingMetadataReaderFactory;
+import org.springframework.core.type.classreading.ClassFormatException;
 import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
@@ -73,7 +75,7 @@ import org.springframework.util.ClassUtils;
  * adding {@link SpringSessionContext} as a default and providing convenient ways
  * to specify a JDBC {@link DataSource} and an application class loader.
  *
- * <p>This is designed for programmatic use, e.g. in {@code @Bean} factory methods;
+ * <p>This is designed for programmatic use, for example, in {@code @Bean} factory methods;
  * consider using {@link LocalSessionFactoryBean} for XML bean definition files.
  * Typically combined with {@link HibernateTransactionManager} for declarative
  * transactions against the {@code SessionFactory} and its JDBC {@code DataSource}.
@@ -110,10 +112,14 @@ public class LocalSessionFactoryBuilder extends Configuration {
 
 	private static final TypeFilter CONVERTER_TYPE_FILTER = new AnnotationTypeFilter(Converter.class, false);
 
+	private static final String IGNORE_CLASSFORMAT_PROPERTY_NAME = "spring.classformat.ignore";
+
+	private static final boolean shouldIgnoreClassFormatException =
+			SpringProperties.getFlag(IGNORE_CLASSFORMAT_PROPERTY_NAME);
+
 
 	private final ResourcePatternResolver resourcePatternResolver;
 
-	@Nullable
 	private TypeFilter[] entityTypeFilters = DEFAULT_ENTITY_TYPE_FILTERS;
 
 
@@ -152,7 +158,7 @@ public class LocalSessionFactoryBuilder extends Configuration {
 	 * @param dataSource the JDBC DataSource that the resulting Hibernate SessionFactory should be using
 	 * (may be {@code null})
 	 * @param resourceLoader the ResourceLoader to load application classes from
-	 * @param metadataSources the Hibernate MetadataSources service to use (e.g. reusing an existing one)
+	 * @param metadataSources the Hibernate MetadataSources service to use (for example, reusing an existing one)
 	 * @since 4.3
 	 */
 	public LocalSessionFactoryBuilder(
@@ -335,6 +341,14 @@ public class LocalSessionFactoryBuilder extends Configuration {
 					catch (FileNotFoundException ex) {
 						// Ignore non-readable resource
 					}
+					catch (ClassFormatException ex) {
+						if (!shouldIgnoreClassFormatException) {
+							throw new MappingException("Incompatible class format in " + resource, ex);
+						}
+					}
+					catch (Throwable ex) {
+						throw new MappingException("Failed to read candidate component class: " + resource, ex);
+					}
 				}
 			}
 		}
@@ -364,11 +378,9 @@ public class LocalSessionFactoryBuilder extends Configuration {
 	 * the current class descriptor contained in the metadata reader.
 	 */
 	private boolean matchesEntityTypeFilter(MetadataReader reader, MetadataReaderFactory readerFactory) throws IOException {
-		if (this.entityTypeFilters != null) {
-			for (TypeFilter filter : this.entityTypeFilters) {
-				if (filter.match(reader, readerFactory)) {
-					return true;
-				}
+		for (TypeFilter filter : this.entityTypeFilters) {
+			if (filter.match(reader, readerFactory)) {
+				return true;
 			}
 		}
 		return false;
@@ -377,7 +389,7 @@ public class LocalSessionFactoryBuilder extends Configuration {
 	/**
 	 * Build the Hibernate {@code SessionFactory} through background bootstrapping,
 	 * using the given executor for a parallel initialization phase
-	 * (e.g. a {@link org.springframework.core.task.SimpleAsyncTaskExecutor}).
+	 * (for example, a {@link org.springframework.core.task.SimpleAsyncTaskExecutor}).
 	 * <p>{@code SessionFactory} initialization will then switch into background
 	 * bootstrap mode, with a {@code SessionFactory} proxy immediately returned for
 	 * injection purposes instead of waiting for Hibernate's bootstrapping to complete.
@@ -412,28 +424,25 @@ public class LocalSessionFactoryBuilder extends Configuration {
 
 		@Override
 		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-			switch (method.getName()) {
-				case "equals":
-					// Only consider equal when proxies are identical.
-					return (proxy == args[0]);
-				case "hashCode":
-					// Use hashCode of EntityManagerFactory proxy.
-					return System.identityHashCode(proxy);
-				case "getProperties":
-					return getProperties();
-				case "getWrappedObject":
-					// Call coming in through InfrastructureProxy interface...
-					return getSessionFactory();
-			}
-
-			// Regular delegation to the target SessionFactory,
-			// enforcing its full initialization...
-			try {
-				return method.invoke(getSessionFactory(), args);
-			}
-			catch (InvocationTargetException ex) {
-				throw ex.getTargetException();
-			}
+			return switch (method.getName()) {
+				// Only consider equal when proxies are identical.
+				case "equals" -> (proxy == args[0]);
+				// Use hashCode of EntityManagerFactory proxy.
+				case "hashCode" -> System.identityHashCode(proxy);
+				case "getProperties" -> getProperties();
+				// Call coming in through InfrastructureProxy interface...
+				case "getWrappedObject" -> getSessionFactory();
+				default -> {
+					try {
+						// Regular delegation to the target SessionFactory,
+						// enforcing its full initialization...
+						yield method.invoke(getSessionFactory(), args);
+					}
+					catch (InvocationTargetException ex) {
+						throw ex.getTargetException();
+					}
+				}
+			};
 		}
 
 		private SessionFactory getSessionFactory() {

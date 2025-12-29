@@ -9,10 +9,9 @@ particular architecture, technology, or methodology (although it certainly recom
 some over others). This freedom to pick and choose the architecture, technology, or
 methodology that is most relevant to a developer and their development team is
 arguably most evident in the web area, where Spring provides its own web frameworks
-(xref:web/webmvc.adoc#mvc[Spring MVC] and xref:web/webflux.adoc#webflux[Spring WebFlux]) while, at the same time,
-supporting integration with a number of popular third-party web frameworks.
-
-
+(xref:web/webmvc.adoc#mvc[Spring MVC] and xref:web/webflux.adoc#webflux[Spring WebFlux])
+while, at the same time, supporting integration with a number of popular third-party
+web frameworks.
 
 
 [[web-integration-common]]
@@ -35,7 +34,7 @@ context"). This section details how you can configure a Spring container (a
 `WebApplicationContext`) that contains all of the 'business beans' in your application.
 
 Moving on to specifics, all you need to do is declare a
-{api-spring-framework}/web/context/ContextLoaderListener.html[`ContextLoaderListener`]
+{spring-framework-api}/web/context/ContextLoaderListener.html[`ContextLoaderListener`]
 in the standard Jakarta EE servlet `web.xml` file of your web application and add a
 `contextConfigLocation` `<context-param/>` section (in the same file) that defines which
 set of Spring XML configuration files to load.
@@ -62,7 +61,7 @@ Further consider the following `<context-param/>` configuration:
 If you do not specify the `contextConfigLocation` context parameter, the
 `ContextLoaderListener` looks for a file called `/WEB-INF/applicationContext.xml` to
 load. Once the context files are loaded, Spring creates a
-{api-spring-framework}/web/context/WebApplicationContext.html[`WebApplicationContext`]
+{spring-framework-api}/web/context/WebApplicationContext.html[`WebApplicationContext`]
 object based on the bean definitions and stores it in the `ServletContext` of the web
 application.
 
@@ -78,7 +77,7 @@ The following example shows how to get the `WebApplicationContext`:
 ----
 
 The
-{api-spring-framework}/web/context/support/WebApplicationContextUtils.html[`WebApplicationContextUtils`]
+{spring-framework-api}/web/context/support/WebApplicationContextUtils.html[`WebApplicationContextUtils`]
 class is for convenience, so you need not remember the name of the `ServletContext`
 attribute. Its `getWebApplicationContext()` method returns `null` if an object
 does not exist under the `WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE`
@@ -96,14 +95,12 @@ use dependency injection on their controllers. Each web framework section has mo
 on its specific integration strategies.
 
 
-
-
 [[jsf]]
 == JSF
 
 JavaServer Faces (JSF) is the JCP's standard component-based, event-driven web
 user interface framework. It is an official part of the Jakarta EE umbrella but also
-individually usable, e.g. through embedding Mojarra or MyFaces within Tomcat.
+individually usable, for example, through embedding Mojarra or MyFaces within Tomcat.
 
 Please note that recent versions of JSF became closely tied to CDI infrastructure
 in application servers, with some new JSF functionality only working in such an
@@ -111,8 +108,6 @@ environment. Spring's JSF support is not actively evolved anymore and primarily
 exists for migration purposes when modernizing older JSF-based applications.
 
 The key element in Spring's JSF integration is the JSF `ELResolver` mechanism.
-
-
 
 [[jsf-springbeanfaceselresolver]]
 === Spring Bean Resolver
@@ -135,14 +130,12 @@ Configuration-wise, you can define `SpringBeanFacesELResolver` in your JSF
 	</faces-config>
 ----
 
-
-
 [[jsf-facescontextutils]]
 === Using `FacesContextUtils`
 
 A custom `ELResolver` works well when mapping your properties to beans in
 `faces-config.xml`, but, at times, you may need to explicitly grab a bean.
-The {api-spring-framework}/web/jsf/FacesContextUtils.html[`FacesContextUtils`]
+The {spring-framework-api}/web/jsf/FacesContextUtils.html[`FacesContextUtils`]
 class makes this easy. It is similar to `WebApplicationContextUtils`, except that
 it takes a `FacesContext` parameter rather than a `ServletContext` parameter.
 
@@ -152,8 +145,6 @@ The following example shows how to use `FacesContextUtils`:
 ----
 	ApplicationContext ctx = FacesContextUtils.getWebApplicationContext(FacesContext.getCurrentInstance());
 ----
-
-
 
 
 [[struts]]
@@ -170,8 +161,6 @@ as well as the Struts-provided
 https://struts.apache.org/plugins/spring/[Spring Plugin] for built-in Spring integration.
 
 
-
-
 [[tapestry]]
 == Apache Tapestry
 
@@ -184,8 +173,6 @@ for the web user interface and the Spring container for the lower layers.
 
 For more information, see Tapestry's dedicated
 https://tapestry.apache.org/integrating-with-spring-framework.html[integration module for Spring].
-
-
 
 
 [[web-integration-resources]]

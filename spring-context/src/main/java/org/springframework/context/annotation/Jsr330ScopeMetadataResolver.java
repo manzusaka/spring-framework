@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ public class Jsr330ScopeMetadataResolver implements ScopeMetadataResolver {
 	/**
 	 * Resolve the given annotation type into a named Spring scope.
 	 * <p>The default implementation simply checks against registered scopes.
-	 * Can be overridden for custom mapping rules, e.g. naming conventions.
+	 * Can be overridden for custom mapping rules, for example, naming conventions.
 	 * @param annotationType the JSR-330 annotation type
 	 * @return the Spring scope name
 	 */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,13 +73,17 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 */
 	ResolvableType getTypeForFactoryBeanFromAttributes(AttributeAccessor attributes) {
 		Object attribute = attributes.getAttribute(FactoryBean.OBJECT_TYPE_ATTRIBUTE);
+		if (attribute == null) {
+			return ResolvableType.NONE;
+		}
 		if (attribute instanceof ResolvableType resolvableType) {
 			return resolvableType;
 		}
 		if (attribute instanceof Class<?> clazz) {
 			return ResolvableType.forClass(clazz);
 		}
-		return ResolvableType.NONE;
+		throw new IllegalArgumentException("Invalid value type for attribute '" +
+				FactoryBean.OBJECT_TYPE_ATTRIBUTE + "': " + attribute.getClass().getName());
 	}
 
 	/**
@@ -114,40 +118,63 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 */
 	protected Object getObjectFromFactoryBean(FactoryBean<?> factory, String beanName, boolean shouldPostProcess) {
 		if (factory.isSingleton() && containsSingleton(beanName)) {
-			synchronized (getSingletonMutex()) {
-				Object object = this.factoryBeanObjectCache.get(beanName);
-				if (object == null) {
-					object = doGetObjectFromFactoryBean(factory, beanName);
-					// Only post-process and store if not put there already during getObject() call above
-					// (e.g. because of circular reference processing triggered by custom getBean calls)
-					Object alreadyThere = this.factoryBeanObjectCache.get(beanName);
-					if (alreadyThere != null) {
-						object = alreadyThere;
-					}
-					else {
-						if (shouldPostProcess) {
-							if (isSingletonCurrentlyInCreation(beanName)) {
-								// Temporarily return non-post-processed object, not storing it yet..
-								return object;
+			Boolean lockFlag = isCurrentThreadAllowedToHoldSingletonLock();
+			boolean locked;
+			if (lockFlag == null) {
+				this.singletonLock.lock();
+				locked = true;
+			}
+			else {
+				locked = (lockFlag && this.singletonLock.tryLock());
+			}
+			try {
+				// Defensively synchronize against non-thread-safe FactoryBean.getObject() implementations,
+				// potentially to be called from a background thread while the main thread currently calls
+				// the same getObject() method within the singleton lock.
+				synchronized (factory) {
+					Object object = this.factoryBeanObjectCache.get(beanName);
+					if (object == null) {
+						object = doGetObjectFromFactoryBean(factory, beanName);
+						// Only post-process and store if not put there already during getObject() call above
+						// (for example, because of circular reference processing triggered by custom getBean calls)
+						Object alreadyThere = this.factoryBeanObjectCache.get(beanName);
+						if (alreadyThere != null) {
+							object = alreadyThere;
+						}
+						else {
+							if (shouldPostProcess) {
+								if (locked) {
+									if (isSingletonCurrentlyInCreation(beanName)) {
+										// Temporarily return non-post-processed object, not storing it yet
+										return object;
+									}
+									beforeSingletonCreation(beanName);
+								}
+								try {
+									object = postProcessObjectFromFactoryBean(object, beanName);
+								}
+								catch (Throwable ex) {
+									throw new BeanCreationException(beanName,
+											"Post-processing of FactoryBean's singleton object failed", ex);
+								}
+								finally {
+									if (locked) {
+										afterSingletonCreation(beanName);
+									}
+								}
 							}
-							beforeSingletonCreation(beanName);
-							try {
-								object = postProcessObjectFromFactoryBean(object, beanName);
-							}
-							catch (Throwable ex) {
-								throw new BeanCreationException(beanName,
-										"Post-processing of FactoryBean's singleton object failed", ex);
-							}
-							finally {
-								afterSingletonCreation(beanName);
+							if (containsSingleton(beanName)) {
+								this.factoryBeanObjectCache.put(beanName, object);
 							}
 						}
-						if (containsSingleton(beanName)) {
-							this.factoryBeanObjectCache.put(beanName, object);
-						}
 					}
+					return object;
 				}
-				return object;
+			}
+			finally {
+				if (locked) {
+					this.singletonLock.unlock();
+				}
 			}
 		}
 		else {
@@ -230,10 +257,8 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 */
 	@Override
 	protected void removeSingleton(String beanName) {
-		synchronized (getSingletonMutex()) {
-			super.removeSingleton(beanName);
-			this.factoryBeanObjectCache.remove(beanName);
-		}
+		super.removeSingleton(beanName);
+		this.factoryBeanObjectCache.remove(beanName);
 	}
 
 	/**
@@ -241,10 +266,8 @@ public abstract class FactoryBeanRegistrySupport extends DefaultSingletonBeanReg
 	 */
 	@Override
 	protected void clearSingletonCache() {
-		synchronized (getSingletonMutex()) {
-			super.clearSingletonCache();
-			this.factoryBeanObjectCache.clear();
-		}
+		super.clearSingletonCache();
+		this.factoryBeanObjectCache.clear();
 	}
 
 }

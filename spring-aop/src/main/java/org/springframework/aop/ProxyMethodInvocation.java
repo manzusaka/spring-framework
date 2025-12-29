@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ public interface ProxyMethodInvocation extends MethodInvocation {
 	MethodInvocation invocableClone(Object... arguments);
 
 	/**
-	 * Set the arguments to be used on subsequent invocations in the any advice
+	 * Set the arguments to be used on subsequent invocations in any advice
 	 * in this chain.
 	 * @param arguments the argument array
 	 */

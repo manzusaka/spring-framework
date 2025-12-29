@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
 import org.springframework.aot.test.generate.TestGenerationContext;
 import org.springframework.beans.BeanInstantiationException;
+import org.springframework.beans.factory.aot.AotProcessingException;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.annotation.AnnotationConfigUtils;
 import org.springframework.context.annotation.Bean;
@@ -40,7 +41,7 @@ import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.lang.Nullable;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * Tests for {@link RuntimeHintsBeanFactoryInitializationAotProcessor}.
@@ -119,9 +120,9 @@ class RuntimeHintsBeanFactoryInitializationAotProcessorTests {
 	void shouldRejectRuntimeHintsRegistrarWithoutDefaultConstructor() {
 		GenericApplicationContext applicationContext = createApplicationContext(
 				ConfigurationWithIllegalRegistrar.class);
-		assertThatThrownBy(() -> this.generator.processAheadOfTime(
-				applicationContext, this.generationContext))
-				.isInstanceOf(BeanInstantiationException.class);
+		assertThatExceptionOfType(AotProcessingException.class)
+				.isThrownBy(() -> this.generator.processAheadOfTime(applicationContext, this.generationContext))
+				.havingCause().isInstanceOf(BeanInstantiationException.class);
 	}
 
 	private void assertThatSampleRegistrarContributed() {

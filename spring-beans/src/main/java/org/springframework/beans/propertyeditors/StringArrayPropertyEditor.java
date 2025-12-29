@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ public class StringArrayPropertyEditor extends PropertyEditorSupport {
 	 * @param separator the separator to use for splitting a {@link String}
 	 * @param charsToDelete a set of characters to delete, in addition to
 	 * trimming an input String. Useful for deleting unwanted line breaks:
-	 * e.g. "\r\n\f" will delete all new lines and line feeds in a String.
+	 * for example, "\r\n\f" will delete all new lines and line feeds in a String.
 	 * @param emptyArrayAsNull {@code true} if an empty String array
 	 * is to be transformed into {@code null}
 	 */
@@ -110,7 +110,7 @@ public class StringArrayPropertyEditor extends PropertyEditorSupport {
 	 * @param separator the separator to use for splitting a {@link String}
 	 * @param charsToDelete a set of characters to delete, in addition to
 	 * trimming an input String. Useful for deleting unwanted line breaks:
-	 * e.g. "\r\n\f" will delete all new lines and line feeds in a String.
+	 * for example, "\r\n\f" will delete all new lines and line feeds in a String.
 	 * @param emptyArrayAsNull {@code true} if an empty String array
 	 * is to be transformed into {@code null}
 	 * @param trimValues {@code true} if the values in the parsed arrays

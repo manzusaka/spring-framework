@@ -33,7 +33,6 @@ including error handling. It includes the following topics:
 * xref:data-access/r2dbc.adoc#r2dbc-DatabaseClient-filter[Statement Filters]
 * xref:data-access/r2dbc.adoc#r2dbc-auto-generated-keys[Retrieving Auto-generated Keys]
 
-
 [[r2dbc-DatabaseClient]]
 === Using `DatabaseClient`
 
@@ -68,14 +67,14 @@ The simplest way to create a `DatabaseClient` object is through a static factory
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	DatabaseClient client = DatabaseClient.create(connectionFactory);
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val client = DatabaseClient.create(connectionFactory)
 ----
@@ -95,7 +94,7 @@ parameter to database bind marker translation.
  run.
 * `….namedParameters(false)`: Disable named parameter expansion. Enabled by default.
 
-TIP: Dialects are resolved by {api-spring-framework}/r2dbc/core/binding/BindMarkersFactoryResolver.html[`BindMarkersFactoryResolver`]
+TIP: Dialects are resolved by {spring-framework-api}/r2dbc/core/binding/BindMarkersFactoryResolver.html[`BindMarkersFactoryResolver`]
  from a `ConnectionFactory`, typically by inspecting `ConnectionFactoryMetadata`.
  +
 You can let Spring auto-discover your `BindMarkersFactory` by registering a
@@ -120,7 +119,7 @@ the reactive sequence to aid debugging.
 
 The following sections provide some examples of `DatabaseClient` usage. These examples
 are not an exhaustive list of all of the functionality exposed by the `DatabaseClient`.
-See the attendant {api-spring-framework}/r2dbc/core/DatabaseClient.html[javadoc] for that.
+See the attendant {spring-framework-api}/r2dbc/core/DatabaseClient.html[javadoc] for that.
 
 [[r2dbc-DatabaseClient-examples-statement]]
 ==== Executing Statements
@@ -133,18 +132,18 @@ code that creates a new table:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	Mono<Void> completion = client.sql("CREATE TABLE person (id VARCHAR(255) PRIMARY KEY, name VARCHAR(255), age INTEGER);")
-	        .then();
+			.then();
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client.sql("CREATE TABLE person (id VARCHAR(255) PRIMARY KEY, name VARCHAR(255), age INTEGER);")
-	        .await()
+			.await()
 ----
 ======
 
@@ -170,18 +169,18 @@ The following query gets the `id` and `name` columns from a table:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	Mono<Map<String, Object>> first = client.sql("SELECT id, name FROM person")
-	        .fetch().first();
+			.fetch().first();
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val first = client.sql("SELECT id, name FROM person")
-	        .fetch().awaitSingle()
+			.fetch().awaitSingle()
 ----
 ======
 
@@ -191,20 +190,20 @@ The following query uses a bind variable:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	Mono<Map<String, Object>> first = client.sql("SELECT id, name FROM person WHERE first_name = :fn")
-	        .bind("fn", "Joe")
-	        .fetch().first();
+			.bind("fn", "Joe")
+			.fetch().first();
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val first = client.sql("SELECT id, name FROM person WHERE first_name = :fn")
-	        .bind("fn", "Joe")
-	        .fetch().awaitSingle()
+			.bind("fn", "Joe")
+			.fetch().awaitSingle()
 ----
 ======
 
@@ -237,22 +236,41 @@ The following example extracts the `name` column and emits its value:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	Flux<String> names = client.sql("SELECT name FROM person")
-	        .map(row -> row.get("name", String.class))
-	        .all();
+			.map(row -> row.get("name", String.class))
+			.all();
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val names = client.sql("SELECT name FROM person")
-	        .map{ row: Row -> row.get("name", String.class) }
-	        .flow()
+			.map{ row: Row -> row.get("name", String.class) }
+			.flow()
 ----
 ======
+
+Alternatively, there is a shortcut for mapping to a single value:
+
+[source,java]
+----
+	Flux<String> names = client.sql("SELECT name FROM person")
+			.mapValue(String.class)
+			.all();
+----
+
+Or you may map to a result object with bean properties or record components:
+
+[source,java]
+----
+	// assuming a name property on Person
+	Flux<Person> persons = client.sql("SELECT name FROM person")
+			.mapProperties(Person.class)
+			.all();
+----
 
 [[r2dbc-DatabaseClient-mapping-null]]
 .What about `null`?
@@ -279,20 +297,20 @@ of updated rows:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	Mono<Integer> affectedRows = client.sql("UPDATE person SET first_name = :fn")
-	        .bind("fn", "Joe")
-	        .fetch().rowsUpdated();
+			.bind("fn", "Joe")
+			.fetch().rowsUpdated();
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val affectedRows = client.sql("UPDATE person SET first_name = :fn")
-	        .bind("fn", "Joe")
-	        .fetch().awaitRowsUpdated()
+			.bind("fn", "Joe")
+			.fetch().awaitRowsUpdated()
 ----
 ======
 
@@ -318,11 +336,54 @@ The following example shows parameter binding for a query:
 
 [source,java]
 ----
-    db.sql("INSERT INTO person (id, name, age) VALUES(:id, :name, :age)")
-	    	.bind("id", "joe")
-	    	.bind("name", "Joe")
+	db.sql("INSERT INTO person (id, name, age) VALUES(:id, :name, :age)")
+			.bind("id", "joe")
+			.bind("name", "Joe")
 			.bind("age", 34);
 ----
+
+Alternatively, you may pass in a map of names and values:
+
+[source,java]
+----
+	Map<String, Object> params = new LinkedHashMap<>();
+	params.put("id", "joe");
+	params.put("name", "Joe");
+	params.put("age", 34);
+	db.sql("INSERT INTO person (id, name, age) VALUES(:id, :name, :age)")
+			.bindValues(params);
+----
+
+Or you may pass in a parameter object with bean properties or record components:
+
+[source,java]
+----
+	// assuming id, name, age properties on Person
+	db.sql("INSERT INTO person (id, name, age) VALUES(:id, :name, :age)")
+			.bindProperties(new Person("joe", "Joe", 34);
+----
+
+Alternatively, you can use positional parameters for binding values to statements.
+Indices are zero based.
+
+[source,java]
+----
+	db.sql("INSERT INTO person (id, name, age) VALUES(:id, :name, :age)")
+			.bind(0, "joe")
+			.bind(1, "Joe")
+			.bind(2, 34);
+----
+
+In case your application is binding to many parameters, the same can be achieved with a single call:
+
+[source,java]
+----
+	List<?> values = List.of("joe", "Joe", 34);
+	db.sql("INSERT INTO person (id, name, age) VALUES(:id, :name, :age)")
+			.bindValues(values);
+----
+
+
 
 .R2DBC Native Bind Markers
 ****
@@ -359,26 +420,26 @@ The preceding query can be parameterized and run as follows:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	List<Object[]> tuples = new ArrayList<>();
 	tuples.add(new Object[] {"John", 35});
 	tuples.add(new Object[] {"Ann",  50});
 
 	client.sql("SELECT id, name, state FROM table WHERE (name, age) IN (:tuples)")
-		    .bind("tuples", tuples);
+			.bind("tuples", tuples);
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val tuples: MutableList<Array<Any>> = ArrayList()
 	tuples.add(arrayOf("John", 35))
 	tuples.add(arrayOf("Ann", 50))
 
 	client.sql("SELECT id, name, state FROM table WHERE (name, age) IN (:tuples)")
-		    .bind("tuples", tuples)
+			.bind("tuples", tuples)
 ----
 ======
 
@@ -390,31 +451,27 @@ The following example shows a simpler variant using `IN` predicates:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client.sql("SELECT id, name, state FROM table WHERE age IN (:ages)")
-		    .bind("ages", Arrays.asList(35, 50));
+			.bind("ages", Arrays.asList(35, 50));
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
-	val tuples: MutableList<Array<Any>> = ArrayList()
-	tuples.add(arrayOf("John", 35))
-	tuples.add(arrayOf("Ann", 50))
-
 	client.sql("SELECT id, name, state FROM table WHERE age IN (:ages)")
-		    .bind("tuples", arrayOf(35, 50))
+			.bind("ages", arrayOf(35, 50))
 ----
 ======
 
 NOTE: R2DBC itself does not support Collection-like values. Nevertheless,
 expanding a given `List` in the example above works for named parameters
-in Spring's R2DBC support, e.g. for use in `IN` clauses as shown above.
-However, inserting or updating array-typed columns (e.g. in Postgres)
+in Spring's R2DBC support, for example, for use in `IN` clauses as shown above.
+However, inserting or updating array-typed columns (for example, in Postgres)
 requires an array type that is supported by the underlying R2DBC driver:
-typically a Java array, e.g. `String[]` to update a `text[]` column.
+typically a Java array, for example, `String[]` to update a `text[]` column.
 Do not pass `Collection<String>` or the like as an array parameter.
 
 [[r2dbc-DatabaseClient-filter]]
@@ -429,17 +486,17 @@ modify statements in their execution, as the following example shows:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client.sql("INSERT INTO table (name, state) VALUES(:name, :state)")
-		    .filter((s, next) -> next.execute(s.returnGeneratedValues("id")))
-		    .bind("name", …)
-		    .bind("state", …);
+			.filter((s, next) -> next.execute(s.returnGeneratedValues("id")))
+			.bind("name", …)
+			.bind("state", …);
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client.sql("INSERT INTO table (name, state) VALUES(:name, :state)")
 			.filter { s: Statement, next: ExecuteFunction -> next.execute(s.returnGeneratedValues("id")) }
@@ -455,24 +512,24 @@ a `Function<Statement, Statement>`:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client.sql("INSERT INTO table (name, state) VALUES(:name, :state)")
-		    .filter(statement -> s.returnGeneratedValues("id"));
+			.filter(statement -> s.returnGeneratedValues("id"));
 
 	client.sql("SELECT id, name, state FROM table")
-		    .filter(statement -> s.fetchSize(25));
+			.filter(statement -> s.fetchSize(25));
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client.sql("INSERT INTO table (name, state) VALUES(:name, :state)")
-		    .filter { statement -> s.returnGeneratedValues("id") }
+			.filter { statement -> s.returnGeneratedValues("id") }
 
 	client.sql("SELECT id, name, state FROM table")
-		    .filter { statement -> s.fetchSize(25) }
+			.filter { statement -> s.fetchSize(25) }
 ----
 ======
 
@@ -498,7 +555,7 @@ the setter for the `ConnectionFactory`. This leads to DAOs that resemble the fol
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	public class R2dbcCorporateEventDao implements CorporateEventDao {
 
@@ -514,7 +571,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	class R2dbcCorporateEventDao(connectionFactory: ConnectionFactory) : CorporateEventDao {
 
@@ -536,7 +593,7 @@ method with `@Autowired`. The following example shows how to do so:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	@Component // <1>
 	public class R2dbcCorporateEventDao implements CorporateEventDao {
@@ -557,7 +614,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	@Component // <1>
 	class R2dbcCorporateEventDao(connectionFactory: ConnectionFactory) : CorporateEventDao { // <2>
@@ -581,6 +638,7 @@ databases, you may want multiple `DatabaseClient` instances, which requires mult
 `ConnectionFactory` and, subsequently, multiple differently configured `DatabaseClient`
 instances.
 
+
 [[r2dbc-auto-generated-keys]]
 == Retrieving Auto-generated Keys
 
@@ -593,7 +651,7 @@ requests the generated key for the desired column.
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	Mono<Integer> generatedId = client.sql("INSERT INTO table (name, state) VALUES(:name, :state)")
 			.filter(statement -> s.returnGeneratedValues("id"))
@@ -605,7 +663,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val generatedId = client.sql("INSERT INTO table (name, state) VALUES(:name, :state)")
 			.filter { statement -> s.returnGeneratedValues("id") }
@@ -627,7 +685,6 @@ This section covers:
 * xref:data-access/r2dbc.adoc#r2dbc-SingleConnectionFactory[Using `SingleConnectionFactory`]
 * xref:data-access/r2dbc.adoc#r2dbc-TransactionAwareConnectionFactoryProxy[Using `TransactionAwareConnectionFactoryProxy`]
 * xref:data-access/r2dbc.adoc#r2dbc-R2dbcTransactionManager[Using `R2dbcTransactionManager`]
-
 
 [[r2dbc-ConnectionFactory]]
 === Using `ConnectionFactory`
@@ -658,19 +715,18 @@ The following example shows how to configure a `ConnectionFactory`:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	ConnectionFactory factory = ConnectionFactories.get("r2dbc:h2:mem:///test?options=DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE");
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val factory = ConnectionFactories.get("r2dbc:h2:mem:///test?options=DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE");
 ----
 ======
-
 
 [[r2dbc-ConnectionFactoryUtils]]
 === Using `ConnectionFactoryUtils`
@@ -681,7 +737,6 @@ and close connections (if necessary).
 
 It supports subscriber ``Context``-bound connections with, for example
 `R2dbcTransactionManager`.
-
 
 [[r2dbc-SingleConnectionFactory]]
 === Using `SingleConnectionFactory`
@@ -699,7 +754,6 @@ such as pipelining if your R2DBC driver permits for such use.
 In contrast to a pooled `ConnectionFactory`, it reuses the same connection all the time, avoiding
 excessive creation of physical connections.
 
-
 [[r2dbc-TransactionAwareConnectionFactoryProxy]]
 === Using `TransactionAwareConnectionFactoryProxy`
 
@@ -712,9 +766,8 @@ the same time, have this client participating in Spring managed transactions. It
 preferable to integrate a R2DBC client with proper access to `ConnectionFactoryUtils`
 for resource management.
 
-See the {api-spring-framework}/r2dbc/connection/TransactionAwareConnectionFactoryProxy.html[`TransactionAwareConnectionFactoryProxy`]
+See the {spring-framework-api}/r2dbc/connection/TransactionAwareConnectionFactoryProxy.html[`TransactionAwareConnectionFactoryProxy`]
 javadoc for more details.
-
 
 [[r2dbc-R2dbcTransactionManager]]
 === Using `R2dbcTransactionManager`
@@ -729,6 +782,3 @@ Application code is required to retrieve the R2DBC `Connection` through
 `ConnectionFactory.create()`. All framework classes (such as `DatabaseClient`) use this
 strategy implicitly. If not used with a transaction manager, the lookup strategy behaves
 exactly like `ConnectionFactory.create()` and can therefore be used in any case.
-
-
-

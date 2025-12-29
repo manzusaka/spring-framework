@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,13 +54,13 @@ public class BeanNameAutoProxyCreator extends AbstractAutoProxyCreator {
 
 	/**
 	 * Set the names of the beans that should automatically get wrapped with proxies.
-	 * A name can specify a prefix to match by ending with "*", e.g. "myBean,tx*"
+	 * A name can specify a prefix to match by ending with "*", for example, "myBean,tx*"
 	 * will match the bean named "myBean" and all beans whose name start with "tx".
 	 * <p><b>NOTE:</b> In case of a FactoryBean, only the objects created by the
 	 * FactoryBean will get proxied. This default behavior applies as of Spring 2.0.
 	 * If you intend to proxy a FactoryBean instance itself (a rare use case, but
 	 * Spring 1.2's default behavior), specify the bean name of the FactoryBean
-	 * including the factory-bean prefix "&amp;": e.g. "&amp;myFactoryBean".
+	 * including the factory-bean prefix "&amp;": for example, "&amp;myFactoryBean".
 	 * @see org.springframework.beans.factory.FactoryBean
 	 * @see org.springframework.beans.factory.BeanFactory#FACTORY_BEAN_PREFIX
 	 */
@@ -81,6 +81,7 @@ public class BeanNameAutoProxyCreator extends AbstractAutoProxyCreator {
 	 * @see #setBeanNames(String...)
 	 */
 	@Override
+	@Nullable
 	protected TargetSource getCustomTargetSource(Class<?> beanClass, String beanName) {
 		return (isSupportedBeanName(beanClass, beanName) ?
 				super.getCustomTargetSource(beanClass, beanName) : null);
@@ -113,10 +114,10 @@ public class BeanNameAutoProxyCreator extends AbstractAutoProxyCreator {
 			boolean isFactoryBean = FactoryBean.class.isAssignableFrom(beanClass);
 			for (String mappedName : this.beanNames) {
 				if (isFactoryBean) {
-					if (!mappedName.startsWith(BeanFactory.FACTORY_BEAN_PREFIX)) {
+					if (mappedName.isEmpty() || mappedName.charAt(0) != BeanFactory.FACTORY_BEAN_PREFIX_CHAR) {
 						continue;
 					}
-					mappedName = mappedName.substring(BeanFactory.FACTORY_BEAN_PREFIX.length());
+					mappedName = mappedName.substring(1);  // length of '&'
 				}
 				if (isMatch(beanName, mappedName)) {
 					return true;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.springframework.web.reactive.function.client;
 
 import java.net.URI;
+import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -147,6 +148,11 @@ public abstract class ExchangeFunctions {
 				@Override
 				public URI getURI() {
 					return request.url();
+				}
+
+				@Override
+				public Map<String, Object> getAttributes() {
+					return request.attributes();
 				}
 
 				@Override

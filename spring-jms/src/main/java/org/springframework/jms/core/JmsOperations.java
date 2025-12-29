@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -247,7 +247,7 @@ public interface JmsOperations {
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
-	Message receiveSelected(String messageSelector) throws JmsException;
+	Message receiveSelected(@Nullable String messageSelector) throws JmsException;
 
 	/**
 	 * Receive a message synchronously from the specified destination, but only
@@ -261,7 +261,7 @@ public interface JmsOperations {
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
-	Message receiveSelected(Destination destination, String messageSelector) throws JmsException;
+	Message receiveSelected(Destination destination, @Nullable String messageSelector) throws JmsException;
 
 	/**
 	 * Receive a message synchronously from the specified destination, but only
@@ -276,7 +276,7 @@ public interface JmsOperations {
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
-	Message receiveSelected(String destinationName, String messageSelector) throws JmsException;
+	Message receiveSelected(String destinationName, @Nullable String messageSelector) throws JmsException;
 
 
 	//---------------------------------------------------------------------------------------
@@ -290,7 +290,7 @@ public interface JmsOperations {
 	 * <p>This method should be used carefully, since it will block the thread
 	 * until the message becomes available or until the timeout value is exceeded.
 	 * <p>This will only work with a default destination specified!
-	 * @return the message produced for the consumer or {@code null} if the timeout expires.
+	 * @return the message produced for the consumer, or {@code null} if the timeout expires
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
@@ -303,7 +303,7 @@ public interface JmsOperations {
 	 * <p>This method should be used carefully, since it will block the thread
 	 * until the message becomes available or until the timeout value is exceeded.
 	 * @param destination the destination to receive a message from
-	 * @return the message produced for the consumer or {@code null} if the timeout expires.
+	 * @return the message produced for the consumer, or {@code null} if the timeout expires
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
@@ -317,7 +317,7 @@ public interface JmsOperations {
 	 * until the message becomes available or until the timeout value is exceeded.
 	 * @param destinationName the name of the destination to send this message to
 	 * (to be resolved to an actual destination by a DestinationResolver)
-	 * @return the message produced for the consumer or {@code null} if the timeout expires.
+	 * @return the message produced for the consumer, or {@code null} if the timeout expires
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
@@ -332,11 +332,11 @@ public interface JmsOperations {
 	 * <p>This will only work with a default destination specified!
 	 * @param messageSelector the JMS message selector expression (or {@code null} if none).
 	 * See the JMS specification for a detailed definition of selector expressions.
-	 * @return the message produced for the consumer or {@code null} if the timeout expires.
+	 * @return the message produced for the consumer, or {@code null} if the timeout expires
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
-	Object receiveSelectedAndConvert(String messageSelector) throws JmsException;
+	Object receiveSelectedAndConvert(@Nullable String messageSelector) throws JmsException;
 
 	/**
 	 * Receive a message synchronously from the specified destination, but only
@@ -347,11 +347,11 @@ public interface JmsOperations {
 	 * @param destination the destination to receive a message from
 	 * @param messageSelector the JMS message selector expression (or {@code null} if none).
 	 * See the JMS specification for a detailed definition of selector expressions.
-	 * @return the message produced for the consumer or {@code null} if the timeout expires.
+	 * @return the message produced for the consumer, or {@code null} if the timeout expires
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
-	Object receiveSelectedAndConvert(Destination destination, String messageSelector) throws JmsException;
+	Object receiveSelectedAndConvert(Destination destination, @Nullable String messageSelector) throws JmsException;
 
 	/**
 	 * Receive a message synchronously from the specified destination, but only
@@ -363,11 +363,11 @@ public interface JmsOperations {
 	 * (to be resolved to an actual destination by a DestinationResolver)
 	 * @param messageSelector the JMS message selector expression (or {@code null} if none).
 	 * See the JMS specification for a detailed definition of selector expressions.
-	 * @return the message produced for the consumer or {@code null} if the timeout expires.
+	 * @return the message produced for the consumer, or {@code null} if the timeout expires
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
-	Object receiveSelectedAndConvert(String destinationName, String messageSelector) throws JmsException;
+	Object receiveSelectedAndConvert(String destinationName, @Nullable String messageSelector) throws JmsException;
 
 
 	//---------------------------------------------------------------------------------------
@@ -468,7 +468,7 @@ public interface JmsOperations {
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
-	<T> T browseSelected(String messageSelector, BrowserCallback<T> action) throws JmsException;
+	<T> T browseSelected(@Nullable String messageSelector, BrowserCallback<T> action) throws JmsException;
 
 	/**
 	 * Browse selected messages in a JMS queue. The callback gives access to the JMS
@@ -481,7 +481,7 @@ public interface JmsOperations {
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
-	<T> T browseSelected(Queue queue, String messageSelector, BrowserCallback<T> action) throws JmsException;
+	<T> T browseSelected(Queue queue, @Nullable String messageSelector, BrowserCallback<T> action) throws JmsException;
 
 	/**
 	 * Browse selected messages in a JMS queue. The callback gives access to the JMS
@@ -495,6 +495,6 @@ public interface JmsOperations {
 	 * @throws JmsException checked JMSException converted to unchecked
 	 */
 	@Nullable
-	<T> T browseSelected(String queueName, String messageSelector, BrowserCallback<T> action) throws JmsException;
+	<T> T browseSelected(String queueName, @Nullable String messageSelector, BrowserCallback<T> action) throws JmsException;
 
 }

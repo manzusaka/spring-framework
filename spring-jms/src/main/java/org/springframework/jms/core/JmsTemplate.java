@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 package org.springframework.jms.core;
 
+import io.micrometer.jakarta9.instrument.jms.JmsInstrumentation;
+import io.micrometer.observation.ObservationRegistry;
 import jakarta.jms.Connection;
 import jakarta.jms.ConnectionFactory;
 import jakarta.jms.DeliveryMode;
@@ -40,14 +42,14 @@ import org.springframework.jms.support.destination.JmsDestinationAccessor;
 import org.springframework.lang.Nullable;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 
 /**
  * Helper class that simplifies synchronous JMS access code.
  *
- * <p>If you want to use dynamic destination creation, you must specify
- * the type of JMS destination to create, using the "pubSubDomain" property.
- * For other operations, this is not necessary. Point-to-Point (Queues) is the default
- * domain.
+ * <p>If you want to use dynamic destination creation, you must specify the type of
+ * JMS destination to create, using the "pubSubDomain" property. For other operations,
+ * this is not necessary. Point-to-Point (Queues) is the default domain.
  *
  * <p>Default settings for JMS Sessions are "not transacted" and "auto-acknowledge".
  * As defined by the Jakarta EE specification, the transaction and acknowledgement
@@ -78,6 +80,7 @@ import org.springframework.util.Assert;
  * @author Mark Pollack
  * @author Juergen Hoeller
  * @author Stephane Nicoll
+ * @author Brian Clozel
  * @since 1.1
  * @see #setConnectionFactory
  * @see #setPubSubDomain
@@ -87,6 +90,9 @@ import org.springframework.util.Assert;
  * @see jakarta.jms.MessageConsumer
  */
 public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations {
+
+	private static final boolean micrometerJakartaPresent = ClassUtils.isPresent(
+			"io.micrometer.jakarta9.instrument.jms.JmsInstrumentation", JmsTemplate.class.getClassLoader());
 
 	/** Internal ResourceFactory adapter for interacting with ConnectionFactoryUtils. */
 	private final JmsTemplateResourceFactory transactionalResourceFactory = new JmsTemplateResourceFactory();
@@ -98,7 +104,6 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	@Nullable
 	private MessageConverter messageConverter;
 
-
 	private boolean messageIdEnabled = true;
 
 	private boolean messageTimestampEnabled = true;
@@ -109,7 +114,6 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 
 	private long deliveryDelay = -1;
 
-
 	private boolean explicitQosEnabled = false;
 
 	private int deliveryMode = Message.DEFAULT_DELIVERY_MODE;
@@ -117,6 +121,9 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	private int priority = Message.DEFAULT_PRIORITY;
 
 	private long timeToLive = Message.DEFAULT_TIME_TO_LIVE;
+
+	@Nullable
+	private ObservationRegistry observationRegistry;
 
 
 	/**
@@ -141,11 +148,8 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	}
 
 	/**
-	 * Initialize the default implementations for the template's strategies:
-	 * DynamicDestinationResolver and SimpleMessageConverter.
-	 * @see #setDestinationResolver
+	 * Initialize the default implementations for the template's strategies.
 	 * @see #setMessageConverter
-	 * @see org.springframework.jms.support.destination.DynamicDestinationResolver
 	 * @see org.springframework.jms.support.converter.SimpleMessageConverter
 	 */
 	protected void initDefaultStrategies() {
@@ -252,7 +256,6 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 		return converter;
 	}
 
-
 	/**
 	 * Set whether message IDs are enabled. Default is "true".
 	 * <p>This is only a hint to the JMS producer.
@@ -341,7 +344,6 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	public long getDeliveryDelay() {
 		return this.deliveryDelay;
 	}
-
 
 	/**
 	 * Set if the QOS values (deliveryMode, priority, timeToLive)
@@ -444,7 +446,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	 * Set the time-to-live of the message when sending.
 	 * <p>Since a default value may be defined administratively,
 	 * this is only used when "isExplicitQosEnabled" equals "true".
-	 * @param timeToLive the message's lifetime (in milliseconds)
+	 * @param timeToLive the message lifetime (in milliseconds)
 	 * @see #isExplicitQosEnabled
 	 * @see jakarta.jms.Message#DEFAULT_TIME_TO_LIVE
 	 * @see jakarta.jms.MessageProducer#send(jakarta.jms.Message, int, int, long)
@@ -458,6 +460,16 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	 */
 	public long getTimeToLive() {
 		return this.timeToLive;
+	}
+
+	/**
+	 * Configure the {@link ObservationRegistry} to use for recording JMS observations.
+	 * @param observationRegistry the observation registry to use
+	 * @since 6.1
+	 * @see io.micrometer.jakarta9.instrument.jms.JmsInstrumentation
+	 */
+	public void setObservationRegistry(ObservationRegistry observationRegistry) {
+		this.observationRegistry = observationRegistry;
 	}
 
 
@@ -485,6 +497,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	 * @see #execute(SessionCallback)
 	 * @see #receive
 	 */
+	@SuppressWarnings("resource")
 	@Nullable
 	public <T> T execute(SessionCallback<T> action, boolean startConnection) throws JmsException {
 		Assert.notNull(action, "Callback object must not be null");
@@ -503,6 +516,9 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 			}
 			if (logger.isDebugEnabled()) {
 				logger.debug("Executing callback on JMS Session: " + sessionToUse);
+			}
+			if (micrometerJakartaPresent && this.observationRegistry != null) {
+				sessionToUse = MicrometerInstrumentation.instrumentSession(sessionToUse, this.observationRegistry);
 			}
 			return action.doInJms(sessionToUse);
 		}
@@ -529,7 +545,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 
 	@Override
 	@Nullable
-	public <T> T execute(final @Nullable Destination destination, final ProducerCallback<T> action) throws JmsException {
+	public <T> T execute(@Nullable Destination destination, ProducerCallback<T> action) throws JmsException {
 		Assert.notNull(action, "Callback object must not be null");
 		return execute(session -> {
 			MessageProducer producer = createProducer(session, destination);
@@ -544,7 +560,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 
 	@Override
 	@Nullable
-	public <T> T execute(final String destinationName, final ProducerCallback<T> action) throws JmsException {
+	public <T> T execute(String destinationName, ProducerCallback<T> action) throws JmsException {
 		Assert.notNull(action, "Callback object must not be null");
 		return execute(session -> {
 			Destination destination = resolveDestinationName(session, destinationName);
@@ -575,7 +591,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	}
 
 	@Override
-	public void send(final Destination destination, final MessageCreator messageCreator) throws JmsException {
+	public void send(Destination destination, MessageCreator messageCreator) throws JmsException {
 		execute(session -> {
 			doSend(session, destination, messageCreator);
 			return null;
@@ -583,7 +599,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	}
 
 	@Override
-	public void send(final String destinationName, final MessageCreator messageCreator) throws JmsException {
+	public void send(String destinationName, MessageCreator messageCreator) throws JmsException {
 		execute(session -> {
 			Destination destination = resolveDestinationName(session, destinationName);
 			doSend(session, destination, messageCreator);
@@ -655,12 +671,12 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	}
 
 	@Override
-	public void convertAndSend(Destination destination, final Object message) throws JmsException {
+	public void convertAndSend(Destination destination, Object message) throws JmsException {
 		send(destination, session -> getRequiredMessageConverter().toMessage(message, session));
 	}
 
 	@Override
-	public void convertAndSend(String destinationName, final Object message) throws JmsException {
+	public void convertAndSend(String destinationName, Object message) throws JmsException {
 		send(destinationName, session -> getRequiredMessageConverter().toMessage(message, session));
 	}
 
@@ -676,8 +692,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	}
 
 	@Override
-	public void convertAndSend(
-			Destination destination, final Object message, final MessagePostProcessor postProcessor)
+	public void convertAndSend(Destination destination, Object message, MessagePostProcessor postProcessor)
 			throws JmsException {
 
 		send(destination, session -> {
@@ -687,8 +702,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 	}
 
 	@Override
-	public void convertAndSend(
-			String destinationName, final Object message, final MessagePostProcessor postProcessor)
+	public void convertAndSend(String destinationName, Object message, MessagePostProcessor postProcessor)
 		throws JmsException {
 
 		send(destinationName, session -> {
@@ -728,7 +742,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 
 	@Override
 	@Nullable
-	public Message receiveSelected(String messageSelector) throws JmsException {
+	public Message receiveSelected(@Nullable String messageSelector) throws JmsException {
 		Destination defaultDestination = getDefaultDestination();
 		if (defaultDestination != null) {
 			return receiveSelected(defaultDestination, messageSelector);
@@ -740,13 +754,13 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 
 	@Override
 	@Nullable
-	public Message receiveSelected(final Destination destination, @Nullable final String messageSelector) throws JmsException {
+	public Message receiveSelected(Destination destination, @Nullable String messageSelector) throws JmsException {
 		return execute(session -> doReceive(session, destination, messageSelector), true);
 	}
 
 	@Override
 	@Nullable
-	public Message receiveSelected(final String destinationName, @Nullable final String messageSelector) throws JmsException {
+	public Message receiveSelected(String destinationName, @Nullable String messageSelector) throws JmsException {
 		return execute(session -> {
 			Destination destination = resolveDestinationName(session, destinationName);
 			return doReceive(session, destination, messageSelector);
@@ -834,19 +848,19 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 
 	@Override
 	@Nullable
-	public Object receiveSelectedAndConvert(String messageSelector) throws JmsException {
+	public Object receiveSelectedAndConvert(@Nullable String messageSelector) throws JmsException {
 		return doConvertFromMessage(receiveSelected(messageSelector));
 	}
 
 	@Override
 	@Nullable
-	public Object receiveSelectedAndConvert(Destination destination, String messageSelector) throws JmsException {
+	public Object receiveSelectedAndConvert(Destination destination, @Nullable String messageSelector) throws JmsException {
 		return doConvertFromMessage(receiveSelected(destination, messageSelector));
 	}
 
 	@Override
 	@Nullable
-	public Object receiveSelectedAndConvert(String destinationName, String messageSelector) throws JmsException {
+	public Object receiveSelectedAndConvert(String destinationName, @Nullable String messageSelector) throws JmsException {
 		return doConvertFromMessage(receiveSelected(destinationName, messageSelector));
 	}
 
@@ -887,13 +901,13 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 
 	@Override
 	@Nullable
-	public Message sendAndReceive(final Destination destination, final MessageCreator messageCreator) throws JmsException {
+	public Message sendAndReceive(Destination destination, MessageCreator messageCreator) throws JmsException {
 		return executeLocal(session -> doSendAndReceive(session, destination, messageCreator), true);
 	}
 
 	@Override
 	@Nullable
-	public Message sendAndReceive(final String destinationName, final MessageCreator messageCreator) throws JmsException {
+	public Message sendAndReceive(String destinationName, MessageCreator messageCreator) throws JmsException {
 		return executeLocal(session -> {
 			Destination destination = resolveDestinationName(session, destinationName);
 			return doSendAndReceive(session, destination, messageCreator);
@@ -948,6 +962,9 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 		try {
 			con = createConnection();
 			session = con.createSession(false, Session.AUTO_ACKNOWLEDGE);
+			if (micrometerJakartaPresent && this.observationRegistry != null) {
+				session = MicrometerInstrumentation.instrumentSession(session, this.observationRegistry);
+			}
 			if (startConnection) {
 				con.start();
 			}
@@ -996,7 +1013,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 
 	@Override
 	@Nullable
-	public <T> T browseSelected(String messageSelector, BrowserCallback<T> action) throws JmsException {
+	public <T> T browseSelected(@Nullable String messageSelector, BrowserCallback<T> action) throws JmsException {
 		Queue defaultQueue = getDefaultQueue();
 		if (defaultQueue != null) {
 			return browseSelected(defaultQueue, messageSelector, action);
@@ -1008,7 +1025,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 
 	@Override
 	@Nullable
-	public <T> T browseSelected(final Queue queue, @Nullable final String messageSelector, final BrowserCallback<T> action)
+	public <T> T browseSelected(Queue queue, @Nullable String messageSelector, BrowserCallback<T> action)
 			throws JmsException {
 
 		Assert.notNull(action, "Callback object must not be null");
@@ -1025,7 +1042,7 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 
 	@Override
 	@Nullable
-	public <T> T browseSelected(final String queueName, @Nullable final String messageSelector, final BrowserCallback<T> action)
+	public <T> T browseSelected(String queueName, @Nullable String messageSelector, BrowserCallback<T> action)
 			throws JmsException {
 
 		Assert.notNull(action, "Callback object must not be null");
@@ -1192,6 +1209,14 @@ public class JmsTemplate extends JmsDestinationAccessor implements JmsOperations
 		public boolean isSynchedLocalTransactionAllowed() {
 			return JmsTemplate.this.isSessionTransacted();
 		}
+	}
+
+	private abstract static class MicrometerInstrumentation {
+
+		static Session instrumentSession(Session session, ObservationRegistry registry) {
+			return JmsInstrumentation.instrumentSession(session, registry);
+		}
+
 	}
 
 }

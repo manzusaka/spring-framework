@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import org.springframework.util.CollectionUtils;
 /**
  * A base class for working with message headers in simple messaging protocols that
  * support basic messaging patterns. Provides uniform access to specific values common
- * across protocols such as a destination, message type (e.g. publish, subscribe, etc),
+ * across protocols such as a destination, message type (for example, publish, subscribe, etc),
  * session ID, and others.
  *
  * <p>Use one of the static factory methods in this class, then call getters and setters,
@@ -273,7 +273,7 @@ public class SimpMessageHeaderAccessor extends NativeMessageHeaderAccessor {
 	}
 
 	/**
-	 * Create an instance from the payload and headers of the given Message.
+	 * Create an instance by copying the headers of a Message.
 	 */
 	public static SimpMessageHeaderAccessor wrap(Message<?> message) {
 		return new SimpMessageHeaderAccessor(message);

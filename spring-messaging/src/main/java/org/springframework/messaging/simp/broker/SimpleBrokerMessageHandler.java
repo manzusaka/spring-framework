@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ public class SimpleBrokerMessageHandler extends AbstractBrokerMessageHandler {
 	private Integer cacheLimit;
 
 	@Nullable
-	private String selectorHeaderName = "selector";
+	private String selectorHeaderName;
 
 	@Nullable
 	private TaskScheduler taskScheduler;
@@ -84,8 +84,8 @@ public class SimpleBrokerMessageHandler extends AbstractBrokerMessageHandler {
 	/**
 	 * Create a SimpleBrokerMessageHandler instance with the given message channels
 	 * and destination prefixes.
-	 * @param clientInboundChannel the channel for receiving messages from clients (e.g. WebSocket clients)
-	 * @param clientOutboundChannel the channel for sending messages to clients (e.g. WebSocket clients)
+	 * @param clientInboundChannel the channel for receiving messages from clients (for example, WebSocket clients)
+	 * @param clientOutboundChannel the channel for sending messages to clients (for example, WebSocket clients)
 	 * @param brokerChannel the channel for the application to send messages to the broker
 	 * @param destinationPrefixes prefixes to use to filter out messages
 	 */
@@ -172,11 +172,13 @@ public class SimpleBrokerMessageHandler extends AbstractBrokerMessageHandler {
 	 * <pre style="code">
 	 * headers.foo == 'bar'
 	 * </pre>
-	 * <p>By default this is set to "selector". You can set it to a different
-	 * name, or to {@code null} to turn off support for a selector header.
+	 * <p>By default the selector header name is set to {@code null} which disables
+	 * this feature. You can set it to {@code "selector"} or a different name to
+	 * enable support for a selector header.
 	 * <p>Setting this property has no effect if the underlying SubscriptionRegistry
 	 * is not an instance of {@link DefaultSubscriptionRegistry}.
-	 * @param selectorHeaderName the name to use for a selector header
+	 * @param selectorHeaderName the name to use for a selector header, or {@code null}
+	 * or blank to disable selector header support
 	 * @since 4.3.17
 	 * @see #setSubscriptionRegistry
 	 * @see DefaultSubscriptionRegistry#setSelectorHeaderName(String)

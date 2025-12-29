@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ public class SockJsServiceRegistration {
 	}
 
 	/**
-	 * Transports with no native cross-domain communication (e.g. "eventsource",
+	 * Transports with no native cross-domain communication (for example, "eventsource",
 	 * "htmlfile") must get a simple page from the "foreign" domain in an invisible
 	 * {@code iframe} so that code in the {@code iframe} can run from a domain
 	 * local to the SockJS server. Since the {@code iframe} needs to load the
@@ -135,7 +135,7 @@ public class SockJsServiceRegistration {
 	/**
 	 * The SockJS protocol requires a server to respond to the initial "/info" request
 	 * from clients with a "cookie_needed" boolean property that indicates whether the use
-	 * of a JSESSIONID cookie is required for the application to function correctly, e.g.
+	 * of a JSESSIONID cookie is required for the application to function correctly, for example,
 	 * for load balancing or in Java Servlet containers for the use of an HTTP session.
 	 *
 	 * <p>This is especially important for IE 8,9 that support XDomainRequest -- a modified

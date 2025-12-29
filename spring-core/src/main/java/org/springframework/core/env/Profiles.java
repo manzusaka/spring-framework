@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,17 +28,19 @@ import java.util.function.Predicate;
  * @author Phillip Webb
  * @author Sam Brannen
  * @since 5.1
+ * @see Environment#acceptsProfiles(Profiles)
+ * @see Environment#matchesProfiles(String...)
  */
 @FunctionalInterface
 public interface Profiles {
 
 	/**
 	 * Test if this {@code Profiles} instance <em>matches</em> against the given
-	 * active profiles predicate.
-	 * @param activeProfiles a predicate that tests whether a given profile is
+	 * predicate.
+	 * @param isProfileActive a predicate that tests whether a given profile is
 	 * currently active
 	 */
-	boolean matches(Predicate<String> activeProfiles);
+	boolean matches(Predicate<String> isProfileActive);
 
 
 	/**
@@ -60,10 +62,9 @@ public interface Profiles {
 	 * without using parentheses. For example, {@code "a & b | c"} is not a valid
 	 * expression: it must be expressed as {@code "(a & b) | c"} or
 	 * {@code "a & (b | c)"}.
-	 * <p>As of Spring Framework 5.1.17, two {@code Profiles} instances returned
-	 * by this method are considered equivalent to each other (in terms of
-	 * {@code equals()} and {@code hashCode()} semantics) if they are created
-	 * with identical <em>profile expressions</em>.
+	 * <p>Two {@code Profiles} instances returned by this method are considered
+	 * equivalent to each other (in terms of {@code equals()} and {@code hashCode()}
+	 * semantics) if they are created with identical <em>profile expressions</em>.
 	 * @param profileExpressions the <em>profile expressions</em> to include
 	 * @return a new {@link Profiles} instance
 	 */

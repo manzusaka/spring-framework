@@ -1,13 +1,19 @@
 [[webflux-view]]
 = View Technologies
+
 [.small]#xref:web/webmvc-view.adoc[See equivalent in the Servlet stack]#
 
-The use of view technologies in Spring WebFlux is pluggable. Whether you decide to
+The rendering of views in Spring WebFlux is pluggable. Whether you decide to
 use Thymeleaf, FreeMarker, or some other view technology is primarily a matter of a
 configuration change. This chapter covers the view technologies integrated with Spring
-WebFlux. We assume you are already familiar with xref:web/webflux/dispatcher-handler.adoc#webflux-viewresolution[View Resolution].
+WebFlux.
 
+For more context on view rendering, please see xref:web/webflux/dispatcher-handler.adoc#webflux-viewresolution[View Resolution].
 
+WARNING: The views of a Spring WebFlux application live within internal trust boundaries
+of the application. Views have access to beans in the application context, and as
+such, we do not recommend use the Spring WebFlux template support in applications where
+the templates are editable by external sources, since this can have security implications.
 
 
 [[webflux-view-thymeleaf]]
@@ -29,8 +35,6 @@ https://www.thymeleaf.org/documentation.html[Thymeleaf+Spring] and the WebFlux i
 https://web.archive.org/web/20210623051330/http%3A//forum.thymeleaf.org/Thymeleaf-3-0-8-JUST-PUBLISHED-td4030687.html[announcement].
 
 
-
-
 [[webflux-view-freemarker]]
 == FreeMarker
 [.small]#xref:web/webmvc-view/mvc-freemarker.adoc[See equivalent in the Servlet stack]#
@@ -38,8 +42,6 @@ https://web.archive.org/web/20210623051330/http%3A//forum.thymeleaf.org/Thymelea
 https://freemarker.apache.org/[Apache FreeMarker] is a template engine for generating any
 kind of text output from HTML to email and others. The Spring Framework has built-in
 integration for using Spring WebFlux with FreeMarker templates.
-
-
 
 [[webflux-view-freemarker-contextconfig]]
 === View Configuration
@@ -51,7 +53,7 @@ The following example shows how to configure FreeMarker as a view technology:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	@Configuration
 	@EnableWebFlux
@@ -75,7 +77,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	@Configuration
 	@EnableWebFlux
@@ -100,8 +102,6 @@ shown in the preceding example. Given the preceding configuration, if your contr
 returns the view name, `welcome`, the resolver looks for the
 `classpath:/templates/freemarker/welcome.ftl` template.
 
-
-
 [[webflux-views-freemarker]]
 === FreeMarker Configuration
 [.small]#xref:web/webmvc-view/mvc-freemarker.adoc#mvc-views-freemarker[See equivalent in the Servlet stack]#
@@ -116,7 +116,7 @@ a `java.util.Properties` object, and the `freemarkerVariables` property requires
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	@Configuration
 	@EnableWebFlux
@@ -139,7 +139,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	@Configuration
 	@EnableWebFlux
@@ -159,8 +159,6 @@ Kotlin::
 See the FreeMarker documentation for details of settings and variables as they apply to
 the `Configuration` object.
 
-
-
 [[webflux-view-freemarker-forms]]
 === Form Handling
 [.small]#xref:web/webmvc-view/mvc-freemarker.adoc#mvc-view-freemarker-forms[See equivalent in the Servlet stack]#
@@ -170,7 +168,6 @@ Spring provides a tag library for use in JSPs that contains, among others, a
 form-backing objects and show the results of failed validations from a `Validator` in the
 web or business tier. Spring also has support for the same functionality in FreeMarker,
 with additional convenience macros for generating form input elements themselves.
-
 
 [[webflux-view-bind-macros]]
 ==== The Bind Macros
@@ -189,7 +186,6 @@ directly, the file is called `spring.ftl` and is in the
 For additional details on binding support, see xref:web/webmvc-view/mvc-freemarker.adoc#mvc-view-simple-binding[Simple Binding]
  for Spring MVC.
 
-
 [[webflux-views-form-macros]]
 ==== Form Macros
 
@@ -202,14 +198,13 @@ sections of the Spring MVC documentation.
 * xref:web/webmvc-view/mvc-freemarker.adoc#mvc-views-form-macros-html-escaping[HTML Escaping]
 
 
-
 [[webflux-view-script]]
 == Script Views
 [.small]#xref:web/webmvc-view/mvc-script.adoc[See equivalent in the Servlet stack]#
 
 The Spring Framework has a built-in integration for using Spring WebFlux with any
 templating library that can run on top of the
-https://www.jcp.org/en/jsr/detail?id=223[JSR-223] Java scripting engine.
+{JSR}223[JSR-223] Java scripting engine.
 The following table shows the templating libraries that we have tested on different script engines:
 
 [%header]
@@ -217,17 +212,15 @@ The following table shows the templating libraries that we have tested on differ
 |Scripting Library |Scripting Engine
 |https://handlebarsjs.com/[Handlebars] |https://openjdk.java.net/projects/nashorn/[Nashorn]
 |https://mustache.github.io/[Mustache] |https://openjdk.java.net/projects/nashorn/[Nashorn]
-|https://facebook.github.io/react/[React] |https://openjdk.java.net/projects/nashorn/[Nashorn]
-|https://www.embeddedjs.com/[EJS] |https://openjdk.java.net/projects/nashorn/[Nashorn]
-|https://www.stuartellis.name/articles/erb/[ERB] |https://www.jruby.org[JRuby]
+|https://react.dev/[React] |https://openjdk.java.net/projects/nashorn/[Nashorn]
+|https://ejs.co/[EJS] |https://openjdk.java.net/projects/nashorn/[Nashorn]
+|https://docs.ruby-lang.org/en/master/ERB.html[ERB] |https://www.jruby.org[JRuby]
 |https://docs.python.org/2/library/string.html#template-strings[String templates] |https://www.jython.org/[Jython]
-|https://github.com/sdeleuze/kotlin-script-templating[Kotlin Script templating] |https://kotlinlang.org/[Kotlin]
+|https://github.com/sdeleuze/kotlin-script-templating[Kotlin Script templating] |{kotlin-site}[Kotlin]
 |===
 
 TIP: The basic rule for integrating any other script engine is that it must implement the
 `ScriptEngine` and `Invocable` interfaces.
-
-
 
 [[webflux-view-script-dependencies]]
 === Requirements
@@ -247,8 +240,6 @@ Java 8+. Using the latest update release available is highly recommended.
 You need to have the script templating library. One way to do that for JavaScript is
 through https://www.webjars.org/[WebJars].
 
-
-
 [[webflux-view-script-integrate]]
 === Script Templates
 [.small]#xref:web/webmvc-view/mvc-script.adoc#mvc-view-script-integrate[See equivalent in the Servlet stack]#
@@ -261,7 +252,7 @@ The following example uses Mustache templates and the Nashorn JavaScript engine:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	@Configuration
 	@EnableWebFlux
@@ -286,7 +277,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	@Configuration
 	@EnableWebFlux
@@ -312,7 +303,7 @@ The `render` function is called with the following parameters:
 * `String template`: The template content
 * `Map model`: The view model
 * `RenderingContext renderingContext`: The
-  {api-spring-framework}/web/servlet/view/script/RenderingContext.html[`RenderingContext`]
+  {spring-framework-api}/web/servlet/view/script/RenderingContext.html[`RenderingContext`]
   that gives access to the application context, the locale, the template loader, and the
   URL (since 5.0)
 
@@ -329,7 +320,7 @@ The following example shows how to set a custom render function:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	@Configuration
 	@EnableWebFlux
@@ -354,7 +345,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	@Configuration
 	@EnableWebFlux
@@ -404,27 +395,98 @@ The following example shows how compile a template:
 ----
 
 Check out the Spring Framework unit tests,
-{spring-framework-main-code}/spring-webflux/src/test/java/org/springframework/web/reactive/result/view/script[Java], and
-{spring-framework-main-code}/spring-webflux/src/test/resources/org/springframework/web/reactive/result/view/script[resources],
+{spring-framework-code}/spring-webflux/src/test/java/org/springframework/web/reactive/result/view/script[Java], and
+{spring-framework-code}/spring-webflux/src/test/resources/org/springframework/web/reactive/result/view/script[resources],
 for more configuration examples.
 
 
+[[webflux-view-fragments]]
+== HTML Fragment
+[.small]#xref:web/webmvc-view/mvc-fragments.adoc[See equivalent in the Servlet stack]#
+
+https://htmx.org/[HTMX] and https://turbo.hotwired.dev/[Hotwire Turbo] emphasize an
+HTML-over-the-wire approach where clients receive server updates in HTML rather than in JSON.
+This allows the benefits of an SPA (single page app) without having to write much or even
+any JavaScript. For a good overview and to learn more, please visit their respective
+websites.
+
+In Spring WebFlux, view rendering typically involves specifying one view and one model.
+However, in HTML-over-the-wire a common capability is to send multiple HTML fragments that
+the browser can use to update different parts of the page. For this, controller methods
+can return `Collection<Fragment>`. For example:
+
+[tabs]
+======
+Java::
++
+[source,java,indent=0,subs="verbatim,quotes"]
+----
+	@GetMapping
+	List<Fragment> handle() {
+		return List.of(Fragment.create("posts"), Fragment.create("comments"));
+	}
+----
+
+Kotlin::
++
+[source,kotlin,indent=0,subs="verbatim,quotes"]
+----
+	@GetMapping
+	fun handle(): List<Fragment> {
+		return listOf(Fragment.create("posts"), Fragment.create("comments"))
+	}
+----
+======
+
+The same can be done also by returning the dedicated type `FragmentsRendering`:
+
+[tabs]
+======
+Java::
++
+[source,java,indent=0,subs="verbatim,quotes"]
+----
+	@GetMapping
+	FragmentsRendering handle() {
+		return FragmentsRendering.fragment("posts").fragment("comments").build();
+	}
+----
+
+Kotlin::
++
+[source,kotlin,indent=0,subs="verbatim,quotes"]
+----
+	@GetMapping
+	fun handle(): FragmentsRendering {
+		return FragmentsRendering.fragment("posts").fragment("comments").build()
+	}
+----
+======
+
+Each fragment can have an independent model, and that model inherits attributes from the
+shared model for the request.
+
+HTMX and Hotwire Turbo support streaming updates over SSE (server-sent events).
+A controller can create `FragmentsRendering` with a `Flux<Fragment>`, or with any other
+reactive producer adaptable to a Reactive Streams `Publisher` via `ReactiveAdapterRegistry`.
+It is also possible to return `Flux<Fragment>` directly without the `FragmentsRendering`
+wrapper.
 
 
 [[webflux-view-httpmessagewriter]]
 == JSON and XML
 [.small]#xref:web/webmvc-view/mvc-jackson.adoc[See equivalent in the Servlet stack]#
 
-For xref:web/webflux/dispatcher-handler.adoc#webflux-multiple-representations[Content Negotiation] purposes, it is useful to be able to alternate
-between rendering a model with an HTML template or as other formats (such as JSON or XML),
-depending on the content type requested by the client. To support doing so, Spring WebFlux
-provides the `HttpMessageWriterView`, which you can use to plug in any of the available
-xref:web/webflux/reactive-spring.adoc#webflux-codecs[Codecs] from `spring-web`, such as `Jackson2JsonEncoder`, `Jackson2SmileEncoder`,
-or `Jaxb2XmlEncoder`.
+For xref:web/webflux/dispatcher-handler.adoc#webflux-multiple-representations[Content Negotiation]
+purposes, it is useful to be able to alternate between rendering a model with an HTML template
+or as other formats (such as JSON or XML), depending on the content type requested by the client.
+To support doing so, Spring WebFlux provides the `HttpMessageWriterView`, which you can use to
+plug in any of the available xref:web/webflux/reactive-spring.adoc#webflux-codecs[Codecs] from
+`spring-web`, such as `Jackson2JsonEncoder`, `Jackson2SmileEncoder`, or `Jaxb2XmlEncoder`.
 
-Unlike other view technologies, `HttpMessageWriterView` does not require a `ViewResolver`
-but is instead xref:web/webflux/config.adoc#webflux-config-view-resolvers[configured] as a default view. You can
-configure one or more such default views, wrapping different `HttpMessageWriter` instances
+Unlike other view technologies, `HttpMessageWriterView` does not require a `ViewResolver` but is
+instead xref:web/webflux/config.adoc#webflux-config-view-resolvers[configured] as a default view.
+You can configure one or more such default views, wrapping different `HttpMessageWriter` instances
 or `Encoder` instances. The one that matches the requested content type is used at runtime.
 
 In most cases, a model contains multiple attributes. To determine which one to serialize,

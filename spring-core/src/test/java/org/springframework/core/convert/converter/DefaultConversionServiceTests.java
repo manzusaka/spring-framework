@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,16 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Currency;
+import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -40,6 +44,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -57,7 +62,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.entry;
 
 /**
- * Unit tests for {@link DefaultConversionService}.
+ * Tests for {@link DefaultConversionService}.
  *
  * <p>In this package for enforcing accessibility checks to non-public classes outside
  * the {@code org.springframework.core.convert.support} implementation package.
@@ -319,6 +324,24 @@ class DefaultConversionServiceTests {
 	}
 
 	@Test
+	void stringToPatternEmptyString() {
+		assertThat(conversionService.convert("", Pattern.class)).isNull();
+	}
+
+	@Test
+	void stringToPattern() {
+		String pattern = "\\s";
+		assertThat(conversionService.convert(pattern, Pattern.class))
+				.isInstanceOfSatisfying(Pattern.class, regex -> assertThat(regex.pattern()).isEqualTo(pattern));
+	}
+
+	@Test
+	void patternToString() {
+		String regex = "\\d";
+		assertThat(conversionService.convert(Pattern.compile(regex), String.class)).isEqualTo(regex);
+	}
+
+	@Test
 	void numberToNumber() {
 		assertThat(conversionService.convert(1, Long.class)).isEqualTo(Long.valueOf(1));
 	}
@@ -345,7 +368,8 @@ class DefaultConversionServiceTests {
 	void convertArrayToCollectionInterface() {
 		@SuppressWarnings("unchecked")
 		Collection<String> result = conversionService.convert(new String[] {"1", "2", "3"}, Collection.class);
-		assertThat(result).isExactlyInstanceOf(LinkedHashSet.class).containsExactly("1", "2", "3");
+		assertThat(result).isEqualTo(List.of("1", "2", "3"));
+		assertThat(result).isExactlyInstanceOf(ArrayList.class).containsExactly("1", "2", "3");
 	}
 
 	@Test
@@ -584,6 +608,12 @@ class DefaultConversionServiceTests {
 	}
 
 	@Test
+	void convertIntArrayToStringArray() {
+		String[] result = conversionService.convert(new int[] {1, 2, 3}, String[].class);
+		assertThat(result).containsExactly("1", "2", "3");
+	}
+
+	@Test
 	void convertIntegerArrayToIntegerArray() {
 		Integer[] result = conversionService.convert(new Integer[] {1, 2, 3}, Integer[].class);
 		assertThat(result).containsExactly(1, 2, 3);
@@ -593,6 +623,12 @@ class DefaultConversionServiceTests {
 	void convertIntegerArrayToIntArray() {
 		int[] result = conversionService.convert(new Integer[] {1, 2, 3}, int[].class);
 		assertThat(result).containsExactly(1, 2, 3);
+	}
+
+	@Test
+	void convertIntArrayToIntegerArray() {
+		Integer[] result = conversionService.convert(new int[] {1, 2}, Integer[].class);
+		assertThat(result).containsExactly(1, 2);
 	}
 
 	@Test
@@ -607,16 +643,44 @@ class DefaultConversionServiceTests {
 		assertThat(result).containsExactly(1, 2, 3);
 	}
 
+	@Test  // gh-33212
+	void convertIntArrayToObjectArray() {
+		Object[] result = conversionService.convert(new int[] {1, 2}, Object[].class);
+		assertThat(result).containsExactly(1, 2);
+	}
+
 	@Test
-	void convertByteArrayToWrapperArray() {
+	void convertIntArrayToFloatArray() {
+		Float[] result = conversionService.convert(new int[] {1, 2}, Float[].class);
+		assertThat(result).containsExactly(1.0F, 2.0F);
+	}
+
+	@Test
+	void convertIntArrayToPrimitiveFloatArray() {
+		float[] result = conversionService.convert(new int[] {1, 2}, float[].class);
+		assertThat(result).containsExactly(1.0F, 2.0F);
+	}
+
+	@Test
+	void convertPrimitiveByteArrayToByteWrapperArray() {
 		byte[] byteArray = {1, 2, 3};
 		Byte[] converted = conversionService.convert(byteArray, Byte[].class);
 		assertThat(converted).isEqualTo(new Byte[]{1, 2, 3});
 	}
 
-	@Test
-	void convertArrayToArrayAssignable() {
-		int[] result = conversionService.convert(new int[] {1, 2, 3}, int[].class);
+	@Test  // gh-14200, SPR-9566
+	void convertPrimitiveByteArrayToPrimitiveByteArray() {
+		byte[] byteArray = new byte[] {1, 2, 3};
+		byte[] result = conversionService.convert(byteArray, byte[].class);
+		assertThat(result).isSameAs(byteArray);
+		assertThat(result).containsExactly(1, 2, 3);
+	}
+
+	@Test  // gh-14200, SPR-9566
+	void convertIntArrayToIntArray() {
+		int[] intArray = new int[] {1, 2, 3};
+		int[] result = conversionService.convert(intArray, int[].class);
+		assertThat(result).isSameAs(intArray);
 		assertThat(result).containsExactly(1, 2, 3);
 	}
 
@@ -842,7 +906,7 @@ class DefaultConversionServiceTests {
 	void convertObjectToObjectFinderMethodWithNull() {
 		TestEntity entity = (TestEntity) conversionService.convert(null,
 				TypeDescriptor.valueOf(String.class), TypeDescriptor.valueOf(TestEntity.class));
-		assertThat((Object) entity).isNull();
+		assertThat(entity).isNull();
 	}
 
 	@Test
@@ -911,6 +975,88 @@ class DefaultConversionServiceTests {
 		assertThat(conversionService.convert(Optional.empty(), TypeDescriptor.valueOf(Object.class),
 				TypeDescriptor.valueOf(Optional.class))).isSameAs(Optional.empty());
 		assertThat((Object) conversionService.convert(Optional.empty(), Optional.class)).isSameAs(Optional.empty());
+	}
+
+	@Test  // gh-35175
+	void convertDateToInstant() {
+		TypeDescriptor dateDescriptor = TypeDescriptor.valueOf(Date.class);
+		TypeDescriptor instantDescriptor = TypeDescriptor.valueOf(Instant.class);
+		Date date = new Date();
+
+		// Conversion performed by DateToInstantConverter.
+		assertThat(conversionService.convert(date, dateDescriptor, instantDescriptor))
+				.isEqualTo(date.toInstant());
+	}
+
+	@Test  // gh-35175
+	void convertSqlDateToInstant() {
+		TypeDescriptor sqlDateDescriptor = TypeDescriptor.valueOf(java.sql.Date.class);
+		TypeDescriptor instantDescriptor = TypeDescriptor.valueOf(Instant.class);
+		java.sql.Date sqlDate = new java.sql.Date(System.currentTimeMillis());
+
+		// DateToInstantConverter blindly invokes toInstant() on any java.util.Date
+		// subtype, which results in an UnsupportedOperationException since
+		// java.sql.Date does not have a time component. However, even if
+		// DateToInstantConverter were not registered, ObjectToObjectConverter
+		// would still attempt to invoke toInstant() on a java.sql.Date by convention,
+		// which results in the same UnsupportedOperationException.
+		assertThatExceptionOfType(ConversionFailedException.class)
+				.isThrownBy(() -> conversionService.convert(sqlDate, sqlDateDescriptor, instantDescriptor))
+				.withCauseExactlyInstanceOf(UnsupportedOperationException.class);
+	}
+
+	@Test  // gh-35175
+	void convertSqlTimeToInstant() {
+		TypeDescriptor timeDescriptor = TypeDescriptor.valueOf(Time.class);
+		TypeDescriptor instantDescriptor = TypeDescriptor.valueOf(Instant.class);
+		Time time = new Time(System.currentTimeMillis());
+
+		// DateToInstantConverter blindly invokes toInstant() on any java.util.Date
+		// subtype, which results in an UnsupportedOperationException since
+		// java.sql.Date does not have a time component. However, even if
+		// DateToInstantConverter were not registered, ObjectToObjectConverter
+		// would still attempt to invoke toInstant() on a java.sql.Date by convention,
+		// which results in the same UnsupportedOperationException.
+		assertThatExceptionOfType(ConversionFailedException.class)
+				.isThrownBy(() -> conversionService.convert(time, timeDescriptor, instantDescriptor))
+				.withCauseExactlyInstanceOf(UnsupportedOperationException.class);
+	}
+
+	@Test  // gh-35175
+	void convertSqlTimestampToInstant() {
+		TypeDescriptor timestampDescriptor = TypeDescriptor.valueOf(Timestamp.class);
+		TypeDescriptor instantDescriptor = TypeDescriptor.valueOf(Instant.class);
+		Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+
+		// Conversion performed by DateToInstantConverter.
+		assertThat(conversionService.convert(timestamp, timestampDescriptor, instantDescriptor))
+				.isEqualTo(timestamp.toInstant());
+	}
+
+	@Test  // gh-35175
+	void convertInstantToDate() {
+		TypeDescriptor instantDescriptor = TypeDescriptor.valueOf(Instant.class);
+		TypeDescriptor dateDescriptor = TypeDescriptor.valueOf(Date.class);
+		Date date = new Date();
+		Instant instant = date.toInstant();
+
+		// Conversion performed by InstantToDateConverter.
+		assertThat(conversionService.convert(instant, instantDescriptor, dateDescriptor))
+				.isExactlyInstanceOf(Date.class)
+				.isEqualTo(date);
+	}
+
+	@Test
+	void convertInstantToSqlTimestamp() {
+		TypeDescriptor instantDescriptor = TypeDescriptor.valueOf(Instant.class);
+		TypeDescriptor timestampDescriptor = TypeDescriptor.valueOf(Timestamp.class);
+		Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+		Instant instant = timestamp.toInstant();
+
+		// Conversion performed by ObjectToObjectConverter.
+		assertThat(conversionService.convert(instant, instantDescriptor, timestampDescriptor))
+				.isExactlyInstanceOf(Timestamp.class)
+				.isEqualTo(timestamp);
 	}
 
 

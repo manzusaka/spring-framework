@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 	 * Configure the naming strategy to use for assigning a default name to every
 	 * mapped handler method.
 	 * <p>The default naming strategy is based on the capital letters of the
-	 * class name followed by "#" and then the method name, e.g. "TC#getFoo"
+	 * class name followed by "#" and then the method name, for example, "TC#getFoo"
 	 * for a class named TestController with method getFoo.
 	 */
 	public void setHandlerMethodMappingNamingStrategy(HandlerMethodMappingNamingStrategy<T> namingStrategy) {
@@ -442,6 +442,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 		}
 	}
 
+	@SuppressWarnings("NullAway")
 	private void addMatchingMappings(Collection<T> mappings, List<Match> matches, HttpServletRequest request) {
 		for (T mapping : mappings) {
 			T match = getMatchingMapping(mapping, request);
@@ -478,11 +479,12 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 	@Override
 	protected boolean hasCorsConfigurationSource(Object handler) {
 		return super.hasCorsConfigurationSource(handler) ||
-				(handler instanceof HandlerMethod handerMethod &&
-						this.mappingRegistry.getCorsConfiguration(handerMethod) != null);
+				(handler instanceof HandlerMethod handlerMethod &&
+						this.mappingRegistry.getCorsConfiguration(handlerMethod) != null);
 	}
 
 	@Override
+	@Nullable
 	protected CorsConfiguration getCorsConfiguration(Object handler, HttpServletRequest request) {
 		CorsConfiguration corsConfig = super.getCorsConfiguration(handler, request);
 		if (handler instanceof HandlerMethod handlerMethod) {
@@ -565,6 +567,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 	/**
 	 * A registry that maintains all mappings to handler methods, exposing methods
 	 * to perform lookups and providing concurrent access.
+	 *
 	 * <p>Package-private for testing purposes.
 	 */
 	class MappingRegistry {
@@ -599,6 +602,7 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 		/**
 		 * Return handler methods by mapping name. Thread-safe for concurrent use.
 		 */
+		@Nullable
 		public List<HandlerMethod> getHandlerMethodsByMappingName(String mappingName) {
 			return this.nameLookup.get(mappingName);
 		}
@@ -632,22 +636,28 @@ public abstract class AbstractHandlerMethodMapping<T> extends AbstractHandlerMap
 				HandlerMethod handlerMethod = createHandlerMethod(handler, method);
 				validateMethodMapping(handlerMethod, mapping);
 
-				Set<String> directPaths = AbstractHandlerMethodMapping.this.getDirectPaths(mapping);
+				Set<String> directPaths = getDirectPaths(mapping);
 				for (String path : directPaths) {
 					this.pathLookup.add(path, mapping);
 				}
 
 				String name = null;
-				if (getNamingStrategy() != null) {
-					name = getNamingStrategy().getName(handlerMethod, mapping);
+				HandlerMethodMappingNamingStrategy<T> namingStrategy = getNamingStrategy();
+				if (namingStrategy != null) {
+					name = namingStrategy.getName(handlerMethod, mapping);
 					addMappingName(name, handlerMethod);
 				}
 
 				CorsConfiguration corsConfig = initCorsConfiguration(handler, method, mapping);
 				if (corsConfig != null) {
 					corsConfig.validateAllowCredentials();
+					corsConfig.validateAllowPrivateNetwork();
 					this.corsLookup.put(handlerMethod, corsConfig);
 				}
+
+				// Init validation flags
+				// We do this strictly after using the original instance in the CORS lookups
+				handlerMethod = handlerMethod.createWithValidateFlags();
 
 				this.registry.put(mapping,
 						new MappingRegistration<>(mapping, handlerMethod, directPaths, name, corsConfig != null));

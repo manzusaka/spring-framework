@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -266,7 +266,7 @@ public abstract class AopProxyUtils {
 				if (varargArray instanceof Object[] && !varargType.isInstance(varargArray)) {
 					Object[] newArguments = new Object[arguments.length];
 					System.arraycopy(arguments, 0, newArguments, 0, varargIndex);
-					Class<?> targetElementType = varargType.getComponentType();
+					Class<?> targetElementType = varargType.componentType();
 					int varargLength = Array.getLength(varargArray);
 					Object newVarargArray = Array.newInstance(targetElementType, varargLength);
 					System.arraycopy(varargArray, 0, newVarargArray, 0, varargLength);

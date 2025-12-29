@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.cache.interceptor.CacheOperationInvocationContext;
 import org.springframework.cache.interceptor.CacheOperationInvoker;
+import org.springframework.lang.Nullable;
 
 /**
  * Intercept methods annotated with {@link CachePut}.
@@ -39,6 +40,7 @@ class CachePutInterceptor extends AbstractKeyCacheInterceptor<CachePutOperation,
 
 
 	@Override
+	@Nullable
 	protected Object invoke(
 			CacheOperationInvocationContext<CachePutOperation> context, CacheOperationInvoker invoker) {
 

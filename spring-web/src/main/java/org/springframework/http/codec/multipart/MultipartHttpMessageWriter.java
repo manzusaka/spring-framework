@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ public class MultipartHttpMessageWriter extends MultipartWriterSupport
 	 * @param formWriter the fallback writer for form data, {@code null} by default
 	 */
 	public MultipartHttpMessageWriter(List<HttpMessageWriter<?>> partWriters,
-			@Nullable  HttpMessageWriter<MultiValueMap<String, String>> formWriter) {
+			@Nullable HttpMessageWriter<MultiValueMap<String, String>> formWriter) {
 
 		this(() -> partWriters, formWriter);
 	}
@@ -125,7 +125,7 @@ public class MultipartHttpMessageWriter extends MultipartWriterSupport
 	 * @since 6.0.3
 	 */
 	public MultipartHttpMessageWriter(Supplier<List<HttpMessageWriter<?>>> partWritersSupplier,
-			@Nullable  HttpMessageWriter<MultiValueMap<String, String>> formWriter) {
+			@Nullable HttpMessageWriter<MultiValueMap<String, String>> formWriter) {
 
 		super(initMediaTypes(formWriter));
 		this.partWritersSupplier = partWritersSupplier;
@@ -283,7 +283,7 @@ public class MultipartHttpMessageWriter extends MultipartWriterSupport
 				.filter(partWriter -> partWriter.canWrite(finalBodyType, contentType))
 				.findFirst();
 
-		if (!writer.isPresent()) {
+		if (writer.isEmpty()) {
 			return Flux.error(new CodecException("No suitable writer found for part: " + name));
 		}
 

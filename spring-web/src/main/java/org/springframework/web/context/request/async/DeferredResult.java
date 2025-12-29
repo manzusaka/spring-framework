@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ public class DeferredResult<T> {
 	 * timeout depends on the default of the underlying server.
 	 * @param timeoutValue timeout value in milliseconds
 	 */
-	public DeferredResult(Long timeoutValue) {
+	public DeferredResult(@Nullable Long timeoutValue) {
 		this(timeoutValue, () -> RESULT_NONE);
 	}
 
@@ -239,11 +239,11 @@ public class DeferredResult<T> {
 	 * {@code false} if the result was already set or the async request expired
 	 * @see #isSetOrExpired()
 	 */
-	public boolean setResult(T result) {
+	public boolean setResult(@Nullable T result) {
 		return setResultInternal(result);
 	}
 
-	private boolean setResultInternal(Object result) {
+	private boolean setResultInternal(@Nullable Object result) {
 		// Immediate expiration check outside of the result lock
 		if (isSetOrExpired()) {
 			return false;
@@ -288,55 +288,8 @@ public class DeferredResult<T> {
 	}
 
 
-	final DeferredResultProcessingInterceptor getInterceptor() {
-		return new DeferredResultProcessingInterceptor() {
-			@Override
-			public <S> boolean handleTimeout(NativeWebRequest request, DeferredResult<S> deferredResult) {
-				boolean continueProcessing = true;
-				try {
-					if (timeoutCallback != null) {
-						timeoutCallback.run();
-					}
-				}
-				finally {
-					Object value = timeoutResult.get();
-					if (value != RESULT_NONE) {
-						continueProcessing = false;
-						try {
-							setResultInternal(value);
-						}
-						catch (Throwable ex) {
-							logger.debug("Failed to handle timeout result", ex);
-						}
-					}
-				}
-				return continueProcessing;
-			}
-			@Override
-			public <S> boolean handleError(NativeWebRequest request, DeferredResult<S> deferredResult, Throwable t) {
-				try {
-					if (errorCallback != null) {
-						errorCallback.accept(t);
-					}
-				}
-				finally {
-					try {
-						setResultInternal(t);
-					}
-					catch (Throwable ex) {
-						logger.debug("Failed to handle error result", ex);
-					}
-				}
-				return false;
-			}
-			@Override
-			public <S> void afterCompletion(NativeWebRequest request, DeferredResult<S> deferredResult) {
-				expired = true;
-				if (completionCallback != null) {
-					completionCallback.run();
-				}
-			}
-		};
+	final DeferredResultProcessingInterceptor getLifecycleInterceptor() {
+		return new LifecycleInterceptor();
 	}
 
 
@@ -347,6 +300,63 @@ public class DeferredResult<T> {
 	public interface DeferredResultHandler {
 
 		void handleResult(@Nullable Object result);
+	}
+
+
+	/**
+	 * Instance interceptor to receive Servlet container notifications.
+	 */
+	private class LifecycleInterceptor implements DeferredResultProcessingInterceptor {
+
+		@Override
+		public <S> boolean handleTimeout(NativeWebRequest request, DeferredResult<S> result) {
+			boolean continueProcessing = true;
+			try {
+				if (timeoutCallback != null) {
+					timeoutCallback.run();
+				}
+			}
+			finally {
+				Object value = timeoutResult.get();
+				if (value != RESULT_NONE) {
+					continueProcessing = false;
+					try {
+						setResultInternal(value);
+					}
+					catch (Throwable ex) {
+						logger.debug("Failed to handle timeout result", ex);
+					}
+				}
+			}
+			return continueProcessing;
+		}
+
+		@Override
+		public <S> boolean handleError(NativeWebRequest request, DeferredResult<S> result, Throwable t) {
+			try {
+				if (errorCallback != null) {
+					errorCallback.accept(t);
+				}
+			}
+			finally {
+				try {
+					setResultInternal(t);
+				}
+				catch (Throwable ex) {
+					logger.debug("Failed to handle error result", ex);
+				}
+			}
+			return false;
+		}
+
+		@Override
+		public <S> void afterCompletion(NativeWebRequest request, DeferredResult<S> result) {
+			expired = true;
+			if (completionCallback != null) {
+				completionCallback.run();
+			}
+		}
+
 	}
 
 }

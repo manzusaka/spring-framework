@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ import org.springframework.lang.Nullable;
  * @param <V> the type of the cached values, does not allow null values
  * @see #get(Object)
  */
-@SuppressWarnings({"unchecked"})
+@SuppressWarnings({"unchecked", "NullAway"})
 public final class ConcurrentLruCache<K, V> {
 
 	private final int capacity;
@@ -396,7 +396,6 @@ public final class ConcurrentLruCache<K, V> {
 
 		private final EvictionQueue<K, V> evictionQueue;
 
-		@SuppressWarnings("rawtypes")
 		ReadOperations(EvictionQueue<K, V> evictionQueue) {
 			this.evictionQueue = evictionQueue;
 			for (int i = 0; i < BUFFER_COUNT; i++) {
@@ -404,6 +403,7 @@ public final class ConcurrentLruCache<K, V> {
 			}
 		}
 
+		@SuppressWarnings("deprecation")  // for Thread.getId() on JDK 19
 		private static int getBufferIndex() {
 			return ((int) Thread.currentThread().getId()) & BUFFERS_MASK;
 		}
@@ -418,6 +418,7 @@ public final class ConcurrentLruCache<K, V> {
 			return (pending < MAX_PENDING_OPERATIONS);
 		}
 
+		@SuppressWarnings("deprecation")  // for Thread.getId() on JDK 19
 		void drain() {
 			final int start = (int) Thread.currentThread().getId();
 			final int end = start + BUFFER_COUNT;
@@ -556,9 +557,7 @@ public final class ConcurrentLruCache<K, V> {
 		}
 
 		private boolean contains(Node<K, V> e) {
-			return (e.getPrevious() != null)
-					|| (e.getNext() != null)
-					|| (e == this.first);
+			return (e.getPrevious() != null) || (e.getNext() != null) || (e == this.first);
 		}
 
 		private void linkLast(final Node<K, V> e) {

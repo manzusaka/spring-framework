@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -159,7 +159,7 @@ public class CustomizableThreadCreator implements Serializable {
 	/**
 	 * Return the thread name to use for a newly created {@link Thread}.
 	 * <p>The default implementation returns the specified thread name prefix
-	 * with an increasing thread count appended: e.g. "SimpleAsyncTaskExecutor-0".
+	 * with an increasing thread count appended: for example, "SimpleAsyncTaskExecutor-0".
 	 * @see #getThreadNamePrefix()
 	 */
 	protected String nextThreadName() {

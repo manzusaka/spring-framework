@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ final class ReflectionTypeReference extends AbstractTypeReference {
 
 	@Nullable
 	private static TypeReference getEnclosingClass(Class<?> type) {
-		Class<?> candidate = (type.isArray() ? type.getComponentType().getEnclosingClass() :
+		Class<?> candidate = (type.isArray() ? type.componentType().getEnclosingClass() :
 				type.getEnclosingClass());
 		return (candidate != null ? new ReflectionTypeReference(candidate) : null);
 	}
@@ -56,7 +56,7 @@ final class ReflectionTypeReference extends AbstractTypeReference {
 	@Override
 	protected boolean isPrimitive() {
 		return this.type.isPrimitive() ||
-				(this.type.isArray() && this.type.getComponentType().isPrimitive());
+				(this.type.isArray() && this.type.componentType().isPrimitive());
 	}
 
 }

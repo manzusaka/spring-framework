@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
 import org.springframework.aot.hint.TypeHint;
 import org.springframework.aot.hint.TypeReference;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 
 /**
@@ -39,7 +40,7 @@ import org.springframework.util.ClassUtils;
 class TestContextRuntimeHints implements RuntimeHintsRegistrar {
 
 	@Override
-	public void registerHints(RuntimeHints runtimeHints, ClassLoader classLoader) {
+	public void registerHints(RuntimeHints runtimeHints, @Nullable ClassLoader classLoader) {
 		boolean servletPresent = ClassUtils.isPresent("jakarta.servlet.Servlet", classLoader);
 		boolean groovyPresent = ClassUtils.isPresent("groovy.lang.Closure", classLoader);
 

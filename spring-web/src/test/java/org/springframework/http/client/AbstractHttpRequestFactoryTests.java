@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,20 +111,19 @@ abstract class AbstractHttpRequestFactoryTests extends AbstractMockWebServerTest
 		ClientHttpRequest request = factory.createRequest(URI.create(baseUrl + "/echo"), HttpMethod.POST);
 
 		final byte[] body = "Hello World".getBytes(StandardCharsets.UTF_8);
+		request.getHeaders().setContentLength(body.length);
 		if (request instanceof StreamingHttpOutputMessage streamingRequest) {
-			streamingRequest.setBody(outputStream -> {
-				StreamUtils.copy(body, outputStream);
-				outputStream.flush();
-				outputStream.close();
-			});
+			streamingRequest.setBody(outputStream -> StreamUtils.copy(body, outputStream));
 		}
 		else {
 			StreamUtils.copy(body, request.getBody());
 		}
 
-		request.execute();
-		assertThatIllegalStateException().isThrownBy(() ->
-				FileCopyUtils.copy(body, request.getBody()));
+		try (ClientHttpResponse response = request.execute()) {
+			assertThatIllegalStateException().isThrownBy(() ->
+					FileCopyUtils.copy(body, request.getBody()));
+			assertThat(response.getStatusCode()).as("Invalid status code").isEqualTo(HttpStatus.OK);
+		}
 	}
 
 	@Test
@@ -134,7 +133,12 @@ abstract class AbstractHttpRequestFactoryTests extends AbstractMockWebServerTest
 		request.getHeaders().add("MyHeader", "value");
 		byte[] body = "Hello World".getBytes(StandardCharsets.UTF_8);
 		assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(() -> {
-				FileCopyUtils.copy(body, request.getBody());
+				if (request instanceof StreamingHttpOutputMessage streamingRequest) {
+					streamingRequest.setBody(outputStream -> FileCopyUtils.copy(body, outputStream));
+				}
+				else {
+					FileCopyUtils.copy(body, request.getBody());
+				}
 				try (ClientHttpResponse response = request.execute()) {
 					assertThat(response).isNotNull();
 					request.getHeaders().add("MyHeader", "value");
@@ -155,18 +159,17 @@ abstract class AbstractHttpRequestFactoryTests extends AbstractMockWebServerTest
 	protected void assertHttpMethod(String path, HttpMethod method) throws Exception {
 		ClientHttpRequest request = factory.createRequest(URI.create(baseUrl + "/methods/" + path), method);
 		if (method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.PATCH) {
-			// requires a body
-			try {
-				request.getBody().write(32);
+			if (request instanceof StreamingHttpOutputMessage streamingRequest) {
+				streamingRequest.setBody(outputStream -> outputStream.write(32));
 			}
-			catch (UnsupportedOperationException ex) {
-				// probably a streaming request - let's simply ignore it
+			else {
+				request.getBody().write(32);
 			}
 		}
 
 		try (ClientHttpResponse response = request.execute()) {
 			assertThat(response.getStatusCode()).as("Invalid response status").isEqualTo(HttpStatus.OK);
-			assertThat(request.getMethod().name()).as("Invalid method").isEqualTo(path.toUpperCase(Locale.ENGLISH));
+			assertThat(request.getMethod().name()).as("Invalid method").isEqualTo(path.toUpperCase(Locale.ROOT));
 		}
 	}
 

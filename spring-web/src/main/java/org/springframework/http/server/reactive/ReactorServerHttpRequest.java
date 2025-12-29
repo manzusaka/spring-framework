@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import org.springframework.core.io.buffer.NettyDataBufferFactory;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpLogging;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.support.Netty4HeadersAdapter;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.LinkedMultiValueMap;
@@ -64,8 +65,9 @@ class ReactorServerHttpRequest extends AbstractServerHttpRequest {
 	public ReactorServerHttpRequest(HttpServerRequest request, NettyDataBufferFactory bufferFactory)
 			throws URISyntaxException {
 
-		super(HttpMethod.valueOf(request.method().name()), ReactorUriHelper.createUri(request), "",
-				new NettyHeadersAdapter(request.requestHeaders()));
+		super(HttpMethod.valueOf(request.method().name()),
+				ReactorUriHelper.createUri(request), request.forwardedPrefix(),
+				new Netty4HeadersAdapter(request.requestHeaders()));
 		Assert.notNull(bufferFactory, "DataBufferFactory must not be null");
 		this.request = request;
 		this.bufferFactory = bufferFactory;
@@ -74,8 +76,8 @@ class ReactorServerHttpRequest extends AbstractServerHttpRequest {
 	@Override
 	protected MultiValueMap<String, HttpCookie> initCookies() {
 		MultiValueMap<String, HttpCookie> cookies = new LinkedMultiValueMap<>();
-		for (CharSequence name : this.request.cookies().keySet()) {
-			for (Cookie cookie : this.request.cookies().get(name)) {
+		for (CharSequence name : this.request.allCookies().keySet()) {
+			for (Cookie cookie : this.request.allCookies().get(name)) {
 				HttpCookie httpCookie = new HttpCookie(name.toString(), cookie.value());
 				cookies.add(name.toString(), httpCookie);
 			}

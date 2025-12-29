@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import org.springframework.lang.Nullable;
 
 /**
  * A {@link Scope} implementation exposing the attributes of a SiMP session
- * (e.g. WebSocket session).
+ * (for example, WebSocket session).
  *
  * <p>Relies on a thread-bound {@link SimpAttributes} instance exported by
  * {@link org.springframework.messaging.simp.annotation.support.SimpAnnotationMethodMessageHandler}.

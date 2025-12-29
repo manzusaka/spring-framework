@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,13 @@
 
 package org.springframework.build;
 
+import java.util.Map;
+
 import org.gradle.api.Project;
 import org.gradle.api.plugins.JavaBasePlugin;
 import org.gradle.api.tasks.testing.Test;
+import org.gradle.api.tasks.testing.TestFrameworkOptions;
+import org.gradle.api.tasks.testing.junitplatform.JUnitPlatformOptions;
 import org.gradle.testretry.TestRetryPlugin;
 import org.gradle.testretry.TestRetryTaskExtension;
 
@@ -32,6 +36,7 @@ import org.gradle.testretry.TestRetryTaskExtension;
  *
  * @author Brian Clozel
  * @author Andy Wilkinson
+ * @author Sam Brannen
  */
 class TestConventions {
 
@@ -41,11 +46,43 @@ class TestConventions {
 
 	private void configureTestConventions(Project project) {
 		project.getTasks().withType(Test.class,
-				test -> project.getPlugins().withType(TestRetryPlugin.class, testRetryPlugin -> {
-					TestRetryTaskExtension testRetry = test.getExtensions().getByType(TestRetryTaskExtension.class);
-					testRetry.getFailOnPassedAfterRetry().set(true);
-					testRetry.getMaxRetries().set(isCi() ? 3 : 0);
-				}));
+				test -> {
+					configureTests(project, test);
+					configureTestRetryPlugin(project, test);
+				});
+	}
+
+	private void configureTests(Project project, Test test) {
+		TestFrameworkOptions existingOptions = test.getOptions();
+		test.useJUnitPlatform(options -> {
+			if (existingOptions instanceof JUnitPlatformOptions junitPlatformOptions) {
+				options.copyFrom(junitPlatformOptions);
+			}
+		});
+		test.include("**/*Tests.class", "**/*Test.class");
+		test.setSystemProperties(Map.of(
+				"java.awt.headless", "true",
+				"io.netty.leakDetection.level", "paranoid",
+				"io.netty5.leakDetectionLevel", "paranoid",
+				"io.netty5.leakDetection.targetRecords", "32",
+				"io.netty5.buffer.lifecycleTracingEnabled", "true"
+		));
+		if (project.hasProperty("testGroups")) {
+			test.systemProperty("testGroups", project.getProperties().get("testGroups"));
+		}
+		test.jvmArgs(
+				"--add-opens=java.base/java.lang=ALL-UNNAMED",
+				"--add-opens=java.base/java.util=ALL-UNNAMED",
+				"-Xshare:off"
+		);
+	}
+
+	private void configureTestRetryPlugin(Project project, Test test) {
+		project.getPlugins().withType(TestRetryPlugin.class, testRetryPlugin -> {
+			TestRetryTaskExtension testRetry = test.getExtensions().getByType(TestRetryTaskExtension.class);
+			testRetry.getFailOnPassedAfterRetry().set(true);
+			testRetry.getMaxRetries().set(isCi() ? 3 : 0);
+		});
 	}
 
 	private boolean isCi() {

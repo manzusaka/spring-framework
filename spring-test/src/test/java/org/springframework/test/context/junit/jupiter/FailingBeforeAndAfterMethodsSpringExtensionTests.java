@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,8 +106,8 @@ class FailingBeforeAndAfterMethodsSpringExtensionTests {
 	}
 
 	private int getExpectedFailedCount(Class<?> testClass) {
-		if (testClass == AlwaysFailingBeforeTestClassTestCase.class
-				|| testClass == AlwaysFailingAfterTestClassTestCase.class) {
+		if (testClass == AlwaysFailingBeforeTestClassTestCase.class ||
+				testClass == AlwaysFailingAfterTestClassTestCase.class) {
 			return 0;
 		}
 		return 1;
@@ -135,7 +135,7 @@ class FailingBeforeAndAfterMethodsSpringExtensionTests {
 	private static class AlwaysFailingPrepareTestInstanceTestExecutionListener implements TestExecutionListener {
 
 		@Override
-		public void prepareTestInstance(TestContext testContext) throws Exception {
+		public void prepareTestInstance(TestContext testContext) {
 			fail("always failing prepareTestInstance()");
 		}
 	}
@@ -174,7 +174,7 @@ class FailingBeforeAndAfterMethodsSpringExtensionTests {
 
 	@FailingTestCase
 	@ExtendWith(SpringExtension.class)
-	private static abstract class BaseTestCase {
+	private abstract static class BaseTestCase {
 
 		@Test
 		void testNothing() {

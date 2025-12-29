@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ public class MissingRequestValueException extends ServletRequestBindingException
 
 
 	/**
-	 * Whether the request value was present but converted to {@code null}, e.g. via
+	 * Whether the request value was present but converted to {@code null}, for example, via
 	 * {@code org.springframework.core.convert.support.IdToEntityConverter}.
 	 */
 	public boolean isMissingAfterConversion() {

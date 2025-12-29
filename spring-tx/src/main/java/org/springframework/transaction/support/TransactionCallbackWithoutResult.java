@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ public abstract class TransactionCallbackWithoutResult implements TransactionCal
 	 * Gets called by {@code TransactionTemplate.execute} within a transactional
 	 * context. Does not need to care about transactions itself, although it can retrieve
 	 * and influence the status of the current transaction via the given status object,
-	 * e.g. setting rollback-only.
+	 * for example, setting rollback-only.
 	 * <p>A RuntimeException thrown by the callback is treated as application
 	 * exception that enforces a rollback. An exception gets propagated to the
 	 * caller of the template.

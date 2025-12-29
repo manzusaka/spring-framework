@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ import org.springframework.util.MultiValueMap;
  * Resource image = new ClassPathResource("image.jpg");
  * builder.part("image", image).header("foo", "bar");
  *
- * // Add content (e.g. JSON)
+ * // Add content (for example, JSON)
  * Account account = ...
  * builder.part("account", account).header("foo", "bar");
  *
@@ -104,7 +104,7 @@ public final class MultipartBodyBuilder {
 	 * <ul>
 	 * <li>String -- form field
 	 * <li>{@link org.springframework.core.io.Resource Resource} -- file part
-	 * <li>Object -- content to be encoded (e.g. to JSON)
+	 * <li>Object -- content to be encoded (for example, to JSON).
 	 * <li>{@link HttpEntity} -- part content and headers although generally it's
 	 * easier to add headers through the returned builder
 	 * <li>{@link Part} -- a part from a server request
@@ -364,7 +364,7 @@ public final class MultipartBodyBuilder {
 	 * @param <P> the publisher
 	 */
 	static final class PublisherEntity<T, P extends Publisher<T>> extends HttpEntity<P>
-			implements ResolvableTypeProvider  {
+			implements ResolvableTypeProvider {
 
 		private final ResolvableType resolvableType;
 

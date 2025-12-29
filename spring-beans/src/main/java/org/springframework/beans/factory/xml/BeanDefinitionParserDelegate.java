@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -411,6 +411,7 @@ public class BeanDefinitionParserDelegate {
 	 * {@link org.springframework.beans.factory.parsing.ProblemReporter}.
 	 */
 	@Nullable
+	@SuppressWarnings("NullAway")
 	public BeanDefinitionHolder parseBeanDefinitionElement(Element ele, @Nullable BeanDefinition containingBean) {
 		String id = ele.getAttribute(ID_ATTRIBUTE);
 		String nameAttr = ele.getAttribute(NAME_ATTRIBUTE);
@@ -889,7 +890,7 @@ public class BeanDefinitionParserDelegate {
 						qualifier.addMetadataAttribute(attribute);
 					}
 					else {
-						error("Qualifier 'attribute' tag must have a 'name' and 'value'", attributeEle);
+						error("Qualifier 'attribute' tag must have a 'key' and 'value'", attributeEle);
 						return;
 					}
 				}

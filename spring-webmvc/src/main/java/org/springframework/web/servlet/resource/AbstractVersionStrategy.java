@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ public abstract class AbstractVersionStrategy implements VersionStrategy {
 
 	/**
 	 * A prefix-based {@code VersionPathStrategy},
-	 * e.g. {@code "{version}/path/foo.js"}.
+	 * for example, {@code "{version}/path/foo.js"}.
 	 */
 	protected static class PrefixVersionPathStrategy implements VersionPathStrategy {
 
@@ -116,7 +116,7 @@ public abstract class AbstractVersionStrategy implements VersionStrategy {
 
 	/**
 	 * File name-based {@code VersionPathStrategy},
-	 * e.g. {@code "path/foo-{version}.css"}.
+	 * for example, {@code "path/foo-{version}.css"}.
 	 */
 	protected static class FileNameVersionPathStrategy implements VersionPathStrategy {
 

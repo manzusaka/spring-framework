@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import io.netty5.handler.codec.http.websocketx.WebSocketFrame;
 
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.Netty5DataBufferFactory;
+import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.reactive.socket.HandshakeInfo;
 import org.springframework.web.reactive.socket.WebSocketMessage;
@@ -76,7 +77,9 @@ public abstract class Netty5WebSocketSessionSupport<T> extends AbstractWebSocket
 
 	protected WebSocketMessage toMessage(WebSocketFrame frame) {
 		DataBuffer payload = bufferFactory().wrap(frame.binaryData());
-		return new WebSocketMessage(messageTypes.get(frame.getClass()), payload, frame);
+		WebSocketMessage.Type messageType = messageTypes.get(frame.getClass());
+		Assert.state(messageType != null, "Unexpected message type");
+		return new WebSocketMessage(messageType, payload, frame);
 	}
 
 	protected WebSocketFrame toFrame(WebSocketMessage message) {

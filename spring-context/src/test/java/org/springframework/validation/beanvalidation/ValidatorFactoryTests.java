@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -159,19 +159,19 @@ class ValidatorFactoryTests {
 		assertThat(fieldError.getField()).isEqualTo("name");
 		List<String> errorCodes = Arrays.asList(fieldError.getCodes());
 		assertThat(errorCodes).hasSize(4);
-		assertThat(errorCodes.contains("NotNull.person.name")).isTrue();
-		assertThat(errorCodes.contains("NotNull.name")).isTrue();
-		assertThat(errorCodes.contains("NotNull.java.lang.String")).isTrue();
-		assertThat(errorCodes.contains("NotNull")).isTrue();
+		assertThat(errorCodes).contains("NotNull.person.name");
+		assertThat(errorCodes).contains("NotNull.name");
+		assertThat(errorCodes).contains("NotNull.java.lang.String");
+		assertThat(errorCodes).contains("NotNull");
 		fieldError = result.getFieldError("address.street");
 		assertThat(fieldError.getField()).isEqualTo("address.street");
 		errorCodes = Arrays.asList(fieldError.getCodes());
 		assertThat(errorCodes).hasSize(5);
-		assertThat(errorCodes.contains("NotNull.person.address.street")).isTrue();
-		assertThat(errorCodes.contains("NotNull.address.street")).isTrue();
-		assertThat(errorCodes.contains("NotNull.street")).isTrue();
-		assertThat(errorCodes.contains("NotNull.java.lang.String")).isTrue();
-		assertThat(errorCodes.contains("NotNull")).isTrue();
+		assertThat(errorCodes).contains("NotNull.person.address.street");
+		assertThat(errorCodes).contains("NotNull.address.street");
+		assertThat(errorCodes).contains("NotNull.street");
+		assertThat(errorCodes).contains("NotNull.java.lang.String");
+		assertThat(errorCodes).contains("NotNull");
 
 		validator.destroy();
 	}
@@ -191,8 +191,8 @@ class ValidatorFactoryTests {
 		ObjectError globalError = result.getGlobalError();
 		List<String> errorCodes = Arrays.asList(globalError.getCodes());
 		assertThat(errorCodes).hasSize(2);
-		assertThat(errorCodes.contains("NameAddressValid.person")).isTrue();
-		assertThat(errorCodes.contains("NameAddressValid")).isTrue();
+		assertThat(errorCodes).contains("NameAddressValid.person");
+		assertThat(errorCodes).contains("NameAddressValid");
 
 		validator.destroy();
 	}
@@ -213,8 +213,8 @@ class ValidatorFactoryTests {
 		ObjectError globalError = result.getGlobalError();
 		List<String> errorCodes = Arrays.asList(globalError.getCodes());
 		assertThat(errorCodes).hasSize(2);
-		assertThat(errorCodes.contains("NameAddressValid.person")).isTrue();
-		assertThat(errorCodes.contains("NameAddressValid")).isTrue();
+		assertThat(errorCodes).contains("NameAddressValid.person");
+		assertThat(errorCodes).contains("NameAddressValid");
 
 		validator.destroy();
 		ctx.close();
@@ -426,10 +426,6 @@ class ValidatorFactoryTests {
 		private Environment environment;
 
 		@Override
-		public void initialize(NameAddressValid constraintAnnotation) {
-		}
-
-		@Override
 		public boolean isValid(ValidPerson value, ConstraintValidatorContext context) {
 			if (value.expectsAutowiredValidator) {
 				assertThat(this.environment).isNotNull();
@@ -496,10 +492,6 @@ class ValidatorFactoryTests {
 	public static class InnerValidator implements ConstraintValidator<InnerValid, InnerBean> {
 
 		@Override
-		public void initialize(InnerValid constraintAnnotation) {
-		}
-
-		@Override
 		public boolean isValid(InnerBean bean, ConstraintValidatorContext context) {
 			context.disableDefaultConstraintViolation();
 			if (bean.getValue() == null) {
@@ -541,10 +533,6 @@ class ValidatorFactoryTests {
 
 
 	public static class NotXListValidator implements ConstraintValidator<NotXList, List<String>> {
-
-		@Override
-		public void initialize(NotXList constraintAnnotation) {
-		}
 
 		@Override
 		public boolean isValid(List<String> list, ConstraintValidatorContext context) {

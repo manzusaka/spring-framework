@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ public class CandidateComponentsIndex {
 	public Set<String> getCandidateTypes(String basePackage, String stereotype) {
 		List<Entry> candidates = this.index.get(stereotype);
 		if (candidates != null) {
-			return candidates.parallelStream()
+			return candidates.stream()
 					.filter(t -> t.match(basePackage))
 					.map(t -> t.type)
 					.collect(Collectors.toSet());
@@ -92,7 +92,7 @@ public class CandidateComponentsIndex {
 
 	private static class Entry {
 
-		private final String type;
+		final String type;
 
 		private final String packageName;
 

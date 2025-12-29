@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.springframework.web.util.JavaScriptUtils;
  * applying HTML escaping and/or JavaScript escaping.
  *
  * <p>Provides a "htmlEscape" property for explicitly specifying whether to
- * apply HTML escaping. If not set, a page-level default (e.g. from the
+ * apply HTML escaping. If not set, a page-level default (for example, from the
  * HtmlEscapeTag) or an application-wide default (the "defaultHtmlEscape"
  * context-param in web.xml) is used.
  *
@@ -132,7 +132,7 @@ public class EscapeBodyTag extends HtmlEscapingAwareTag implements BodyTag {
 
 	/**
 	 * Write the escaped body content to the page.
-	 * <p>Can be overridden in subclasses, e.g. for testing purposes.
+	 * <p>Can be overridden in subclasses, for example, for testing purposes.
 	 * @param content the content to write
 	 * @throws IOException if writing failed
 	 */

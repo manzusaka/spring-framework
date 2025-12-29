@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import org.springframework.lang.Nullable;
 
 /**
  * {@link RuntimeException} that implements {@link ErrorResponse} to expose
- * an HTTP status, response headers, and a body formatted as an RFC 7807
+ * an HTTP status, response headers, and a body formatted as an RFC 9457
  * {@link ProblemDetail}.
  *
  * <p>The exception can be used as is, or it can be extended as a more specific
@@ -165,6 +165,7 @@ public class ErrorResponseException extends NestedRuntimeException implements Er
 	}
 
 	@Override
+	@Nullable
 	public Object[] getDetailMessageArguments() {
 		return this.messageDetailArguments;
 	}

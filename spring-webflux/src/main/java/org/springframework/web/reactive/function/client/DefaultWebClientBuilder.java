@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,9 @@ final class DefaultWebClientBuilder implements WebClient.Builder {
 		ClassLoader loader = DefaultWebClientBuilder.class.getClassLoader();
 		reactorNettyClientPresent = ClassUtils.isPresent("reactor.netty.http.client.HttpClient", loader);
 		reactorNetty2ClientPresent = ClassUtils.isPresent("reactor.netty5.http.client.HttpClient", loader);
-		jettyClientPresent = ClassUtils.isPresent("org.eclipse.jetty.client.HttpClient", loader);
+		jettyClientPresent =
+				ClassUtils.isPresent("org.eclipse.jetty.client.HttpClient", loader) &&
+						ClassUtils.isPresent("org.eclipse.jetty.reactive.client.ReactiveRequest", loader);
 		httpComponentsClientPresent =
 				ClassUtils.isPresent("org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient", loader) &&
 						ClassUtils.isPresent("org.apache.hc.core5.reactive.ReactiveDataConsumer", loader);
@@ -319,18 +321,14 @@ final class DefaultWebClientBuilder implements WebClient.Builder {
 				.orElse(null) : null);
 
 		HttpHeaders defaultHeaders = copyDefaultHeaders();
-
 		MultiValueMap<String, String> defaultCookies = copyDefaultCookies();
 
-		return new DefaultWebClient(exchange,
-				filterFunctions,
-				initUriBuilderFactory(),
-				defaultHeaders,
-				defaultCookies,
+		return new DefaultWebClient(
+				exchange, filterFunctions,
+				initUriBuilderFactory(), defaultHeaders, defaultCookies,
 				this.defaultRequest,
 				this.statusHandlers,
-				this.observationRegistry,
-				this.observationConvention,
+				this.observationRegistry, this.observationConvention,
 				new DefaultWebClientBuilder(this));
 	}
 
@@ -374,26 +372,22 @@ final class DefaultWebClientBuilder implements WebClient.Builder {
 
 	@Nullable
 	private HttpHeaders copyDefaultHeaders() {
-		if (this.defaultHeaders != null) {
-			HttpHeaders copy = new HttpHeaders();
-			this.defaultHeaders.forEach((key, values) -> copy.put(key, new ArrayList<>(values)));
-			return HttpHeaders.readOnlyHttpHeaders(copy);
-		}
-		else {
+		if (this.defaultHeaders == null) {
 			return null;
 		}
+		HttpHeaders headers = new HttpHeaders();
+		this.defaultHeaders.forEach((key, values) -> headers.put(key, new ArrayList<>(values)));
+		return HttpHeaders.readOnlyHttpHeaders(headers);
 	}
 
 	@Nullable
 	private MultiValueMap<String, String> copyDefaultCookies() {
-		if (this.defaultCookies != null) {
-			MultiValueMap<String, String> copy = new LinkedMultiValueMap<>(this.defaultCookies.size());
-			this.defaultCookies.forEach((key, values) -> copy.put(key, new ArrayList<>(values)));
-			return CollectionUtils.unmodifiableMultiValueMap(copy);
-		}
-		else {
+		if (this.defaultCookies == null) {
 			return null;
 		}
+		MultiValueMap<String, String> map = new LinkedMultiValueMap<>(this.defaultCookies.size());
+		this.defaultCookies.forEach((key, values) -> map.put(key, new ArrayList<>(values)));
+		return CollectionUtils.unmodifiableMultiValueMap(map);
 	}
 
 }

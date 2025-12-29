@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ class InvocableHelper {
 	}
 
 	/**
-	 * Method to populate the MessagingAdviceBean cache (e.g. to support "global"
+	 * Method to populate the MessagingAdviceBean cache (for example, to support "global"
 	 * {@code @MessageExceptionHandler}).
 	 */
 	public void registerExceptionHandlerAdvice(

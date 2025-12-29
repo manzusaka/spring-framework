@@ -36,33 +36,10 @@ connectivity is lost, to the same host and port. If you wish to supply multiple 
 on each attempt to connect, you can configure a supplier of addresses, instead of a
 fixed host and port. The following example shows how to do that:
 
-[source,java,indent=0,subs="verbatim,quotes"]
-----
-@Configuration
-@EnableWebSocketMessageBroker
-public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
-
-	// ...
-
-	@Override
-	public void configureMessageBroker(MessageBrokerRegistry registry) {
-		registry.enableStompBrokerRelay("/queue/", "/topic/").setTcpClient(createTcpClient());
-		registry.setApplicationDestinationPrefixes("/app");
-	}
-
-	private ReactorNettyTcpClient<byte[]> createTcpClient() {
-		return new ReactorNettyTcpClient<>(
-				client -> client.addressSupplier(() -> ... ),
-				new StompReactorNettyCodec());
-	}
-}
-----
+include-code::./WebSocketConfiguration[tag=snippet,indent=0]
 
 You can also configure the STOMP broker relay with a `virtualHost` property.
 The value of this property is set as the `host` header of every `CONNECT` frame
 and can be useful (for example, in a cloud environment where the actual host to which
 the TCP connection is established differs from the host that provides the
 cloud-based STOMP service).
-
-
-

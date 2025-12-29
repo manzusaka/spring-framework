@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ import org.springframework.web.context.ServletContextAware;
  * by the {@link #getConfigLocations} method.
  *
  * <p>Interprets resource paths as servlet context resources, i.e. as paths beneath
- * the web application root. Absolute paths, e.g. for files outside the web app root,
+ * the web application root. Absolute paths, for example, for files outside the web app root,
  * can be accessed via "file:" URLs, as implemented by
  * {@link org.springframework.core.io.DefaultResourceLoader}.
  *
@@ -144,6 +144,7 @@ public abstract class AbstractRefreshableWebApplicationContext extends AbstractR
 	}
 
 	@Override
+	@Nullable
 	public String[] getConfigLocations() {
 		return super.getConfigLocations();
 	}

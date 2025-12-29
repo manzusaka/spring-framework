@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,13 @@
 package org.springframework.web.servlet.resource;
 
 import java.io.IOException;
-import java.net.URLDecoder;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,7 +36,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.EmbeddedValueResolverAware;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
-import org.springframework.core.log.LogFormatUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpRange;
@@ -51,7 +49,6 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
-import org.springframework.util.ResourceUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.util.StringValueResolver;
 import org.springframework.web.HttpRequestHandler;
@@ -71,7 +68,7 @@ import org.springframework.web.util.UrlPathHelper;
  * <p>The properties {@linkplain #setLocations "locations"} and
  * {@linkplain #setLocationValues "locationValues"} accept locations from which
  * static resources can be served by this handler. This can be relative to the
- * root of the web application, or from the classpath, e.g.
+ * root of the web application, or from the classpath, for example,
  * "classpath:/META-INF/public-web-resources/", allowing convenient packaging
  * and serving of resources such as .js, .css, and others in jar files.
  *
@@ -141,6 +138,9 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 
 	private boolean useLastModified = true;
 
+	@Nullable
+	private Function<Resource, String> etagGenerator;
+
 	private boolean optimizeLocations = false;
 
 	@Nullable
@@ -160,7 +160,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 	 * {@code /META-INF/public-web-resources/} directory, with resources in the
 	 * web application root taking precedence.
 	 * <p>For {@link org.springframework.core.io.UrlResource URL-based resources}
-	 * (e.g. files, HTTP URLs, etc) this method supports a special prefix to
+	 * (for example, files, HTTP URLs, etc.) this method supports a special prefix to
 	 * indicate the charset associated with the URL so that relative paths
 	 * appended to it can be encoded correctly, for example
 	 * {@code "[charset=Windows-31J]https://example.org/path"}.
@@ -180,7 +180,10 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 	public void setLocations(List<Resource> locations) {
 		Assert.notNull(locations, "Locations list must not be null");
 		this.locationResources.clear();
-		this.locationResources.addAll(locations);
+		for (Resource location : locations) {
+			ResourceHandlerUtils.assertResourceLocation(location);
+			this.locationResources.add(location);
+		}
 	}
 
 	/**
@@ -190,8 +193,8 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 	 * {@code Resource} locations provided via {@link #setLocations(List) setLocations}.
 	 * <p>Note that the returned list is fully initialized only after
 	 * initialization via {@link #afterPropertiesSet()}.
-	 * <p><strong>Note:</strong> As of 5.3.11 the list of locations may be filtered to
-	 * exclude those that don't actually exist and therefore the list returned from this
+	 * <p><strong>Note:</strong> The list of locations may be filtered to exclude
+	 * those that don't actually exist, and therefore the list returned from this
 	 * method may be a subset of all given locations. See {@link #setOptimizeLocations}.
 	 * @see #setLocationValues
 	 * @see #setLocations
@@ -315,7 +318,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 	 */
 	public void setMediaTypes(Map<String, MediaType> mediaTypes) {
 		mediaTypes.forEach((ext, mediaType) ->
-				this.mediaTypes.put(ext.toLowerCase(Locale.ENGLISH), mediaType));
+				this.mediaTypes.put(ext.toLowerCase(Locale.ROOT), mediaType));
 	}
 
 	/**
@@ -381,6 +384,29 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 	 */
 	public boolean isUseLastModified() {
 		return this.useLastModified;
+	}
+
+	/**
+	 * Configure a generator function that will be used to create the ETag information,
+	 * given a {@link Resource} that is about to be written to the response.
+	 * <p>This function should return a String that will be used as an argument in
+	 * {@link ServletWebRequest#checkNotModified(String)}, or {@code null} if no value
+	 * can be generated for the given resource.
+	 * @param etagGenerator the HTTP ETag generator function to use.
+	 * @since 6.1
+	 */
+	public void setEtagGenerator(@Nullable Function<Resource, String> etagGenerator) {
+		this.etagGenerator = etagGenerator;
+	}
+
+	/**
+	 * Return the HTTP ETag generator function to be used when serving resources.
+	 * @return the HTTP ETag generator function
+	 * @since 6.1
+	 */
+	@Nullable
+	public Function<Resource, String> getEtagGenerator() {
+		return this.etagGenerator;
 	}
 
 	/**
@@ -470,6 +496,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 					charset = Charset.forName(value);
 					location = location.substring(endIndex + 1);
 				}
+				location = ResourceHandlerUtils.initLocationPath(location);
 				Resource resource = applicationContext.getResource(location);
 				if (location.equals("/") && !(resource instanceof ServletContextResource)) {
 					throw new IllegalStateException(
@@ -537,12 +564,12 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 
 	/**
 	 * Processes a resource request.
-	 * <p>Checks for the existence of the requested resource in the configured list of locations.
-	 * If the resource does not exist, a {@code 404} response will be returned to the client.
+	 * <p>Finds the requested resource under one of the configured locations.
+	 * If the resource does not exist, {@link NoResourceFoundException} is raised.
 	 * If the resource exists, the request will be checked for the presence of the
 	 * {@code Last-Modified} header, and its value will be compared against the last-modified
 	 * timestamp of the given resource, returning a {@code 304} status code if the
-	 * {@code Last-Modified} value  is greater. If the resource is newer than the
+	 * {@code Last-Modified} value is greater. If the resource is newer than the
 	 * {@code Last-Modified} value, or the header is not present, the content resource
 	 * of the resource will be written to the response with caching headers
 	 * set to expire one year in the future.
@@ -551,12 +578,11 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 	public void handleRequest(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
 
-		// For very general mappings (e.g. "/") we need to check 404 first
+		// For very general mappings (for example, "/") we need to check 404 first
 		Resource resource = getResource(request);
 		if (resource == null) {
 			logger.debug("Resource not found");
-			response.sendError(HttpServletResponse.SC_NOT_FOUND);
-			return;
+			throw new NoResourceFoundException(HttpMethod.valueOf(request.getMethod()), getPath(request));
 		}
 
 		if (HttpMethod.OPTIONS.matches(request.getMethod())) {
@@ -567,14 +593,16 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 		// Supported methods and required session
 		checkRequest(request);
 
+		// Apply cache settings, if any
+		prepareResponse(response);
+
 		// Header phase
-		if (isUseLastModified() && new ServletWebRequest(request, response).checkNotModified(resource.lastModified())) {
+		String eTagValue = (getEtagGenerator() != null ? getEtagGenerator().apply(resource) : null);
+		long lastModified = (isUseLastModified() ? resource.lastModified() : -1);
+		if (new ServletWebRequest(request, response).checkNotModified(eTagValue, lastModified)) {
 			logger.trace("Resource not modified");
 			return;
 		}
-
-		// Apply cache settings, if any
-		prepareResponse(response);
 
 		// Check the media type for the resource
 		MediaType mediaType = getMediaType(request, resource);
@@ -603,6 +631,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 						HttpRange.toResourceRegions(httpRanges, resource), mediaType, outputMessage);
 			}
 			catch (IllegalArgumentException ex) {
+				response.setContentType(null);
 				response.setHeader(HttpHeaders.CONTENT_RANGE, "bytes */" + resource.contentLength());
 				response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
 			}
@@ -611,17 +640,9 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 
 	@Nullable
 	protected Resource getResource(HttpServletRequest request) throws IOException {
-		String path = (String) request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
-		if (path == null) {
-			throw new IllegalStateException("Required request attribute '" +
-					HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE + "' is not set");
-		}
-
+		String path = getPath(request);
 		path = processPath(path);
-		if (!StringUtils.hasText(path) || isInvalidPath(path)) {
-			return null;
-		}
-		if (isInvalidEncodedPath(path)) {
+		if (ResourceHandlerUtils.shouldIgnoreInputPath(path) || isInvalidPath(path)) {
 			return null;
 		}
 
@@ -635,129 +656,30 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 		return resource;
 	}
 
+	private static String getPath(HttpServletRequest request) {
+		String path = (String) request.getAttribute(HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE);
+		if (path == null) {
+			throw new IllegalStateException("Required request attribute '" +
+					HandlerMapping.PATH_WITHIN_HANDLER_MAPPING_ATTRIBUTE + "' is not set");
+		}
+		return path;
+	}
+
 	/**
 	 * Process the given resource path.
-	 * <p>The default implementation replaces:
-	 * <ul>
-	 * <li>Backslash with forward slash.
-	 * <li>Duplicate occurrences of slash with a single slash.
-	 * <li>Any combination of leading slash and control characters (00-1F and 7F)
-	 * with a single "/" or "". For example {@code "  / // foo/bar"}
-	 * becomes {@code "/foo/bar"}.
-	 * </ul>
+	 * <p>By default, this method delegates to {@link ResourceHandlerUtils#normalizeInputPath}.
 	 * @since 3.2.12
 	 */
 	protected String processPath(String path) {
-		path = StringUtils.replace(path, "\\", "/");
-		path = cleanDuplicateSlashes(path);
-		return cleanLeadingSlash(path);
-	}
-
-	private String cleanDuplicateSlashes(String path) {
-		StringBuilder sb = null;
-		char prev = 0;
-		for (int i = 0; i < path.length(); i++) {
-			char curr = path.charAt(i);
-			try {
-				if ((curr == '/') && (prev == '/')) {
-					if (sb == null) {
-						sb = new StringBuilder(path.substring(0, i));
-					}
-					continue;
-				}
-				if (sb != null) {
-					sb.append(path.charAt(i));
-				}
-			}
-			finally {
-				prev = curr;
-			}
-		}
-		return sb != null ? sb.toString() : path;
-	}
-
-	private String cleanLeadingSlash(String path) {
-		boolean slash = false;
-		for (int i = 0; i < path.length(); i++) {
-			if (path.charAt(i) == '/') {
-				slash = true;
-			}
-			else if (path.charAt(i) > ' ' && path.charAt(i) != 127) {
-				if (i == 0 || (i == 1 && slash)) {
-					return path;
-				}
-				return (slash ? "/" + path.substring(i) : path.substring(i));
-			}
-		}
-		return (slash ? "/" : "");
+		return ResourceHandlerUtils.normalizeInputPath(path);
 	}
 
 	/**
-	 * Check whether the given path contains invalid escape sequences.
-	 * @param path the path to validate
-	 * @return {@code true} if the path is invalid, {@code false} otherwise
-	 */
-	private boolean isInvalidEncodedPath(String path) {
-		if (path.contains("%")) {
-			try {
-				// Use URLDecoder (vs UriUtils) to preserve potentially decoded UTF-8 chars
-				String decodedPath = URLDecoder.decode(path, StandardCharsets.UTF_8);
-				if (isInvalidPath(decodedPath)) {
-					return true;
-				}
-				decodedPath = processPath(decodedPath);
-				if (isInvalidPath(decodedPath)) {
-					return true;
-				}
-			}
-			catch (IllegalArgumentException ex) {
-				// May not be possible to decode...
-			}
-		}
-		return false;
-	}
-
-	/**
-	 * Identifies invalid resource paths. By default, rejects:
-	 * <ul>
-	 * <li>Paths that contain "WEB-INF" or "META-INF"
-	 * <li>Paths that contain "../" after a call to
-	 * {@link org.springframework.util.StringUtils#cleanPath}.
-	 * <li>Paths that represent a {@link org.springframework.util.ResourceUtils#isUrl
-	 * valid URL} or would represent one after the leading slash is removed.
-	 * </ul>
-	 * <p><strong>Note:</strong> this method assumes that leading, duplicate '/'
-	 * or control characters (e.g. white space) have been trimmed so that the
-	 * path starts predictably with a single '/' or does not have one.
-	 * @param path the path to validate
-	 * @return {@code true} if the path is invalid, {@code false} otherwise
-	 * @since 3.0.6
+	 * Invoked after {@link ResourceHandlerUtils#isInvalidPath(String)}
+	 * to allow subclasses to perform further validation.
+	 * <p>By default, this method does not perform any validations.
 	 */
 	protected boolean isInvalidPath(String path) {
-		if (path.contains("WEB-INF") || path.contains("META-INF")) {
-			if (logger.isWarnEnabled()) {
-				logger.warn(LogFormatUtils.formatValue(
-						"Path with \"WEB-INF\" or \"META-INF\": [" + path + "]", -1, true));
-			}
-			return true;
-		}
-		if (path.contains(":/")) {
-			String relativePath = (path.charAt(0) == '/' ? path.substring(1) : path);
-			if (ResourceUtils.isUrl(relativePath) || relativePath.startsWith("url:")) {
-				if (logger.isWarnEnabled()) {
-					logger.warn(LogFormatUtils.formatValue(
-							"Path represents URL or has \"url:\" prefix: [" + path + "]", -1, true));
-				}
-				return true;
-			}
-		}
-		if (path.contains("..") && StringUtils.cleanPath(path).contains("../")) {
-			if (logger.isWarnEnabled()) {
-				logger.warn(LogFormatUtils.formatValue(
-						"Path contains \"../\" after call to StringUtils#cleanPath: [" + path + "]", -1, true));
-			}
-			return true;
-		}
 		return false;
 	}
 
@@ -787,7 +709,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 			String filename = resource.getFilename();
 			String ext = StringUtils.getFilenameExtension(filename);
 			if (ext != null) {
-				mediaType = this.mediaTypes.get(ext.toLowerCase(Locale.ENGLISH));
+				mediaType = this.mediaTypes.get(ext.toLowerCase(Locale.ROOT));
 			}
 			if (mediaType == null) {
 				List<MediaType> mediaTypes = MediaTypeFactory.getMediaTypes(filename);
@@ -807,7 +729,7 @@ public class ResourceHttpRequestHandler extends WebContentGenerator
 	 * Called for GET requests as well as HEAD requests.
 	 * @param response current servlet response
 	 * @param resource the identified resource (never {@code null})
-	 * @param mediaType the resource's media type (never {@code null})
+	 * @param mediaType the resource's media type
 	 * @throws IOException in case of errors while setting the headers
 	 */
 	protected void setHeaders(HttpServletResponse response, Resource resource, @Nullable MediaType mediaType)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ public interface MultipartHttpServletRequest extends HttpServletRequest, Multipa
 	/**
 	 * Return the headers for the specified part of the multipart request.
 	 * <p>If the underlying implementation supports access to part headers,
-	 * then all headers are returned. Otherwise, e.g. for a file upload, the
+	 * then all headers are returned. Otherwise, for example, for a file upload, the
 	 * returned headers may expose a 'Content-Type' if available.
 	 */
 	@Nullable

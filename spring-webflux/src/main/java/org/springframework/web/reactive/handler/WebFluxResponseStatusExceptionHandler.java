@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.web.reactive.handler;
 
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.server.handler.ResponseStatusExceptionHandler;
 
@@ -38,6 +39,7 @@ import org.springframework.web.server.handler.ResponseStatusExceptionHandler;
 public class WebFluxResponseStatusExceptionHandler extends ResponseStatusExceptionHandler {
 
 	@Override
+	@Nullable
 	protected HttpStatusCode determineStatus(Throwable ex) {
 		HttpStatusCode statusCode = super.determineStatus(ex);
 		if (statusCode == null) {

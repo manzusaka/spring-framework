@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import org.springframework.util.Assert;
 /**
  * One-way PropertyEditor which can convert from a text String to a
  * {@code java.io.Reader}, interpreting the given String as a Spring
- * resource location (e.g. a URL String).
+ * resource location (for example, a URL String).
  *
  * <p>Supports Spring-style URL notation: any fully qualified standard URL
  * ("file:", "http:", etc.) and Spring's special "classpath:" pseudo-URL.

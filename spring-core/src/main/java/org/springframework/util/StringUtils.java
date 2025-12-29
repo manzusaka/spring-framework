@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 package org.springframework.util;
 
-import java.io.ByteArrayOutputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -25,6 +24,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.Enumeration;
+import java.util.HexFormat;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,6 +36,7 @@ import java.util.StringTokenizer;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import org.springframework.lang.Contract;
 import org.springframework.lang.Nullable;
 
 /**
@@ -58,6 +59,7 @@ import org.springframework.lang.Nullable;
  * @author Arjen Poutsma
  * @author Sam Brannen
  * @author Brian Clozel
+ * @author Sebastien Deleuze
  * @since 16 April 2001
  */
 public abstract class StringUtils {
@@ -70,11 +72,15 @@ public abstract class StringUtils {
 
 	private static final String WINDOWS_FOLDER_SEPARATOR = "\\";
 
+	private static final char WINDOWS_FOLDER_SEPARATOR_CHAR = '\\';
+
+	private static final String DOUBLE_BACKSLASHES = "\\\\";
+
 	private static final String TOP_PATH = "..";
 
 	private static final String CURRENT_PATH = ".";
 
-	private static final char EXTENSION_SEPARATOR = '.';
+	private static final char DOT_CHAR = '.';
 
 	private static final int DEFAULT_TRUNCATION_THRESHOLD = 100;
 
@@ -93,7 +99,7 @@ public abstract class StringUtils {
 	 * will never return {@code true} for a non-null non-String object.
 	 * <p>The Object signature is useful for general attribute handling code
 	 * that commonly deals with Strings but generally has to iterate over
-	 * Objects since attributes may e.g. be primitive value objects as well.
+	 * Objects since attributes may, for example, be primitive value objects as well.
 	 * <p><b>Note: If the object is typed to {@code String} upfront, prefer
 	 * {@link #hasLength(String)} or {@link #hasText(String)} instead.</b>
 	 * @param str the candidate object (possibly a {@code String})
@@ -122,8 +128,9 @@ public abstract class StringUtils {
 	 * @see #hasLength(String)
 	 * @see #hasText(CharSequence)
 	 */
+	@Contract("null -> false")
 	public static boolean hasLength(@Nullable CharSequence str) {
-		return (str != null && str.length() > 0);
+		return (str != null && !str.isEmpty());  // as of JDK 15
 	}
 
 	/**
@@ -135,6 +142,7 @@ public abstract class StringUtils {
 	 * @see #hasLength(CharSequence)
 	 * @see #hasText(String)
 	 */
+	@Contract("null -> false")
 	public static boolean hasLength(@Nullable String str) {
 		return (str != null && !str.isEmpty());
 	}
@@ -158,6 +166,7 @@ public abstract class StringUtils {
 	 * @see #hasLength(CharSequence)
 	 * @see Character#isWhitespace
 	 */
+	@Contract("null -> false")
 	public static boolean hasText(@Nullable CharSequence str) {
 		if (str == null) {
 			return false;
@@ -188,6 +197,7 @@ public abstract class StringUtils {
 	 * @see #hasLength(String)
 	 * @see Character#isWhitespace
 	 */
+	@Contract("null -> false")
 	public static boolean hasText(@Nullable String str) {
 		return (str != null && !str.isBlank());
 	}
@@ -473,7 +483,7 @@ public abstract class StringUtils {
 	 * Delete any character in a given {@code String}.
 	 * @param inString the original {@code String}
 	 * @param charsToDelete a set of characters to delete.
-	 * E.g. "az\n" will delete 'a's, 'z's and new lines.
+	 * For example, "az\n" will delete 'a's, 'z's and new lines.
 	 * @return the resulting {@code String}
 	 */
 	public static String deleteAny(String inString, @Nullable String charsToDelete) {
@@ -501,8 +511,8 @@ public abstract class StringUtils {
 
 	/**
 	 * Quote the given {@code String} with single quotes.
-	 * @param str the input {@code String} (e.g. "myString")
-	 * @return the quoted {@code String} (e.g. "'myString'"),
+	 * @param str the input {@code String} (for example, "myString")
+	 * @return the quoted {@code String} (for example, "'myString'"),
 	 * or {@code null} if the input was {@code null}
 	 */
 	@Nullable
@@ -513,8 +523,8 @@ public abstract class StringUtils {
 	/**
 	 * Turn the given Object into a {@code String} with single quotes
 	 * if it is a {@code String}; keeping the Object as-is else.
-	 * @param obj the input Object (e.g. "myString")
-	 * @return the quoted {@code String} (e.g. "'myString'"),
+	 * @param obj the input Object (for example, "myString")
+	 * @return the quoted {@code String} (for example, "'myString'"),
 	 * or the input object as-is if not a {@code String}
 	 */
 	@Nullable
@@ -528,7 +538,7 @@ public abstract class StringUtils {
 	 * @param qualifiedName the qualified name
 	 */
 	public static String unqualify(String qualifiedName) {
-		return unqualify(qualifiedName, '.');
+		return unqualify(qualifiedName, DOT_CHAR);
 	}
 
 	/**
@@ -605,7 +615,7 @@ public abstract class StringUtils {
 
 	/**
 	 * Extract the filename from the given Java resource path,
-	 * e.g. {@code "mypath/myfile.txt" &rarr; "myfile.txt"}.
+	 * for example, {@code "mypath/myfile.txt" &rarr; "myfile.txt"}.
 	 * @param path the file path (may be {@code null})
 	 * @return the extracted filename, or {@code null} if none
 	 */
@@ -621,7 +631,7 @@ public abstract class StringUtils {
 
 	/**
 	 * Extract the filename extension from the given Java resource path,
-	 * e.g. "mypath/myfile.txt" &rarr; "txt".
+	 * for example, "mypath/myfile.txt" &rarr; "txt".
 	 * @param path the file path (may be {@code null})
 	 * @return the extracted filename extension, or {@code null} if none
 	 */
@@ -631,7 +641,7 @@ public abstract class StringUtils {
 			return null;
 		}
 
-		int extIndex = path.lastIndexOf(EXTENSION_SEPARATOR);
+		int extIndex = path.lastIndexOf(DOT_CHAR);
 		if (extIndex == -1) {
 			return null;
 		}
@@ -646,12 +656,12 @@ public abstract class StringUtils {
 
 	/**
 	 * Strip the filename extension from the given Java resource path,
-	 * e.g. "mypath/myfile.txt" &rarr; "mypath/myfile".
+	 * for example, "mypath/myfile.txt" &rarr; "mypath/myfile".
 	 * @param path the file path
 	 * @return the path with stripped filename extension
 	 */
 	public static String stripFilenameExtension(String path) {
-		int extIndex = path.lastIndexOf(EXTENSION_SEPARATOR);
+		int extIndex = path.lastIndexOf(DOT_CHAR);
 		if (extIndex == -1) {
 			return path;
 		}
@@ -690,7 +700,7 @@ public abstract class StringUtils {
 	 * Normalize the path by suppressing sequences like "path/.." and
 	 * inner simple dots.
 	 * <p>The result is convenient for path comparison. For other uses,
-	 * notice that Windows separators ("\") are replaced by simple slashes.
+	 * notice that Windows separators ("\" and "\\") are replaced by simple slashes.
 	 * <p><strong>NOTE</strong> that {@code cleanPath} should not be depended
 	 * upon in a security context. Other mechanisms should be used to prevent
 	 * path-traversal issues.
@@ -702,11 +712,19 @@ public abstract class StringUtils {
 			return path;
 		}
 
-		String normalizedPath = replace(path, WINDOWS_FOLDER_SEPARATOR, FOLDER_SEPARATOR);
+		String normalizedPath;
+		// Optimize when there is no backslash
+		if (path.indexOf(WINDOWS_FOLDER_SEPARATOR_CHAR) != -1) {
+			normalizedPath = replace(path, DOUBLE_BACKSLASHES, FOLDER_SEPARATOR);
+			normalizedPath = replace(normalizedPath, WINDOWS_FOLDER_SEPARATOR, FOLDER_SEPARATOR);
+		}
+		else {
+			normalizedPath = path;
+		}
 		String pathToUse = normalizedPath;
 
 		// Shortcut if there is no work to do
-		if (pathToUse.indexOf('.') == -1) {
+		if (pathToUse.indexOf(DOT_CHAR) == -1) {
 			return pathToUse;
 		}
 
@@ -769,9 +787,9 @@ public abstract class StringUtils {
 			pathElements.addFirst(CURRENT_PATH);
 		}
 
-		final String joined = collectionToDelimitedString(pathElements, FOLDER_SEPARATOR);
-		// avoid string concatenation with empty prefix
-		return prefix.isEmpty() ? joined : prefix + joined;
+		String joined = collectionToDelimitedString(pathElements, FOLDER_SEPARATOR);
+		// Avoid String concatenation with empty prefix
+		return (prefix.isEmpty() ? joined : prefix + joined);
 	}
 
 	/**
@@ -785,53 +803,60 @@ public abstract class StringUtils {
 	}
 
 	/**
-	 * Decode the given encoded URI component value. Based on the following rules:
-	 * <ul>
-	 * <li>Alphanumeric characters {@code "a"} through {@code "z"}, {@code "A"} through {@code "Z"},
-	 * and {@code "0"} through {@code "9"} stay the same.</li>
-	 * <li>Special characters {@code "-"}, {@code "_"}, {@code "."}, and {@code "*"} stay the same.</li>
-	 * <li>A sequence "{@code %<i>xy</i>}" is interpreted as a hexadecimal representation of the character.</li>
-	 * </ul>
-	 * @param source the encoded String
-	 * @param charset the character set
+	 * Decode the given encoded URI component value by replacing "<i>{@code %xy}</i>" sequences
+	 * by an hexadecimal representation of the character in the specified charset, letting other
+	 * characters unchanged.
+	 * @param source the encoded {@code String}
+	 * @param charset the character encoding to use to decode the "<i>{@code %xy}</i>" sequences
 	 * @return the decoded value
 	 * @throws IllegalArgumentException when the given source contains invalid encoded sequences
 	 * @since 5.0
-	 * @see java.net.URLDecoder#decode(String, String)
+	 * @see java.net.URLDecoder#decode(String, String) java.net.URLDecoder#decode for HTML form decoding
 	 */
 	public static String uriDecode(String source, Charset charset) {
 		int length = source.length();
-		if (length == 0) {
+		int firstPercentIndex = source.indexOf('%');
+		if (length == 0 || firstPercentIndex < 0) {
 			return source;
 		}
-		Assert.notNull(charset, "Charset must not be null");
 
-		ByteArrayOutputStream baos = new ByteArrayOutputStream(length);
-		boolean changed = false;
-		for (int i = 0; i < length; i++) {
-			int ch = source.charAt(i);
+		StringBuilder output = new StringBuilder(length);
+		output.append(source, 0, firstPercentIndex);
+		byte[] bytes = null;
+		int i = firstPercentIndex;
+		while (i < length) {
+			char ch = source.charAt(i);
 			if (ch == '%') {
-				if (i + 2 < length) {
-					char hex1 = source.charAt(i + 1);
-					char hex2 = source.charAt(i + 2);
-					int u = Character.digit(hex1, 16);
-					int l = Character.digit(hex2, 16);
-					if (u == -1 || l == -1) {
-						throw new IllegalArgumentException("Invalid encoded sequence \"" + source.substring(i) + "\"");
+				try {
+					if (bytes == null) {
+						bytes = new byte[(length - i) / 3];
 					}
-					baos.write((char) ((u << 4) + l));
-					i += 2;
-					changed = true;
+
+					int pos = 0;
+					while (i + 2 < length && ch == '%') {
+						bytes[pos++] = (byte) HexFormat.fromHexDigits(source, i + 1, i + 3);
+						i += 3;
+						if (i < length) {
+							ch = source.charAt(i);
+						}
+					}
+
+					if (i < length && ch == '%') {
+						throw new IllegalArgumentException("Incomplete trailing escape (%) pattern");
+					}
+
+					output.append(new String(bytes, 0, pos, charset));
 				}
-				else {
+				catch (NumberFormatException ex) {
 					throw new IllegalArgumentException("Invalid encoded sequence \"" + source.substring(i) + "\"");
 				}
 			}
 			else {
-				baos.write(ch);
+				output.append(ch);
+				i++;
 			}
 		}
-		return (changed ? StreamUtils.copyToString(baos, charset) : source);
+		return output.toString();
 	}
 
 	/**
@@ -839,8 +864,8 @@ public abstract class StringUtils {
 	 * the {@link Locale#toString} format as well as BCP 47 language tags as
 	 * specified by {@link Locale#forLanguageTag}.
 	 * @param localeValue the locale value: following either {@code Locale's}
-	 * {@code toString()} format ("en", "en_UK", etc), also accepting spaces as
-	 * separators (as an alternative to underscores), or BCP 47 (e.g. "en-UK")
+	 * {@code toString()} format ("en", "en_UK", etc.), also accepting spaces as
+	 * separators (as an alternative to underscores), or BCP 47 (for example, "en-UK")
 	 * @return a corresponding {@code Locale} instance, or {@code null} if none
 	 * @throws IllegalArgumentException in case of an invalid locale specification
 	 * @since 5.0.4
@@ -852,7 +877,7 @@ public abstract class StringUtils {
 		if (!localeValue.contains("_") && !localeValue.contains(" ")) {
 			validateLocalePart(localeValue);
 			Locale resolved = Locale.forLanguageTag(localeValue);
-			if (resolved.getLanguage().length() > 0) {
+			if (!resolved.getLanguage().isEmpty()) {
 				return resolved;
 			}
 		}
@@ -868,7 +893,7 @@ public abstract class StringUtils {
 	 * <p><b>Note: This delegate does not accept the BCP 47 language tag format.
 	 * Please use {@link #parseLocale} for lenient parsing of both formats.</b>
 	 * @param localeString the locale {@code String}: following {@code Locale's}
-	 * {@code toString()} format ("en", "en_UK", etc), also accepting spaces as
+	 * {@code toString()} format ("en", "en_UK", etc.), also accepting spaces as
 	 * separators (as an alternative to underscores)
 	 * @return a corresponding {@code Locale} instance, or {@code null} if none
 	 * @throws IllegalArgumentException in case of an invalid locale specification
@@ -876,7 +901,7 @@ public abstract class StringUtils {
 	@SuppressWarnings("deprecation")  // for Locale constructors on JDK 19
 	@Nullable
 	public static Locale parseLocaleString(String localeString) {
-		if (localeString.equals("")) {
+		if (localeString.isEmpty()) {
 			return null;
 		}
 
@@ -1181,7 +1206,7 @@ public abstract class StringUtils {
 			if (trimTokens) {
 				token = token.trim();
 			}
-			if (!ignoreEmptyTokens || token.length() > 0) {
+			if (!ignoreEmptyTokens || !token.isEmpty()) {
 				tokens.add(token);
 			}
 		}
@@ -1216,7 +1241,7 @@ public abstract class StringUtils {
 	 * @param delimiter the delimiter between elements (this is a single delimiter,
 	 * rather than a bunch individual delimiter characters)
 	 * @param charsToDelete a set of characters to delete; useful for deleting unwanted
-	 * line breaks: e.g. "\r\n\f" will delete all new lines and line feeds in a {@code String}
+	 * line breaks: for example, "\r\n\f" will delete all new lines and line feeds in a {@code String}
 	 * @return an array of the tokens in the list
 	 * @see #tokenizeToStringArray
 	 */
@@ -1243,7 +1268,7 @@ public abstract class StringUtils {
 				result.add(deleteAny(str.substring(pos, delPos), charsToDelete));
 				pos = delPos + delimiter.length();
 			}
-			if (str.length() > 0 && pos <= str.length()) {
+			if (!str.isEmpty() && pos <= str.length()) {
 				// Add rest of String, but not in case of empty input.
 				result.add(deleteAny(str.substring(pos), charsToDelete));
 			}
@@ -1252,7 +1277,7 @@ public abstract class StringUtils {
 	}
 
 	/**
-	 * Convert a comma delimited list (e.g., a row from a CSV file) into an
+	 * Convert a comma delimited list (for example, a row from a CSV file) into an
 	 * array of strings.
 	 * @param str the input {@code String} (potentially {@code null} or empty)
 	 * @return an array of strings, or the empty array in case of empty input
@@ -1262,7 +1287,7 @@ public abstract class StringUtils {
 	}
 
 	/**
-	 * Convert a comma delimited list (e.g., a row from a CSV file) into a set.
+	 * Convert a comma delimited list (for example, a row from a CSV file) into a set.
 	 * <p>Note that this will suppress duplicates, and as of 4.2, the elements in
 	 * the returned set will preserve the original order in a {@link LinkedHashSet}.
 	 * @param str the input {@code String} (potentially {@code null} or empty)
@@ -1275,7 +1300,7 @@ public abstract class StringUtils {
 	}
 
 	/**
-	 * Convert a {@link Collection} to a delimited {@code String} (e.g. CSV).
+	 * Convert a {@link Collection} to a delimited {@code String} (for example, CSV).
 	 * <p>Useful for {@code toString()} implementations.
 	 * @param coll the {@code Collection} to convert (potentially {@code null} or empty)
 	 * @param delim the delimiter to use (typically a ",")
@@ -1307,7 +1332,7 @@ public abstract class StringUtils {
 	}
 
 	/**
-	 * Convert a {@code Collection} into a delimited {@code String} (e.g. CSV).
+	 * Convert a {@code Collection} into a delimited {@code String} (for example, CSV).
 	 * <p>Useful for {@code toString()} implementations.
 	 * @param coll the {@code Collection} to convert (potentially {@code null} or empty)
 	 * @param delim the delimiter to use (typically a ",")
@@ -1318,7 +1343,7 @@ public abstract class StringUtils {
 	}
 
 	/**
-	 * Convert a {@code Collection} into a delimited {@code String} (e.g., CSV).
+	 * Convert a {@code Collection} into a delimited {@code String} (for example, CSV).
 	 * <p>Useful for {@code toString()} implementations.
 	 * @param coll the {@code Collection} to convert (potentially {@code null} or empty)
 	 * @return the delimited {@code String}
@@ -1328,7 +1353,7 @@ public abstract class StringUtils {
 	}
 
 	/**
-	 * Convert a {@code String} array into a delimited {@code String} (e.g. CSV).
+	 * Convert a {@code String} array into a delimited {@code String} (for example, CSV).
 	 * <p>Useful for {@code toString()} implementations.
 	 * @param arr the array to display (potentially {@code null} or empty)
 	 * @param delim the delimiter to use (typically a ",")

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import reactor.netty5.resources.LoopResources;
 
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.http.client.ReactorResourceFactory;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
 
@@ -106,8 +107,9 @@ public class ReactorNetty2ResourceFactory implements InitializingBean, Disposabl
 	 * Use this when you don't want to participate in global resources and
 	 * you want to customize the creation of the managed {@code ConnectionProvider}.
 	 * <p>By default, {@code ConnectionProvider.elastic("http")} is used.
-	 * <p>Note that this option is ignored if {@code userGlobalResources=false} or
-	 * {@link #setConnectionProvider(ConnectionProvider)} is set.
+	 * <p>Note that this supplier is ignored if {@link #isUseGlobalResources()}
+	 * is {@code true} or once the {@link #setConnectionProvider(ConnectionProvider) ConnectionProvider}
+	 * is set.
 	 * @param supplier the supplier to use
 	 */
 	public void setConnectionProviderSupplier(Supplier<ConnectionProvider> supplier) {
@@ -134,9 +136,10 @@ public class ReactorNetty2ResourceFactory implements InitializingBean, Disposabl
 	/**
 	 * Use this when you don't want to participate in global resources and
 	 * you want to customize the creation of the managed {@code LoopResources}.
-	 * <p>By default, {@code LoopResources.create("reactor-http")} is used.
-	 * <p>Note that this option is ignored if {@code userGlobalResources=false} or
-	 * {@link #setLoopResources(LoopResources)} is set.
+	 * <p>By default, {@code LoopResources.create("webflux-http")} is used.
+	 * <p>Note that this supplier is ignored if {@link #isUseGlobalResources()}
+	 * is {@code true} or once the {@link #setLoopResources(LoopResources) LoopResources}
+	 * is set.
 	 * @param supplier the supplier to use
 	 */
 	public void setLoopResourcesSupplier(Supplier<LoopResources> supplier) {
@@ -169,7 +172,6 @@ public class ReactorNetty2ResourceFactory implements InitializingBean, Disposabl
 	 * can also be overridden with the system property
 	 * {@link reactor.netty5.ReactorNetty#SHUTDOWN_QUIET_PERIOD
 	 * ReactorNetty.SHUTDOWN_QUIET_PERIOD}.
-	 * @since 5.2.4
 	 * @see #setShutdownTimeout(Duration)
 	 */
 	public void setShutdownQuietPeriod(Duration shutdownQuietPeriod) {
@@ -186,7 +188,6 @@ public class ReactorNetty2ResourceFactory implements InitializingBean, Disposabl
 	 * can also be overridden with the system property
 	 * {@link reactor.netty5.ReactorNetty#SHUTDOWN_TIMEOUT
 	 * ReactorNetty.SHUTDOWN_TIMEOUT}.
-	 * @since 5.2.4
 	 * @see #setShutdownQuietPeriod(Duration)
 	 */
 	public void setShutdownTimeout(Duration shutdownTimeout) {

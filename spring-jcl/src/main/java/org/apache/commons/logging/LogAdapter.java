@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ final class LogAdapter {
 			// java.logging module is not present by default on JDK 9. We are requiring
 			// its presence if neither Log4j nor SLF4J is available; however, in the
 			// case of Log4j or SLF4J, we are trying to prevent early initialization
-			// of the JavaUtilLog adapter - e.g. by a JVM in debug mode - when eagerly
+			// of the JavaUtilLog adapter - for example, by a JVM in debug mode - when eagerly
 			// trying to parse the bytecode for all the cases of this switch clause.
 			createLog = JavaUtilAdapter::createLog;
 		}
@@ -145,9 +145,12 @@ final class LogAdapter {
 		private static final LoggerContext loggerContext =
 				LogManager.getContext(Log4jLog.class.getClassLoader(), false);
 
-		private final ExtendedLogger logger;
+		private final String name;
+
+		private final transient ExtendedLogger logger;
 
 		public Log4jLog(String name) {
+			this.name = name;
 			LoggerContext context = loggerContext;
 			if (context == null) {
 				// Circular call in early-init scenario -> static field not initialized yet
@@ -260,6 +263,10 @@ final class LogAdapter {
 			else {
 				this.logger.logIfEnabled(FQCN, level, null, message, exception);
 			}
+		}
+
+		protected Object readResolve() {
+			return new Log4jLog(this.name);
 		}
 	}
 

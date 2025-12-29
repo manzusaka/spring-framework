@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@ import org.springframework.core.ResolvableType;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
@@ -103,13 +105,27 @@ public class HttpEntityMethodProcessor extends AbstractMessageConverterMethodPro
 	}
 
 	/**
-	 * Complete constructor for resolving {@code HttpEntity} and handling
-	 * {@code ResponseEntity}.
+	 * Variant of {@link #HttpEntityMethodProcessor(List, List)}
+	 * with an additional {@link ContentNegotiationManager} argument for return
+	 * value handling.
 	 */
 	public HttpEntityMethodProcessor(List<HttpMessageConverter<?>> converters,
 			@Nullable ContentNegotiationManager manager, List<Object> requestResponseBodyAdvice) {
 
 		super(converters, manager, requestResponseBodyAdvice);
+	}
+
+	/**
+	 * Variant of {@link #HttpEntityMethodProcessor(List, ContentNegotiationManager, List)}
+	 * with additional list of {@link ErrorResponse.Interceptor}s for return
+	 * value handling.
+	 * @since 6.2
+	 */
+	public HttpEntityMethodProcessor(List<HttpMessageConverter<?>> converters,
+			@Nullable ContentNegotiationManager manager, List<Object> requestResponseBodyAdvice,
+			List<ErrorResponse.Interceptor> interceptors) {
+
+		super(converters, manager, requestResponseBodyAdvice, interceptors);
 	}
 
 
@@ -204,6 +220,8 @@ public class HttpEntityMethodProcessor extends AbstractMessageConverterMethodPro
 							" doesn't match the ProblemDetail status: " + detail.getStatus());
 				}
 			}
+			invokeErrorResponseInterceptors(
+					detail, (returnValue instanceof ErrorResponse response ? response : null));
 		}
 
 		HttpHeaders outputHeaders = outputMessage.getHeaders();
@@ -223,18 +241,18 @@ public class HttpEntityMethodProcessor extends AbstractMessageConverterMethodPro
 		}
 
 		if (httpEntity instanceof ResponseEntity<?> responseEntity) {
-			int returnStatus = responseEntity.getStatusCode().value();
-			outputMessage.getServletResponse().setStatus(returnStatus);
-			if (returnStatus == 200) {
+			HttpStatusCode returnStatus = responseEntity.getStatusCode();
+			outputMessage.getServletResponse().setStatus(returnStatus.value());
+			if (returnStatus.value() == HttpStatus.OK.value()) {
 				HttpMethod method = inputMessage.getMethod();
-				if ((HttpMethod.GET.equals(method) || HttpMethod.HEAD.equals(method))
-						&& isResourceNotModified(inputMessage, outputMessage)) {
+				if ((HttpMethod.GET.equals(method) || HttpMethod.HEAD.equals(method)) &&
+						isResourceNotModified(inputMessage, outputMessage)) {
 					outputMessage.flush();
 					return;
 				}
 			}
-			else if (returnStatus / 100 == 3) {
-				String location = outputHeaders.getFirst("location");
+			else if (returnStatus.is3xxRedirection()) {
+				String location = outputHeaders.getFirst(HttpHeaders.LOCATION);
 				if (location != null) {
 					saveFlashAttributes(mavContainer, webRequest, location);
 				}

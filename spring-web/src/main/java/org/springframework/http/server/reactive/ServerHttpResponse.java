@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,9 +65,9 @@ public interface ServerHttpResponse extends ReactiveHttpOutputMessage {
 	 * status of the response from the underlying server. The return value may
 	 * be {@code null} if there is no default value from the underlying server.
 	 * @since 5.2.4
-	 * @deprecated as of 6.0, in favor of {@link #getStatusCode()}
+	 * @deprecated in favor of {@link #getStatusCode()}, for removal in 7.0
 	 */
-	@Deprecated(since = "6.0")
+	@Deprecated(since = "6.0", forRemoval = true)
 	@Nullable
 	default Integer getRawStatusCode() {
 		HttpStatusCode httpStatus = getStatusCode();

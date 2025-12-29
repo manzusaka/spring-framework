@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,18 +59,11 @@ class DefaultFetchSpec<T> implements FetchSpec<T> {
 
 	@Override
 	public Mono<T> one() {
-		return all().buffer(2)
-				.flatMap(list -> {
-					if (list.isEmpty()) {
-						return Mono.empty();
-					}
-					if (list.size() > 1) {
-						return Mono.error(new IncorrectResultSizeDataAccessException(
-								String.format("Query [%s] returned non unique result.", this.resultFunction.getSql()),
-								1));
-					}
-					return Mono.just(list.get(0));
-				}).next();
+		return all().singleOrEmpty()
+			.onErrorMap(IndexOutOfBoundsException.class, ex -> {
+				String message = String.format("Query [%s] returned non unique result.", this.resultFunction.getSql());
+				return new IncorrectResultSizeDataAccessException(message, 1);
+			});
 	}
 
 	@Override

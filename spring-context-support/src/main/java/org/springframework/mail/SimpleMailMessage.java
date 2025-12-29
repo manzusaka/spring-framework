@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -236,14 +236,8 @@ public class SimpleMailMessage implements MailMessage, Serializable {
 
 	@Override
 	public int hashCode() {
-		int hashCode = ObjectUtils.nullSafeHashCode(this.from);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.replyTo);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.to);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.cc);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.bcc);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.sentDate);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.subject);
-		return hashCode;
+		return ObjectUtils.nullSafeHash(this.from, this.replyTo, this.to, this.cc,
+				this.bcc, this.sentDate, this.subject);
 	}
 
 	@Override

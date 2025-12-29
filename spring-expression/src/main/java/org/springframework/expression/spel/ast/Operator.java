@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -340,18 +340,19 @@ public abstract class Operator extends SpelNodeImpl {
 
 		/**
 		 * Return an object that indicates whether the input descriptors are compatible.
-		 * <p>A declared descriptor is what could statically be determined (e.g. from looking
+		 * <p>A declared descriptor is what could statically be determined (for example, from looking
 		 * at the return value of a property accessor method) whilst an actual descriptor
 		 * is the type of an actual object that was returned, which may differ.
 		 * <p>For generic types with unbound type variables, the declared descriptor
 		 * discovered may be 'Object' but from the actual descriptor it is possible to
-		 * observe that the objects are really numeric values (e.g. ints).
+		 * observe that the objects are really numeric values (for example, ints).
 		 * @param leftDeclaredDescriptor the statically determinable left descriptor
 		 * @param rightDeclaredDescriptor the statically determinable right descriptor
 		 * @param leftActualDescriptor the dynamic/runtime left object descriptor
 		 * @param rightActualDescriptor the dynamic/runtime right object descriptor
 		 * @return a DescriptorComparison object indicating the type of compatibility, if any
 		 */
+		@SuppressWarnings("NullAway")
 		public static DescriptorComparison checkNumericCompatibility(
 				@Nullable String leftDeclaredDescriptor, @Nullable String rightDeclaredDescriptor,
 				@Nullable String leftActualDescriptor, @Nullable String rightActualDescriptor) {

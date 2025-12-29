@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,9 +47,12 @@ class SpringFactoriesLoaderRuntimeHints implements RuntimeHintsRegistrar {
 
 
 	@Override
-	public void registerHints(RuntimeHints hints, ClassLoader classLoader) {
-		for (String resourceLocation : RESOURCE_LOCATIONS) {
-			registerHints(hints, classLoader, resourceLocation);
+	public void registerHints(RuntimeHints hints, @Nullable ClassLoader classLoader) {
+		ClassLoader classLoaderToUse = (classLoader != null ? classLoader : ClassUtils.getDefaultClassLoader());
+		if (classLoaderToUse != null) {
+			for (String resourceLocation : RESOURCE_LOCATIONS) {
+				registerHints(hints, classLoaderToUse, resourceLocation);
+			}
 		}
 	}
 
@@ -63,6 +66,7 @@ class SpringFactoriesLoaderRuntimeHints implements RuntimeHintsRegistrar {
 
 	private void registerHints(RuntimeHints hints, ClassLoader classLoader,
 			String factoryClassName, List<String> implementationClassNames) {
+
 		Class<?> factoryClass = resolveClassName(classLoader, factoryClassName);
 		if (factoryClass == null) {
 			if (logger.isTraceEnabled()) {
@@ -100,6 +104,7 @@ class SpringFactoriesLoaderRuntimeHints implements RuntimeHintsRegistrar {
 		}
 	}
 
+
 	private static class ExtendedSpringFactoriesLoader extends SpringFactoriesLoader {
 
 		ExtendedSpringFactoriesLoader(@Nullable ClassLoader classLoader, Map<String, List<String>> factories) {
@@ -109,7 +114,6 @@ class SpringFactoriesLoaderRuntimeHints implements RuntimeHintsRegistrar {
 		static Map<String, List<String>> accessLoadFactoriesResource(ClassLoader classLoader, String resourceLocation) {
 			return SpringFactoriesLoader.loadFactoriesResource(classLoader, resourceLocation);
 		}
-
 	}
 
 }

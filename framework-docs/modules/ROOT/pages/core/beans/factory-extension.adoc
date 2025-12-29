@@ -7,7 +7,6 @@ implementations of special integration interfaces. The next few sections describ
 integration interfaces.
 
 
-
 [[beans-factory-extension-bpp]]
 == Customizing Beans by Using a `BeanPostProcessor`
 
@@ -22,8 +21,8 @@ in which these `BeanPostProcessor` instances run by setting the `order` property
 You can set this property only if the `BeanPostProcessor` implements the `Ordered`
 interface. If you write your own `BeanPostProcessor`, you should consider implementing
 the `Ordered` interface, too. For further details, see the javadoc of the
-{api-spring-framework}/beans/factory/config/BeanPostProcessor.html[`BeanPostProcessor`]
-and {api-spring-framework}/core/Ordered.html[`Ordered`] interfaces. See also the note on
+{spring-framework-api}/beans/factory/config/BeanPostProcessor.html[`BeanPostProcessor`]
+and {spring-framework-api}/core/Ordered.html[`Ordered`] interfaces. See also the note on
 xref:core/beans/factory-extension.adoc#beans-factory-programmatically-registering-beanpostprocessors[programmatic registration of `BeanPostProcessor` instances].
 
 [NOTE]
@@ -109,7 +108,6 @@ Spring accesses other beans for matching them by type.
 The following examples show how to write, register, and use `BeanPostProcessor` instances
 in an `ApplicationContext`.
 
-
 [[beans-factory-extension-bpp-examples-hw]]
 === Example: Hello World, `BeanPostProcessor`-style
 
@@ -123,7 +121,7 @@ The following listing shows the custom `BeanPostProcessor` implementation class 
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary",chomp="-packages"]
+[source,java,indent=0,subs="verbatim,quotes",chomp="-packages"]
 ----
 	package scripting;
 
@@ -145,7 +143,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary",chomp="-packages"]
+[source,kotlin,indent=0,subs="verbatim,quotes",chomp="-packages"]
 ----
 	package scripting
 
@@ -205,7 +203,7 @@ The following Java application runs the preceding code and configuration:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	import org.springframework.context.ApplicationContext;
 	import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -224,9 +222,9 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
-    import org.springframework.beans.factory.getBean
+	import org.springframework.beans.factory.getBean
 
 	fun main() {
 		val ctx = ClassPathXmlApplicationContext("scripting/beans.xml")
@@ -244,7 +242,6 @@ Bean 'messenger' created : org.springframework.scripting.groovy.GroovyMessenger@
 org.springframework.scripting.groovy.GroovyMessenger@272961
 ----
 
-
 [[beans-factory-extension-bpp-examples-aabpp]]
 === Example: The `AutowiredAnnotationBeanPostProcessor`
 
@@ -253,7 +250,6 @@ implementation is a common means of extending the Spring IoC container. An examp
 Spring's `AutowiredAnnotationBeanPostProcessor` -- a `BeanPostProcessor` implementation
 that ships with the Spring distribution and autowires annotated fields, setter methods,
 and arbitrary config methods.
-
 
 
 [[beans-factory-extension-factory-postprocessors]]
@@ -272,8 +268,8 @@ which these `BeanFactoryPostProcessor` instances run by setting the `order` prop
 However, you can only set this property if the `BeanFactoryPostProcessor` implements the
 `Ordered` interface. If you write your own `BeanFactoryPostProcessor`, you should
 consider implementing the `Ordered` interface, too. See the javadoc of the
-{api-spring-framework}/beans/factory/config/BeanFactoryPostProcessor.html[`BeanFactoryPostProcessor`]
-and {api-spring-framework}/core/Ordered.html[`Ordered`] interfaces for more details.
+{spring-framework-api}/beans/factory/config/BeanFactoryPostProcessor.html[`BeanFactoryPostProcessor`]
+and {spring-framework-api}/core/Ordered.html[`Ordered`] interfaces for more details.
 
 [NOTE]
 ====
@@ -312,9 +308,8 @@ Thus, marking it for lazy initialization will be ignored, and the
 `Bean(Factory)PostProcessor` will be instantiated eagerly even if you set the
 `default-lazy-init` attribute to `true` on the declaration of your `<beans />` element.
 
-
 [[beans-factory-placeholderconfigurer]]
-=== Example: The Class Name Substitution `PropertySourcesPlaceholderConfigurer`
+=== Example: Property Placeholder Substitution with `PropertySourcesPlaceholderConfigurer`
 
 You can use the `PropertySourcesPlaceholderConfigurer` to externalize property values
 from a bean definition in a separate file by using the standard Java `Properties` format.
@@ -341,8 +336,8 @@ with placeholder values is defined:
 
 The example shows properties configured from an external `Properties` file. At runtime,
 a `PropertySourcesPlaceholderConfigurer` is applied to the metadata that replaces some
-properties of the DataSource. The values to replace are specified as placeholders of the
-form pass:q[`${property-name}`], which follows the Ant and log4j and JSP EL style.
+properties of the `DataSource`. The values to replace are specified as placeholders of the
+form pass:q[`${property-name}`], which follows the Ant, log4j, and JSP EL style.
 
 The actual values come from another file in the standard Java `Properties` format:
 
@@ -355,11 +350,15 @@ jdbc.password=root
 ----
 
 Therefore, the `${jdbc.username}` string is replaced at runtime with the value, 'sa', and
-the same applies for other placeholder values that match keys in the properties file.
-The `PropertySourcesPlaceholderConfigurer` checks for placeholders in most properties and
-attributes of a bean definition. Furthermore, you can customize the placeholder prefix and suffix.
+the same applies for other placeholder values that match keys in the properties file. The
+`PropertySourcesPlaceholderConfigurer` checks for placeholders in most properties and
+attributes of a bean definition. Furthermore, you can customize the placeholder prefix,
+suffix, default value separator, and escape character. In addition, the default escape
+character can be changed or disabled globally by setting the
+`spring.placeholder.escapeCharacter.default` property via a JVM system property (or via
+the xref:appendix.adoc#appendix-spring-properties[`SpringProperties`] mechanism).
 
-With the `context` namespace introduced in Spring 2.5, you can configure property placeholders
+With the `context` namespace, you can configure property placeholders
 with a dedicated configuration element. You can provide one or more locations as a
 comma-separated list in the `location` attribute, as the following example shows:
 
@@ -371,6 +370,17 @@ comma-separated list in the `location` attribute, as the following example shows
 The `PropertySourcesPlaceholderConfigurer` not only looks for properties in the `Properties`
 file you specify. By default, if it cannot find a property in the specified properties files,
 it checks against Spring `Environment` properties and regular Java `System` properties.
+
+[WARNING]
+=====
+Only one such element should be defined for a given application with the properties
+that it needs. Several property placeholders can be configured as long as they have distinct
+placeholder syntax (`${...}`).
+
+If you need to modularize the source of properties used for the replacement, you should
+not create multiple properties placeholders. Rather, you should create your own
+`PropertySourcesPlaceholderConfigurer` bean that gathers the properties to use.
+=====
 
 [TIP]
 =====
@@ -396,7 +406,6 @@ If the class cannot be resolved at runtime to a valid class, resolution of the b
 fails when it is about to be created, which is during the `preInstantiateSingletons()`
 phase of an `ApplicationContext` for a non-lazy-init bean.
 =====
-
 
 [[beans-factory-overrideconfigurer]]
 === Example: The `PropertyOverrideConfigurer`
@@ -428,7 +437,7 @@ dataSource.url=jdbc:mysql:mydb
 ----
 
 This example file can be used with a container definition that contains a bean called
-`dataSource` that has `driver` and `url` properties.
+`dataSource` that has `driverClassName` and `url` properties.
 
 Compound property names are also supported, as long as every component of the path
 except the final property being overridden is already non-null (presumably initialized
@@ -452,7 +461,6 @@ property overriding with a dedicated configuration element, as the following exa
 ----
 	<context:property-override location="classpath:override.properties"/>
 ----
-
 
 
 [[beans-factory-extension-factorybean]]
@@ -487,6 +495,3 @@ calling the `getBean()` method of the `ApplicationContext`. So, for a given `Fac
 with an `id` of `myBean`, invoking `getBean("myBean")` on the container returns the
 product of the `FactoryBean`, whereas invoking `getBean("&myBean")` returns the
 `FactoryBean` instance itself.
-
-
-

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ public abstract class ResourceHolderSupport implements ResourceHolder {
 	/**
 	 * Reset the rollback-only status for this resource transaction.
 	 * <p>Only really intended to be called after custom rollback steps which
-	 * keep the original resource in action, e.g. in case of a savepoint.
+	 * keep the original resource in action, for example, in case of a savepoint.
 	 * @since 5.0
 	 * @see org.springframework.transaction.SavepointManager#rollbackToSavepoint
 	 */
@@ -120,7 +120,7 @@ public abstract class ResourceHolderSupport implements ResourceHolder {
 
 	/**
 	 * Return the time to live for this object in seconds.
-	 * Rounds up eagerly, e.g. 9.00001 still to 10.
+	 * Rounds up eagerly, for example, 9.00001 still to 10.
 	 * @return number of seconds until expiration
 	 * @throws TransactionTimedOutException if the deadline has already been reached
 	 */

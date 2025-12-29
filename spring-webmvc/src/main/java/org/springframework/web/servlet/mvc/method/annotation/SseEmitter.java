@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,25 +28,27 @@ import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.lang.Nullable;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.web.servlet.ModelAndView;
 
 /**
  * A specialization of {@link ResponseBodyEmitter} for sending
- * <a href="https://www.w3.org/TR/eventsource/">Server-Sent Events</a>.
+ * <a href="https://html.spec.whatwg.org/multipage/server-sent-events.html">Server-Sent Events</a>.
  *
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
  * @author Sam Brannen
+ * @author Brian Clozel
  * @since 4.2
  */
 public class SseEmitter extends ResponseBodyEmitter {
 
 	private static final MediaType TEXT_PLAIN = new MediaType("text", "plain", StandardCharsets.UTF_8);
 
+
 	/**
 	 * Create a new SseEmitter instance.
 	 */
 	public SseEmitter() {
-		super();
 	}
 
 	/**
@@ -122,8 +124,12 @@ public class SseEmitter extends ResponseBodyEmitter {
 	 */
 	public void send(SseEventBuilder builder) throws IOException {
 		Set<DataWithMediaType> dataToSend = builder.build();
-		synchronized (this) {
+		this.writeLock.lock();
+		try {
 			super.send(dataToSend);
+		}
+		finally {
+			this.writeLock.unlock();
 		}
 	}
 
@@ -192,6 +198,8 @@ public class SseEmitter extends ResponseBodyEmitter {
 		@Nullable
 		private StringBuilder sb;
 
+		private boolean hasName;
+
 		@Override
 		public SseEventBuilder id(String id) {
 			append("id:").append(id).append('\n');
@@ -200,6 +208,7 @@ public class SseEmitter extends ResponseBodyEmitter {
 
 		@Override
 		public SseEventBuilder name(String name) {
+			this.hasName = true;
 			append("event:").append(name).append('\n');
 			return this;
 		}
@@ -223,8 +232,14 @@ public class SseEmitter extends ResponseBodyEmitter {
 
 		@Override
 		public SseEventBuilder data(Object object, @Nullable MediaType mediaType) {
+			if (object instanceof ModelAndView mav && !this.hasName && mav.getViewName() != null) {
+				name(mav.getViewName());
+			}
 			append("data:");
 			saveAppendedText();
+			if (object instanceof String text) {
+				object = StringUtils.replace(text, "\n", "\ndata:");
+			}
 			this.dataToSend.add(new DataWithMediaType(object, mediaType));
 			append('\n');
 			return this;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,12 +39,17 @@ import org.springframework.util.StringUtils;
  * A subclass of {@link MimeType} that adds support for quality parameters
  * as defined in the HTTP specification.
  *
+ * <p>This class is meant to reference media types supported by Spring Framework.
+ * If your application or library relies on other media types defined in RFCs,
+ * please use {@link #parseMediaType(String)} or a custom utility class.
+ *
  * @author Arjen Poutsma
  * @author Juergen Hoeller
  * @author Rossen Stoyanchev
  * @author Sebastien Deleuze
  * @author Kazuki Shimizu
  * @author Sam Brannen
+ * @author Hyoungjune Kim
  * @since 3.0
  * @see <a href="https://tools.ietf.org/html/rfc7231#section-3.1.1.1">
  *     HTTP 1.1: Semantics and Content, section 3.1.1.1</a>
@@ -184,7 +189,7 @@ public class MediaType extends MimeType implements Serializable {
 	/**
 	 * Public constant media type for {@code application/problem+json}.
 	 * @since 5.0
-	 * @see <a href="https://tools.ietf.org/html/rfc7807#section-6.1">
+	 * @see <a href="https://www.iana.org/assignments/media-types/application/problem+json">
 	 *     Problem Details for HTTP APIs, 6.1. application/problem+json</a>
 	 */
 	public static final MediaType APPLICATION_PROBLEM_JSON;
@@ -198,7 +203,7 @@ public class MediaType extends MimeType implements Serializable {
 	/**
 	 * Public constant media type for {@code application/problem+json}.
 	 * @since 5.0
-	 * @see <a href="https://tools.ietf.org/html/rfc7807#section-6.1">
+	 * @see <a href="https://www.iana.org/assignments/media-types/application/problem+json">
 	 *     Problem Details for HTTP APIs, 6.1. application/problem+json</a>
 	 * @deprecated as of 5.2 in favor of {@link #APPLICATION_PROBLEM_JSON}
 	 * since major browsers like Chrome
@@ -224,7 +229,7 @@ public class MediaType extends MimeType implements Serializable {
 	/**
 	 * Public constant media type for {@code application/problem+xml}.
 	 * @since 5.0
-	 * @see <a href="https://tools.ietf.org/html/rfc7807#section-6.2">
+	 * @see <a href="https://www.iana.org/assignments/media-types/application/problem+xml">
 	 *     Problem Details for HTTP APIs, 6.2. application/problem+xml</a>
 	 */
 	public static final MediaType APPLICATION_PROBLEM_XML;
@@ -285,7 +290,7 @@ public class MediaType extends MimeType implements Serializable {
 	 * @deprecated as of 5.3 since it originates from the W3C Activity Streams
 	 * specification which has a more specific purpose and has been since
 	 * replaced with a different mime type. Use {@link #APPLICATION_NDJSON} as
-	 * a replacement or any other line-delimited JSON format (e.g. JSON Lines,
+	 * a replacement or any other line-delimited JSON format (for example, JSON Lines,
 	 * JSON Text Sequences).
 	 */
 	@Deprecated
@@ -310,6 +315,18 @@ public class MediaType extends MimeType implements Serializable {
 	 * A String equivalent of {@link MediaType#APPLICATION_XML}.
 	 */
 	public static final String APPLICATION_XML_VALUE = "application/xml";
+
+	/**
+	 * Public constant media type for {@code application/yaml}.
+	 * @since 6.2
+	 */
+	public static final MediaType APPLICATION_YAML;
+
+	/**
+	 * A String equivalent of {@link MediaType#APPLICATION_YAML}.
+	 * @since 6.2
+	 */
+	public static final String APPLICATION_YAML_VALUE = "application/yaml";
 
 	/**
 	 * Public constant media type for {@code image/gif}.
@@ -378,7 +395,7 @@ public class MediaType extends MimeType implements Serializable {
 	/**
 	 * Public constant media type for {@code text/event-stream}.
 	 * @since 4.3.6
-	 * @see <a href="https://www.w3.org/TR/eventsource/">Server-Sent Events W3C recommendation</a>
+	 * @see <a href="https://html.spec.whatwg.org/multipage/server-sent-events.html">Server-Sent Events</a>
 	 */
 	public static final MediaType TEXT_EVENT_STREAM;
 
@@ -434,7 +451,7 @@ public class MediaType extends MimeType implements Serializable {
 
 
 	static {
-		// Not using "valueOf' to avoid static init cost
+		// Not using "valueOf" to avoid static init cost
 		ALL = new MediaType(MimeType.WILDCARD_TYPE, MimeType.WILDCARD_TYPE);
 		APPLICATION_ATOM_XML = new MediaType("application", "atom+xml");
 		APPLICATION_CBOR = new MediaType("application", "cbor");
@@ -454,6 +471,7 @@ public class MediaType extends MimeType implements Serializable {
 		APPLICATION_STREAM_JSON = new MediaType("application", "stream+json");
 		APPLICATION_XHTML_XML = new MediaType("application", "xhtml+xml");
 		APPLICATION_XML = new MediaType("application", "xml");
+		APPLICATION_YAML = new MediaType("application", "yaml");
 		IMAGE_GIF = new MediaType("image", "gif");
 		IMAGE_JPEG = new MediaType("image", "jpeg");
 		IMAGE_PNG = new MediaType("image", "png");
@@ -718,7 +736,7 @@ public class MediaType extends MimeType implements Serializable {
 	/**
 	 * Parse the given String value into a {@code MediaType} object,
 	 * with this method name following the 'valueOf' naming convention
-	 * (as supported by {@link org.springframework.core.convert.ConversionService}.
+	 * (as supported by {@link org.springframework.core.convert.ConversionService}).
 	 * @param value the string to parse
 	 * @throws InvalidMediaTypeException if the media type value cannot be parsed
 	 * @see #parseMediaType(String)
@@ -853,7 +871,7 @@ public class MediaType extends MimeType implements Serializable {
 	 * <blockquote>audio/basic == text/html</blockquote>
 	 * <blockquote>audio/basic == audio/wave</blockquote>
 	 * @param mediaTypes the list of media types to be sorted
-	 * @deprecated As of 6.0, in favor of {@link MimeTypeUtils#sortBySpecificity(List)}
+	 * @deprecated as of 6.0, in favor of {@link MimeTypeUtils#sortBySpecificity(List)}
 	 */
 	@Deprecated(since = "6.0", forRemoval = true)
 	public static void sortBySpecificity(List<MediaType> mediaTypes) {
@@ -882,7 +900,7 @@ public class MediaType extends MimeType implements Serializable {
 	 * </ol>
 	 * @param mediaTypes the list of media types to be sorted
 	 * @see #getQualityValue()
-	 * @deprecated As of 6.0, with no direct replacement
+	 * @deprecated as of 6.0, with no direct replacement
 	 */
 	@Deprecated(since = "6.0", forRemoval = true)
 	public static void sortByQualityValue(List<MediaType> mediaTypes) {
@@ -895,9 +913,9 @@ public class MediaType extends MimeType implements Serializable {
 	/**
 	 * Sorts the given list of {@code MediaType} objects by specificity as the
 	 * primary criteria and quality value the secondary.
-	 * @deprecated As of 6.0, in favor of {@link MimeTypeUtils#sortBySpecificity(List)}
+	 * @deprecated as of 6.0, in favor of {@link MimeTypeUtils#sortBySpecificity(List)}
 	 */
-	@Deprecated(since = "6.0")
+	@Deprecated(since = "6.0", forRemoval = true)
 	public static void sortBySpecificityAndQuality(List<MediaType> mediaTypes) {
 		Assert.notNull(mediaTypes, "'mediaTypes' must not be null");
 		if (mediaTypes.size() > 1) {
@@ -908,7 +926,7 @@ public class MediaType extends MimeType implements Serializable {
 
 	/**
 	 * Comparator used by {@link #sortByQualityValue(List)}.
-	 * @deprecated As of 6.0, with no direct replacement
+	 * @deprecated as of 6.0, with no direct replacement
 	 */
 	@Deprecated(since = "6.0", forRemoval = true)
 	public static final Comparator<MediaType> QUALITY_VALUE_COMPARATOR = (mediaType1, mediaType2) -> {
@@ -948,7 +966,7 @@ public class MediaType extends MimeType implements Serializable {
 
 	/**
 	 * Comparator used by {@link #sortBySpecificity(List)}.
-	 * @deprecated As of 6.0, with no direct replacement
+	 * @deprecated as of 6.0, with no direct replacement
 	 */
 	@Deprecated(since = "6.0", forRemoval = true)
 	@SuppressWarnings("removal")

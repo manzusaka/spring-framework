@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.springframework.lang.Nullable;
  * which applies the same {@link SQLExceptionTranslator} infrastructure by default.
  *
  * <p>Exception translation is specifically relevant for commit steps in serializable
- * transactions (e.g. on Postgres) where concurrency failures may occur late on commit.
+ * transactions (for example, on Postgres) where concurrency failures may occur late on commit.
  * This allows for throwing {@link org.springframework.dao.ConcurrencyFailureException} to
  * callers instead of {@link org.springframework.transaction.TransactionSystemException}.
  *

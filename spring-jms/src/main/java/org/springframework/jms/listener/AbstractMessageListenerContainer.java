@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,13 @@
 
 package org.springframework.jms.listener;
 
+import io.micrometer.jakarta9.instrument.jms.DefaultJmsProcessObservationConvention;
+import io.micrometer.jakarta9.instrument.jms.JmsInstrumentation;
+import io.micrometer.jakarta9.instrument.jms.JmsObservationDocumentation;
+import io.micrometer.jakarta9.instrument.jms.JmsProcessObservationContext;
+import io.micrometer.jakarta9.instrument.jms.JmsProcessObservationConvention;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import jakarta.jms.Connection;
 import jakarta.jms.Destination;
 import jakarta.jms.ExceptionListener;
@@ -31,6 +38,7 @@ import org.springframework.jms.support.JmsUtils;
 import org.springframework.jms.support.QosSettings;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.lang.Nullable;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.ErrorHandler;
 
 /**
@@ -94,7 +102,7 @@ import org.springframework.util.ErrorHandler;
  * (i.e. after your business logic executed but before the JMS part got committed),
  * so duplicate message detection is just there to cover a corner case.
  * <li>Or wrap your <i>entire processing with an XA transaction</i>, covering the
- * reception of the JMS message as well as the execution of the business logic in
+ * receipt of the JMS message as well as the execution of the business logic in
  * your message listener (including database operations etc). This is only
  * supported by {@link DefaultMessageListenerContainer}, through specifying
  * an external "transactionManager" (typically a
@@ -130,6 +138,7 @@ import org.springframework.util.ErrorHandler;
  *
  * @author Juergen Hoeller
  * @author Stephane Nicoll
+ * @author Brian Clozel
  * @since 2.0
  * @see #setMessageListener
  * @see jakarta.jms.MessageListener
@@ -141,6 +150,10 @@ import org.springframework.util.ErrorHandler;
  */
 public abstract class AbstractMessageListenerContainer extends AbstractJmsListeningContainer
 		implements MessageListenerContainer {
+
+	private static final boolean micrometerJakartaPresent = ClassUtils.isPresent(
+			"io.micrometer.jakarta9.instrument.jms.JmsInstrumentation",
+			AbstractMessageListenerContainer.class.getClassLoader());
 
 	@Nullable
 	private volatile Object destination;
@@ -158,13 +171,13 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 	@Nullable
 	private String subscriptionName;
 
+	private boolean pubSubNoLocal = false;
+
 	@Nullable
 	private Boolean replyPubSubDomain;
 
 	@Nullable
 	private QosSettings replyQosSettings;
-
-	private boolean pubSubNoLocal = false;
 
 	@Nullable
 	private MessageConverter messageConverter;
@@ -174,6 +187,11 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 
 	@Nullable
 	private ErrorHandler errorHandler;
+
+	@Nullable
+	private ObservationRegistry observationRegistry;
+
+	private boolean acknowledgeAfterListener = true;
 
 	private boolean exposeListenerSession = true;
 
@@ -190,7 +208,7 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 	 * <p>Alternatively, specify a "destinationName", to be dynamically
 	 * resolved via the {@link org.springframework.jms.support.destination.DestinationResolver}.
 	 * <p>Note: The destination may be replaced at runtime, with the listener
-	 * container picking up the new destination immediately (works e.g. with
+	 * container picking up the new destination immediately (works, for example, with
 	 * DefaultMessageListenerContainer, as long as the cache level is less than
 	 * CACHE_CONSUMER). However, this is considered advanced usage; use it with care!
 	 * @see #setDestinationName(String)
@@ -219,7 +237,7 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 	 * {@link #setDestinationResolver destination resolver}.
 	 * <p>Alternatively, specify a JMS {@link Destination} object as "destination".
 	 * <p>Note: The destination may be replaced at runtime, with the listener
-	 * container picking up the new destination immediately (works e.g. with
+	 * container picking up the new destination immediately (works, for example, with
 	 * DefaultMessageListenerContainer, as long as the cache level is less than
 	 * CACHE_CONSUMER). However, this is considered advanced usage; use it with care!
 	 * @see #setDestination(jakarta.jms.Destination)
@@ -253,7 +271,7 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 	 * Default is none.
 	 * <p>See the JMS specification for a detailed definition of selector expressions.
 	 * <p>Note: The message selector may be replaced at runtime, with the listener
-	 * container picking up the new selector value immediately (works e.g. with
+	 * container picking up the new selector value immediately (works, for example, with
 	 * DefaultMessageListenerContainer, as long as the cache level is less than
 	 * CACHE_CONSUMER). However, this is considered advanced usage; use it with care!
 	 */
@@ -275,7 +293,7 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 	 * This can be either a standard JMS {@link MessageListener} object
 	 * or a Spring {@link SessionAwareMessageListener} object.
 	 * <p>Note: The message listener may be replaced at runtime, with the listener
-	 * container picking up the new listener object immediately (works e.g. with
+	 * container picking up the new listener object immediately (works, for example, with
 	 * DefaultMessageListenerContainer, as long as the cache level is less than
 	 * CACHE_CONSUMER). However, this is considered advanced usage; use it with care!
 	 * @throws IllegalArgumentException if the supplied listener is not a
@@ -485,12 +503,7 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 	 */
 	@Override
 	public boolean isReplyPubSubDomain() {
-		if (this.replyPubSubDomain != null) {
-			return this.replyPubSubDomain;
-		}
-		else {
-			return isPubSubDomain();
-		}
+		return (this.replyPubSubDomain != null ? this.replyPubSubDomain : isPubSubDomain());
 	}
 
 	/**
@@ -559,6 +572,57 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 	@Nullable
 	public ErrorHandler getErrorHandler() {
 		return this.errorHandler;
+	}
+
+	/**
+	 * Set the {@link ObservationRegistry} to be used for recording
+	 * {@link JmsObservationDocumentation#JMS_MESSAGE_PROCESS JMS message processing observations}.
+	 * Defaults to no-op observations if the registry is not set.
+	 * @since 6.1
+	 */
+	public void setObservationRegistry(@Nullable ObservationRegistry observationRegistry) {
+		this.observationRegistry = observationRegistry;
+	}
+
+	/**
+	 * Return the {@link ObservationRegistry} used for recording
+	 * {@link JmsObservationDocumentation#JMS_MESSAGE_PROCESS JMS message processing observations}.
+	 * @since 6.1
+	 */
+	@Nullable
+	public ObservationRegistry getObservationRegistry() {
+		return this.observationRegistry;
+	}
+
+	/**
+	 * Specify whether the listener container should automatically acknowledge
+	 * each JMS Message after the message listener returned. This applies in
+	 * case of client acknowledge modes, including vendor-specific modes but
+	 * not in case of auto-acknowledge or a transacted JMS Session.
+	 * <p>As of 6.2, the default is {@code true}: The listener container will
+	 * acknowledge each JMS Message even in case of a vendor-specific mode,
+	 * assuming client-acknowledge style processing for custom vendor modes.
+	 * <p>If the provided listener prefers to manually acknowledge each message in
+	 * the listener itself, in combination with an "individual acknowledge" mode,
+	 * switch this flag to {code false} along with the vendor-specific mode.
+	 * @since 6.2.6
+	 * @see #setSessionAcknowledgeMode
+	 * @see #setMessageListener
+	 * @see Message#acknowledge()
+	 */
+	public void setAcknowledgeAfterListener(boolean acknowledgeAfterListener) {
+		this.acknowledgeAfterListener = acknowledgeAfterListener;
+	}
+
+	/**
+	 * Determine whether the listener container should automatically acknowledge
+	 * each JMS Message after the message listener returned.
+	 * @since 6.2.6
+	 * @see #setAcknowledgeAfterListener
+	 * @see #isClientAcknowledge(Session)
+	 */
+	public boolean isAcknowledgeAfterListener() {
+		return this.acknowledgeAfterListener;
 	}
 
 	/**
@@ -650,6 +714,22 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 	}
 
 	/**
+	 * Create, but do not start an {@link Observation} for JMS message processing.
+	 * <p>This will return a "no-op" observation if Micrometer Jakarta instrumentation
+	 * is not available or if no Observation Registry has been configured.
+	 * @param message the message to be observed
+	 * @since 6.1
+	 */
+	protected Observation createObservation(Message message) {
+		if (micrometerJakartaPresent && this.observationRegistry != null) {
+			return ObservationFactory.create(this.observationRegistry, message);
+		}
+		else {
+			return Observation.NOOP;
+		}
+	}
+
+	/**
 	 * Execute the specified listener,
 	 * committing or rolling back the transaction afterwards (if necessary).
 	 * @param session the JMS Session to operate on
@@ -726,6 +806,9 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 		Session sessionToClose = null;
 		try {
 			Session sessionToUse = session;
+			if (micrometerJakartaPresent && this.observationRegistry != null) {
+				sessionToUse = MicrometerInstrumentation.instrumentSession(sessionToUse, this.observationRegistry);
+			}
 			if (!isExposeListenerSession()) {
 				// We need to expose a separate Session.
 				conToClose = createConnection();
@@ -741,6 +824,9 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 					JmsUtils.commitIfNecessary(sessionToUse);
 				}
 			}
+		}
+		catch (JMSException exc) {
+			throw exc;
 		}
 		finally {
 			JmsUtils.closeSession(sessionToClose);
@@ -776,7 +862,7 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 				JmsUtils.commitIfNecessary(session);
 			}
 		}
-		else if (message != null && isClientAcknowledge(session)) {
+		else if (message != null && isAcknowledgeAfterListener() && isClientAcknowledge(session)) {
 			message.acknowledge();
 		}
 	}
@@ -938,6 +1024,24 @@ public abstract class AbstractMessageListenerContainer extends AbstractJmsListen
 	 */
 	@SuppressWarnings("serial")
 	private static class MessageRejectedWhileStoppingException extends RuntimeException {
+	}
+
+	private abstract static class MicrometerInstrumentation {
+
+		static Session instrumentSession(Session session, ObservationRegistry registry) {
+			return JmsInstrumentation.instrumentSession(session, registry);
+		}
+
+	}
+
+	private abstract static class ObservationFactory {
+
+		private static final JmsProcessObservationConvention DEFAULT_CONVENTION = new DefaultJmsProcessObservationConvention();
+
+		static Observation create(ObservationRegistry registry, Message message) {
+			return JmsObservationDocumentation.JMS_MESSAGE_PROCESS
+					.observation(null, DEFAULT_CONVENTION, () -> new JmsProcessObservationContext(message), registry);
+		}
 	}
 
 }

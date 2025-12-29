@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2016 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ public class JndiLocatorDelegate extends JndiLocatorSupport {
 	/**
 	 * System property that instructs Spring to ignore a default JNDI environment, i.e.
 	 * to always return {@code false} from {@link #isDefaultJndiEnvironmentAvailable()}.
-	 * <p>The default is "false", allowing for regular default JNDI access e.g. in
+	 * <p>The default is "false", allowing for regular default JNDI access, for example, in
 	 * {@link JndiPropertySource}. Switching this flag to {@code true} is an optimization
 	 * for scenarios where nothing is ever to be found for such JNDI fallback searches
 	 * to begin with, avoiding the repeated JNDI lookup overhead.

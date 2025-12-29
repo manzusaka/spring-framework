@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2019 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class CandidateComponentsIndexTests {
 
 	@Test
-	public void getCandidateTypes() {
+	void getCandidateTypes() {
 		CandidateComponentsIndex index = new CandidateComponentsIndex(
 				Collections.singletonList(createSampleProperties()));
 		Set<String> actual = index.getCandidateTypes("com.example.service", "service");
@@ -42,7 +42,7 @@ public class CandidateComponentsIndexTests {
 	}
 
 	@Test
-	public void getCandidateTypesSubPackage() {
+	void getCandidateTypesSubPackage() {
 		CandidateComponentsIndex index = new CandidateComponentsIndex(
 				Collections.singletonList(createSampleProperties()));
 		Set<String> actual = index.getCandidateTypes("com.example.service.sub", "service");
@@ -50,7 +50,7 @@ public class CandidateComponentsIndexTests {
 	}
 
 	@Test
-	public void getCandidateTypesSubPackageNoMatch() {
+	void getCandidateTypesSubPackageNoMatch() {
 		CandidateComponentsIndex index = new CandidateComponentsIndex(
 				Collections.singletonList(createSampleProperties()));
 		Set<String> actual = index.getCandidateTypes("com.example.service.none", "service");
@@ -58,7 +58,7 @@ public class CandidateComponentsIndexTests {
 	}
 
 	@Test
-	public void getCandidateTypesNoMatch() {
+	void getCandidateTypesNoMatch() {
 		CandidateComponentsIndex index = new CandidateComponentsIndex(
 				Collections.singletonList(createSampleProperties()));
 		Set<String> actual = index.getCandidateTypes("com.example.service", "entity");
@@ -66,7 +66,7 @@ public class CandidateComponentsIndexTests {
 	}
 
 	@Test
-	public void mergeCandidateStereotypes() {
+	void mergeCandidateStereotypes() {
 		CandidateComponentsIndex index = new CandidateComponentsIndex(Arrays.asList(
 				createProperties("com.example.Foo", "service"),
 				createProperties("com.example.Foo", "entity")));

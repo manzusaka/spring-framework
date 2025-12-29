@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ public class PathPatternParser {
 	 * stage. Produces a PathPattern object that can be used for fast matching
 	 * against paths. Each invocation of this method delegates to a new instance of
 	 * the {@link InternalPathPatternParser} because that class is not thread-safe.
-	 * @param pathPattern the input path pattern, e.g. /project/{name}
+	 * @param pathPattern the input path pattern, for example, /project/{name}
 	 * @return a PathPattern for quickly matching paths against request paths
 	 * @throws PatternParseException in case of parse errors
 	 */
@@ -139,7 +139,7 @@ public class PathPatternParser {
 	 * <li>{@code pathOptions = PathContainer.Options.HTTP_PATH}
 	 * </ul>
 	 */
-	public final static PathPatternParser defaultInstance = new PathPatternParser() {
+	public static final PathPatternParser defaultInstance = new PathPatternParser() {
 
 		@SuppressWarnings("deprecation")
 		@Override

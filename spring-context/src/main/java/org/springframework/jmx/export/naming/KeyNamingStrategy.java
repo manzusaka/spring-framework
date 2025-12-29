@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ public class KeyNamingStrategy implements ObjectNamingStrategy, InitializingBean
 
 
 	/**
-	 * Set local properties, containing object name mappings, e.g. via
+	 * Set local properties, containing object name mappings, for example, via
 	 * the "props" tag in XML bean definitions. These can be considered
 	 * defaults, to be overridden by properties loaded from files.
 	 */

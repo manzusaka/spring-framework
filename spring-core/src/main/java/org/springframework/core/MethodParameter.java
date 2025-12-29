@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,16 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
+import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -93,7 +97,7 @@ public class MethodParameter {
 	private volatile ParameterNameDiscoverer parameterNameDiscoverer;
 
 	@Nullable
-	private volatile String parameterName;
+	volatile String parameterName;
 
 	@Nullable
 	private volatile MethodParameter nestedMethodParameter;
@@ -117,7 +121,7 @@ public class MethodParameter {
 	 * return type; 0 for the first method parameter; 1 for the second method
 	 * parameter, etc.
 	 * @param nestingLevel the nesting level of the target type
-	 * (typically 1; e.g. in case of a List of Lists, 1 would indicate the
+	 * (typically 1; for example, in case of a List of Lists, 1 would indicate the
 	 * nested List, whereas 2 would indicate the element of the nested List)
 	 */
 	public MethodParameter(Method method, int parameterIndex, int nestingLevel) {
@@ -141,7 +145,7 @@ public class MethodParameter {
 	 * @param constructor the Constructor to specify a parameter for
 	 * @param parameterIndex the index of the parameter
 	 * @param nestingLevel the nesting level of the target type
-	 * (typically 1; e.g. in case of a List of Lists, 1 would indicate the
+	 * (typically 1; for example, in case of a List of Lists, 1 would indicate the
 	 * nested List, whereas 2 would indicate the element of the nested List)
 	 */
 	public MethodParameter(Constructor<?> constructor, int parameterIndex, int nestingLevel) {
@@ -227,6 +231,8 @@ public class MethodParameter {
 	 * Return the wrapped annotated element.
 	 * <p>Note: This method exposes the annotations declared on the method/constructor
 	 * itself (i.e. at the method/constructor level, not at the parameter level).
+	 * <p>To get the {@link AnnotatedElement} at the parameter level, use
+	 * {@link #getParameter()}.
 	 * @return the Method or Constructor as AnnotatedElement
 	 */
 	public AnnotatedElement getAnnotatedElement() {
@@ -290,7 +296,7 @@ public class MethodParameter {
 
 	/**
 	 * Return the nesting level of the target type
-	 * (typically 1; e.g. in case of a List of Lists, 1 would indicate the
+	 * (typically 1; for example, in case of a List of Lists, 1 would indicate the
 	 * nested List, whereas 2 would indicate the element of the nested List).
 	 */
 	public int getNestingLevel() {
@@ -409,7 +415,7 @@ public class MethodParameter {
 
 	/**
 	 * Check whether this method parameter is annotated with any variant of a
-	 * {@code Nullable} annotation, e.g. {@code jakarta.annotation.Nullable} or
+	 * {@code Nullable} annotation, for example, {@code jakarta.annotation.Nullable} or
 	 * {@code edu.umd.cs.findbugs.annotations.Nullable}.
 	 */
 	private boolean hasNullableAnnotation() {
@@ -437,7 +443,7 @@ public class MethodParameter {
 	 * Return a variant of this {@code MethodParameter} which refers to the
 	 * given containing class.
 	 * @param containingClass a specific containing class (potentially a
-	 * subclass of the declaring class, e.g. substituting a type variable)
+	 * subclass of the declaring class, for example, substituting a type variable)
 	 * @since 5.2
 	 * @see #getParameterType()
 	 */
@@ -641,7 +647,7 @@ public class MethodParameter {
 				// for inner classes, so access it with the actual parameter index lowered by 1
 				index = this.parameterIndex - 1;
 			}
-			paramAnns = (index >= 0 && index < annotationArray.length ?
+			paramAnns = (index >= 0 && index < annotationArray.length && annotationArray[index].length > 0 ?
 					adaptAnnotationArray(annotationArray[index]) : EMPTY_ANNOTATION_ARRAY);
 			this.parameterAnnotations = paramAnns;
 		}
@@ -714,7 +720,7 @@ public class MethodParameter {
 			else if (this.executable instanceof Constructor<?> constructor) {
 				parameterNames = discoverer.getParameterNames(constructor);
 			}
-			if (parameterNames != null) {
+			if (parameterNames != null && this.parameterIndex < parameterNames.length) {
 				this.parameterName = parameterNames[this.parameterIndex];
 			}
 			this.parameterNameDiscoverer = null;
@@ -852,6 +858,74 @@ public class MethodParameter {
 		Assert.isTrue(parameterIndex >= -1 && parameterIndex < count,
 				() -> "Parameter index needs to be between -1 and " + (count - 1));
 		return parameterIndex;
+	}
+
+	/**
+	 * Create a new MethodParameter for the given field-aware constructor,
+	 * for example, on a data class or record type.
+	 * <p>A field-aware method parameter will detect field annotations as well,
+	 * as long as the field name matches the parameter name.
+	 * @param ctor the Constructor to specify a parameter for
+	 * @param parameterIndex the index of the parameter
+	 * @param fieldName the name of the underlying field,
+	 * matching the constructor's parameter name
+	 * @return the corresponding MethodParameter instance
+	 * @since 6.1
+	 */
+	public static MethodParameter forFieldAwareConstructor(Constructor<?> ctor, int parameterIndex, String fieldName) {
+		return new FieldAwareConstructorParameter(ctor, parameterIndex, fieldName);
+	}
+
+
+	/**
+	 * {@link MethodParameter} subclass which detects field annotations as well.
+	 */
+	private static class FieldAwareConstructorParameter extends MethodParameter {
+
+		@Nullable
+		private volatile Annotation[] combinedAnnotations;
+
+		public FieldAwareConstructorParameter(Constructor<?> constructor, int parameterIndex, String fieldName) {
+			super(constructor, parameterIndex);
+			this.parameterName = fieldName;
+		}
+
+		@Override
+		public Annotation[] getParameterAnnotations() {
+			String parameterName = this.parameterName;
+			Assert.state(parameterName != null, "Parameter name not initialized");
+
+			Annotation[] anns = this.combinedAnnotations;
+			if (anns == null) {
+				anns = super.getParameterAnnotations();
+				try {
+					Field field = getDeclaringClass().getDeclaredField(parameterName);
+					Annotation[] fieldAnns = field.getAnnotations();
+					if (fieldAnns.length > 0) {
+						List<Annotation> merged = new ArrayList<>(anns.length + fieldAnns.length);
+						merged.addAll(Arrays.asList(anns));
+						for (Annotation fieldAnn : fieldAnns) {
+							boolean existingType = false;
+							for (Annotation ann : anns) {
+								if (ann.annotationType() == fieldAnn.annotationType()) {
+									existingType = true;
+									break;
+								}
+							}
+							if (!existingType) {
+								merged.add(fieldAnn);
+							}
+						}
+						anns = merged.toArray(EMPTY_ANNOTATION_ARRAY);
+					}
+				}
+				catch (NoSuchFieldException | SecurityException ex) {
+					// ignore
+				}
+				this.combinedAnnotations = anns;
+			}
+			return anns;
+		}
 	}
 
 

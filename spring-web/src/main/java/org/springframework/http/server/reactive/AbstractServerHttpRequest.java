@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,9 @@ package org.springframework.http.server.reactive;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.Map;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,12 +50,14 @@ public abstract class AbstractServerHttpRequest implements ServerHttpRequest {
 
 	private final URI uri;
 
-	private final RequestPath path;
+	@Nullable
+	private final String contextPath;
+
+	@Nullable
+	private RequestPath path;
 
 	private final HttpHeaders headers;
 
-	// TODO: remove @Nullable once deprecated constructors have been removed
-	@Nullable
 	private final HttpMethod method;
 
 	@Nullable
@@ -70,22 +75,9 @@ public abstract class AbstractServerHttpRequest implements ServerHttpRequest {
 	@Nullable
 	private String logPrefix;
 
+	@Nullable
+	private Supplier<Map<String, Object>> attributesSupplier;
 
-	/**
-	 * Constructor with the URI and headers for the request.
-	 * @param uri the URI for the request
-	 * @param contextPath the context path for the request
-	 * @param headers the headers for the request (as {@link MultiValueMap})
-	 * @since 5.3
-	 * @deprecated since 6.0.8, in favor of {@link #AbstractServerHttpRequest(HttpMethod, URI, String, MultiValueMap)}
-	 */
-	@Deprecated(since = "6.0.8", forRemoval = true)
-	public AbstractServerHttpRequest(URI uri, @Nullable String contextPath, MultiValueMap<String, String> headers) {
-		this.uri = uri;
-		this.path = RequestPath.parse(uri, contextPath);
-		this.headers = HttpHeaders.readOnlyHttpHeaders(headers);
-		this.method = null;
-	}
 
 	/**
 	 * Constructor with the method, URI and headers for the request.
@@ -104,23 +96,8 @@ public abstract class AbstractServerHttpRequest implements ServerHttpRequest {
 
 		this.method = method;
 		this.uri = uri;
-		this.path = RequestPath.parse(uri, contextPath);
+		this.contextPath = contextPath;
 		this.headers = HttpHeaders.readOnlyHttpHeaders(headers);
-	}
-
-	/**
-	 * Constructor with the URI and headers for the request.
-	 * @param uri the URI for the request
-	 * @param contextPath the context path for the request
-	 * @param headers the headers for the request (as {@link HttpHeaders})
-	 * @deprecated since 6.0.8, in favor of {@link #AbstractServerHttpRequest(HttpMethod, URI, String, MultiValueMap)}
-	 */
-	@Deprecated(since = "6.0.8", forRemoval = true)
-	public AbstractServerHttpRequest(URI uri, @Nullable String contextPath, HttpHeaders headers) {
-		this.uri = uri;
-		this.path = RequestPath.parse(uri, contextPath);
-		this.headers = HttpHeaders.readOnlyHttpHeaders(headers);
-		this.method = null;
 	}
 
 
@@ -147,14 +124,7 @@ public abstract class AbstractServerHttpRequest implements ServerHttpRequest {
 
 	@Override
 	public HttpMethod getMethod() {
-		// TODO: remove null check once deprecated constructors have been removed
-		if (this.method != null) {
-			return this.method;
-		}
-		else {
-			throw new IllegalStateException("No HttpMethod provided in constructor, " +
-					"and AbstractServerHttpRequest::getMethod not overridden");
-		}
+		return this.method;
 	}
 
 	@Override
@@ -163,7 +133,20 @@ public abstract class AbstractServerHttpRequest implements ServerHttpRequest {
 	}
 
 	@Override
+	public Map<String, Object> getAttributes() {
+		if (this.attributesSupplier != null) {
+			return this.attributesSupplier.get();
+		}
+		else {
+			return Collections.emptyMap();
+		}
+	}
+
+	@Override
 	public RequestPath getPath() {
+		if (this.path == null) {
+			this.path = RequestPath.parse(this.uri, this.contextPath);
+		}
 		return this.path;
 	}
 
@@ -270,4 +253,12 @@ public abstract class AbstractServerHttpRequest implements ServerHttpRequest {
 		return getId();
 	}
 
+	/**
+	 * Set the attribute supplier.
+	 * <p><strong>Note:</strong> This is exposed mainly for internal framework
+	 * use.
+	 */
+	public void setAttributesSupplier(Supplier<Map<String, Object>> attributesSupplier) {
+		this.attributesSupplier = attributesSupplier;
+	}
 }

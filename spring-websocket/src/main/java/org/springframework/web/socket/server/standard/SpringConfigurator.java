@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,8 +55,7 @@ public class SpringConfigurator extends Configurator {
 
 	private static final Log logger = LogFactory.getLog(SpringConfigurator.class);
 
-	private static final Map<String, Map<Class<?>, String>> cache =
-			new ConcurrentHashMap<>();
+	private static final Map<String, Map<Class<?>, String>> cache = new ConcurrentHashMap<>();
 
 
 	@SuppressWarnings("unchecked")
@@ -101,28 +100,19 @@ public class SpringConfigurator extends Configurator {
 	@Nullable
 	private String getBeanNameByType(WebApplicationContext wac, Class<?> endpointClass) {
 		String wacId = wac.getId();
-
-		Map<Class<?>, String> beanNamesByType = cache.get(wacId);
-		if (beanNamesByType == null) {
-			beanNamesByType = new ConcurrentHashMap<>();
-			cache.put(wacId, beanNamesByType);
-		}
-
-		if (!beanNamesByType.containsKey(endpointClass)) {
-			String[] names = wac.getBeanNamesForType(endpointClass);
-			if (names.length == 1) {
-				beanNamesByType.put(endpointClass, names[0]);
-			}
-			else {
-				beanNamesByType.put(endpointClass, NO_VALUE);
-				if (names.length > 1) {
-					throw new IllegalStateException("Found multiple @ServerEndpoint's of type [" +
-							endpointClass.getName() + "]: bean names " + Arrays.toString(names));
-				}
-			}
-		}
+		Map<Class<?>, String> beanNamesByType = cache.computeIfAbsent(wacId, key -> new ConcurrentHashMap<>());
 
 		String beanName = beanNamesByType.get(endpointClass);
+		if (beanName == null) {
+			String[] names = wac.getBeanNamesForType(endpointClass);
+			beanName = (names.length == 1 ? names[0] : NO_VALUE);
+			beanNamesByType.put(endpointClass, beanName);
+			if (names.length > 1) {
+				throw new IllegalStateException("Found multiple @ServerEndpoint's of type [" +
+						endpointClass.getName() + "]: bean names " + Arrays.toString(names));
+			}
+		}
+
 		return (NO_VALUE.equals(beanName) ? null : beanName);
 	}
 

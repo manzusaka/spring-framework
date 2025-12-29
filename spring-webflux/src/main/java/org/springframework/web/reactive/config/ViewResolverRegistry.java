@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ import org.springframework.web.reactive.result.view.script.ScriptTemplateViewRes
  * different template mechanisms.
  *
  * <p>In addition, you can also configure {@link #defaultViews(View...)
- * defaultViews} for rendering according to the requested content type, e.g.
+ * defaultViews} for rendering according to the requested content type, for example,
  * JSON, XML, etc.
  *
  * @author Rossen Stoyanchev
@@ -123,7 +123,7 @@ public class ViewResolverRegistry {
 	 * best match for the requested content type.
 	 * <p>Use {@link HttpMessageWriterView
 	 * HttpMessageWriterView} to adapt and use any existing
-	 * {@code HttpMessageWriter} (e.g. JSON, XML) as a {@code View}.
+	 * {@code HttpMessageWriter} (for example, JSON, XML) as a {@code View}.
 	 */
 	public void defaultViews(View... defaultViews) {
 		this.defaultViews.addAll(Arrays.asList(defaultViews));

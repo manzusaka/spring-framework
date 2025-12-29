@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ public abstract class TypeUtils {
 			else if (lhsClass.isArray() && rhsType instanceof GenericArrayType rhsGenericArrayType) {
 				Type rhsComponent = rhsGenericArrayType.getGenericComponentType();
 
-				return isAssignable(lhsClass.getComponentType(), rhsComponent);
+				return isAssignable(lhsClass.componentType(), rhsComponent);
 			}
 		}
 
@@ -97,7 +97,7 @@ public abstract class TypeUtils {
 			Type lhsComponent = lhsGenericArrayType.getGenericComponentType();
 
 			if (rhsType instanceof Class<?> rhsClass && rhsClass.isArray()) {
-				return isAssignable(lhsComponent, rhsClass.getComponentType());
+				return isAssignable(lhsComponent, rhsClass.componentType());
 			}
 			else if (rhsType instanceof GenericArrayType rhsGenericArrayType) {
 				Type rhsComponent = rhsGenericArrayType.getGenericComponentType();

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -124,7 +124,7 @@ public interface MultipartFile extends InputStreamSource {
 	 * in order to work with any storage mechanism.
 	 * <p><b>NOTE:</b> Depending on the underlying provider, temporary storage
 	 * may be container-dependent, including the base directory for relative
-	 * destinations specified here (e.g. with Servlet multipart handling).
+	 * destinations specified here (for example, with Servlet multipart handling).
 	 * For absolute destinations, the target file may get renamed/moved from its
 	 * temporary location or newly copied, even if a temporary copy already exists.
 	 * @param dest the destination file (typically absolute)

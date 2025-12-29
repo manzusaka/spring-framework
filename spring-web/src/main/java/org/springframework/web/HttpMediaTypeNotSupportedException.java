@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ public class HttpMediaTypeNotSupportedException extends HttpMediaTypeException {
 	 * @param mediaTypes list of supported media types
 	 * @since 6.0.5
 	 */
-	public HttpMediaTypeNotSupportedException(String message, List<MediaType> mediaTypes) {
+	public HttpMediaTypeNotSupportedException(@Nullable String message, List<MediaType> mediaTypes) {
 		super(message, mediaTypes, PARSE_ERROR_DETAIL_CODE, null);
 		this.contentType = null;
 		this.httpMethod = null;

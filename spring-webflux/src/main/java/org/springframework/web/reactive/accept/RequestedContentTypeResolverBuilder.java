@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import org.springframework.lang.Nullable;
 /**
  * Builder for a composite {@link RequestedContentTypeResolver} that delegates
  * to other resolvers each implementing a different strategy to determine the
- * requested content type -- e.g. Accept header, query parameter, or other.
+ * requested content type -- for example, Accept header, query parameter, or other.
  *
  * <p>Use builder methods to add resolvers in the desired order. For a given
  * request he first resolver to return a list that is not empty and does not
@@ -103,8 +103,7 @@ public class RequestedContentTypeResolverBuilder {
 	}
 
 	private boolean isMediaTypeAll(List<MediaType> mediaTypes) {
-		return mediaTypes.size() == 1
-			&& mediaTypes.get(0).removeQualityValue().equals(MediaType.ALL);
+		return mediaTypes.size() == 1 && mediaTypes.get(0).removeQualityValue().equals(MediaType.ALL);
 	}
 
 

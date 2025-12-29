@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ import org.springframework.web.server.ServerWebExchange;
  * Resolver for {@code @RequestPart} arguments where the named part is decoded
  * much like an {@code @RequestBody} argument but based on the content of an
  * individual part instead. The arguments may be wrapped with a reactive type
- * for a single value (e.g. Reactor {@code Mono}, RxJava {@code Single}).
+ * for a single value (for example, Reactor {@code Mono}, RxJava {@code Single}).
  *
  * <p>This resolver also supports arguments of type {@link Part} which may be
  * wrapped with a reactive type for a single value or multiple values.

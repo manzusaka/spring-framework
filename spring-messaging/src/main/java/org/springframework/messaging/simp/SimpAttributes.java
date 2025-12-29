@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import org.springframework.util.StringUtils;
 
 /**
  * A wrapper class for access to attributes associated with a SiMP session
- * (e.g. WebSocket session).
+ * (for example, WebSocket session).
  *
  * @author Rossen Stoyanchev
  * @since 4.1

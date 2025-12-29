@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for {@link MockCookie}.
+ * Tests for {@link MockCookie}.
  *
  * @author Vedran Pavic
  * @author Sam Brannen
@@ -46,6 +46,7 @@ class MockCookieTests {
 		assertThat(cookie.getMaxAge()).isEqualTo(-1);
 		assertThat(cookie.getPath()).isNull();
 		assertThat(cookie.isHttpOnly()).isFalse();
+		assertThat(cookie.isPartitioned()).isFalse();
 		assertThat(cookie.getSecure()).isFalse();
 		assertThat(cookie.getSameSite()).isNull();
 	}
@@ -67,11 +68,11 @@ class MockCookieTests {
 		assertCookie(cookie, "SESSION", "123");
 	}
 
-	@SuppressWarnings("removal")
 	@Test
+	@SuppressWarnings("removal")
 	void parseHeaderWithAttributes() {
 		MockCookie cookie = MockCookie.parse("SESSION=123; Domain=example.com; Max-Age=60; " +
-				"Expires=Tue, 8 Oct 2019 19:50:00 GMT; Path=/; Secure; HttpOnly; SameSite=Lax");
+				"Expires=Tue, 8 Oct 2019 19:50:00 GMT; Path=/; Secure; HttpOnly; Partitioned; SameSite=Lax");
 
 		assertCookie(cookie, "SESSION", "123");
 		assertThat(cookie.getDomain()).isEqualTo("example.com");
@@ -79,10 +80,24 @@ class MockCookieTests {
 		assertThat(cookie.getPath()).isEqualTo("/");
 		assertThat(cookie.getSecure()).isTrue();
 		assertThat(cookie.isHttpOnly()).isTrue();
+		assertThat(cookie.isPartitioned()).isTrue();
 		assertThat(cookie.getExpires()).isEqualTo(ZonedDateTime.parse("Tue, 8 Oct 2019 19:50:00 GMT",
 				DateTimeFormatter.RFC_1123_DATE_TIME));
 		assertThat(cookie.getSameSite()).isEqualTo("Lax");
 		assertThat(cookie.getComment()).isNull();
+	}
+
+	@Test  // gh-34575
+	void parseHeaderWithOptionalAttributes() {
+		MockCookie cookie = MockCookie.parse("SESSION=123; HttpOnly; Version=1; Partitioned; Secure");
+
+		assertCookie(cookie, "SESSION", "123");
+		assertThat(cookie.isHttpOnly()).isTrue();
+		assertThat(cookie.getSecure()).isTrue();
+		assertThat(cookie.isPartitioned()).isTrue();
+		assertThat(cookie.getAttribute("Partitioned")).isEmpty();
+		assertThat(cookie.getAttribute("Version")).isEqualTo("1");
+		assertThat(cookie.getAttribute("BOGUS")).isNull();
 	}
 
 	@ParameterizedTest
@@ -201,6 +216,19 @@ class MockCookieTests {
 	void setInvalidAttributeExpiresShouldThrow() {
 		MockCookie cookie = new MockCookie("SESSION", "123");
 		assertThatThrownBy(() -> cookie.setAttribute("expires", "12345")).isInstanceOf(DateTimeParseException.class);
+	}
+
+	@Test
+	void setPartitioned() {
+		MockCookie cookie = new MockCookie("SESSION", "123");
+		assertThat(cookie.isPartitioned()).isFalse();
+		assertThat(cookie.getAttribute("Partitioned")).isNull();
+		cookie.setPartitioned(true);
+		assertThat(cookie.isPartitioned()).isTrue();
+		assertThat(cookie.getAttribute("Partitioned")).isEmpty();
+		cookie.setPartitioned(false);
+		assertThat(cookie.isPartitioned()).isFalse();
+		assertThat(cookie.getAttribute("Partitioned")).isNull();
 	}
 
 }

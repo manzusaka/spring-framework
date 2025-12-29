@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ public class ViewResolverRegistry {
 	/**
 	 * Enable use of a {@link ContentNegotiatingViewResolver} to front all other
 	 * configured view resolvers and select among all selected Views based on
-	 * media types requested by the client (e.g. in the Accept header).
+	 * media types requested by the client (for example, in the Accept header).
 	 * <p>If invoked multiple times the provided default views will be added to
 	 * any other default views that may have been configured already.
 	 * @see ContentNegotiatingViewResolver#setDefaultViews
@@ -101,7 +101,7 @@ public class ViewResolverRegistry {
 	/**
 	 * Enable use of a {@link ContentNegotiatingViewResolver} to front all other
 	 * configured view resolvers and select among all selected Views based on
-	 * media types requested by the client (e.g. in the Accept header).
+	 * media types requested by the client (for example, in the Accept header).
 	 * <p>If invoked multiple times the provided default views will be added to
 	 * any other default views that may have been configured already.
 	 * @see ContentNegotiatingViewResolver#setDefaultViews

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -176,8 +176,31 @@ public class ReflectionHints {
 	}
 
 	/**
-	 * Register the need for reflection on the specified {@link Field}.
-	 * @param field the field that requires reflection
+	 * Register or customize reflection hints for all the interfaces implemented by
+	 * the given type and its parent classes, ignoring the common Java language interfaces.
+	 * The specified {@code typeHint} consumer is invoked for each type.
+	 * @param type the type to consider
+	 * @param typeHint a builder to further customize hints for each type
+	 * @return {@code this}, to facilitate method chaining
+	 * @since 6.2
+	 */
+	public ReflectionHints registerForInterfaces(Class<?> type, Consumer<TypeHint.Builder> typeHint) {
+		Class<?> currentClass = type;
+		while (currentClass != null && currentClass != Object.class) {
+			for (Class<?> interfaceType : currentClass.getInterfaces()) {
+				if (!ClassUtils.isJavaLanguageInterface(interfaceType)) {
+					this.registerType(interfaceType, typeHint);
+					registerForInterfaces(interfaceType, typeHint);
+				}
+			}
+			currentClass = currentClass.getSuperclass();
+		}
+		return this;
+	}
+
+	/**
+	 * Register the need for reflective field access on the specified {@link Field}.
+	 * @param field the field that requires reflective access
 	 * @return {@code this}, to facilitate method chaining
 	 */
 	public ReflectionHints registerField(Field field) {

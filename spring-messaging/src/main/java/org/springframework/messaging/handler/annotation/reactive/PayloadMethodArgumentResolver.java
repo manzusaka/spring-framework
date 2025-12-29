@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -231,7 +231,7 @@ public class PayloadMethodArgumentResolver implements HandlerMethodArgumentResol
 					Flux<?> flux = content
 							.filter(this::nonEmptyDataBuffer)
 							.map(buffer -> decoder.decode(buffer, elementType, mimeType, hints))
-							.onErrorResume(ex -> Flux.error(handleReadError(parameter, message, ex)));
+							.onErrorMap(ex -> handleReadError(parameter, message, ex));
 					if (isContentRequired) {
 						flux = flux.switchIfEmpty(Flux.error(() -> handleMissingBody(parameter, message)));
 					}
@@ -245,7 +245,7 @@ public class PayloadMethodArgumentResolver implements HandlerMethodArgumentResol
 					Mono<?> mono = content.next()
 							.filter(this::nonEmptyDataBuffer)
 							.map(buffer -> decoder.decode(buffer, elementType, mimeType, hints))
-							.onErrorResume(ex -> Mono.error(handleReadError(parameter, message, ex)));
+							.onErrorMap(ex -> handleReadError(parameter, message, ex));
 					if (isContentRequired) {
 						mono = mono.switchIfEmpty(Mono.error(() -> handleMissingBody(parameter, message)));
 					}

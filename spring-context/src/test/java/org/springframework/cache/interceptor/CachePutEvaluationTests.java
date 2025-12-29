@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @author Stephane Nicoll
  */
-public class CachePutEvaluationTests {
+class CachePutEvaluationTests {
 
 	private ConfigurableApplicationContext context;
 
@@ -51,22 +51,22 @@ public class CachePutEvaluationTests {
 
 	private SimpleService service;
 
+
 	@BeforeEach
-	public void setup() {
+	void setup() {
 		this.context = new AnnotationConfigApplicationContext(Config.class);
 		this.cache = this.context.getBean(CacheManager.class).getCache("test");
 		this.service = this.context.getBean(SimpleService.class);
 	}
 
 	@AfterEach
-	public void close() {
-		if (this.context != null) {
-			this.context.close();
-		}
+	void closeContext() {
+		this.context.close();
 	}
 
+
 	@Test
-	public void mutualGetPutExclusion() {
+	void mutualGetPutExclusion() {
 		String key = "1";
 
 		Long first = this.service.getOrPut(key, true);
@@ -83,7 +83,7 @@ public class CachePutEvaluationTests {
 	}
 
 	@Test
-	public void getAndPut() {
+	void getAndPut() {
 		this.cache.clear();
 
 		long key = 1;
@@ -104,6 +104,7 @@ public class CachePutEvaluationTests {
 		assertThat(this.cache.get(anotherValue + 100).get()).as("Wrong value for @CachePut key").isEqualTo(anotherValue);
 	}
 
+
 	@Configuration
 	@EnableCaching
 	static class Config implements CachingConfigurer {
@@ -121,8 +122,10 @@ public class CachePutEvaluationTests {
 
 	}
 
-	@CacheConfig(cacheNames = "test")
+
+	@CacheConfig("test")
 	public static class SimpleService {
+
 		private AtomicLong counter = new AtomicLong();
 
 		/**
@@ -144,4 +147,5 @@ public class CachePutEvaluationTests {
 			return this.counter.getAndIncrement();
 		}
 	}
+
 }

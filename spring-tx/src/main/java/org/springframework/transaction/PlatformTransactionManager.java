@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import org.springframework.lang.Nullable;
  * <p>A classic implementation of this strategy interface is
  * {@link org.springframework.transaction.jta.JtaTransactionManager}. However,
  * in common single-resource scenarios, Spring's specific transaction managers
- * for e.g. JDBC, JPA, JMS are preferred choices.
+ * for example, JDBC, JPA, JMS are preferred choices.
  *
  * @author Rod Johnson
  * @author Juergen Hoeller
@@ -42,6 +42,7 @@ import org.springframework.lang.Nullable;
  * @see org.springframework.transaction.support.TransactionTemplate
  * @see org.springframework.transaction.interceptor.TransactionInterceptor
  * @see org.springframework.transaction.ReactiveTransactionManager
+ * @see ConfigurableTransactionManager
  */
 public interface PlatformTransactionManager extends TransactionManager {
 

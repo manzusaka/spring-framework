@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -187,6 +187,7 @@ import org.springframework.web.util.TagUtils;
  * @author Rob Harrop
  * @author Juergen Hoeller
  * @author Scott Andrews
+ * @author Sam Brannen
  * @since 2.0
  */
 @SuppressWarnings("serial")
@@ -312,7 +313,10 @@ public class OptionsTag extends AbstractHtmlElementTag {
 					(itemValue != null ? ObjectUtils.getDisplayString(evaluate("itemValue", itemValue)) : null);
 			String labelProperty =
 					(itemLabel != null ? ObjectUtils.getDisplayString(evaluate("itemLabel", itemLabel)) : null);
-			OptionsWriter optionWriter = new OptionsWriter(selectName, itemsObject, valueProperty, labelProperty);
+			String encodingToUse =
+					(isResponseEncodedHtmlEscape() ? this.pageContext.getResponse().getCharacterEncoding() : null);
+			OptionsWriter optionWriter =
+					new OptionsWriter(selectName, itemsObject, valueProperty, labelProperty, encodingToUse);
 			optionWriter.writeOptions(tagWriter);
 		}
 		return SKIP_BODY;
@@ -323,6 +327,7 @@ public class OptionsTag extends AbstractHtmlElementTag {
 	 * since we're dealing with multiple HTML elements.
 	 */
 	@Override
+	@Nullable
 	protected String resolveId() throws JspException {
 		Object id = evaluate("id", getId());
 		if (id != null) {
@@ -352,9 +357,9 @@ public class OptionsTag extends AbstractHtmlElementTag {
 		private final String selectName;
 
 		public OptionsWriter(@Nullable String selectName, Object optionSource,
-				@Nullable String valueProperty, @Nullable String labelProperty) {
+				@Nullable String valueProperty, @Nullable String labelProperty, @Nullable String encoding) {
 
-			super(optionSource, getBindStatus(), valueProperty, labelProperty, isHtmlEscape());
+			super(optionSource, getBindStatus(), valueProperty, labelProperty, isHtmlEscape(), encoding);
 			this.selectName = selectName;
 		}
 

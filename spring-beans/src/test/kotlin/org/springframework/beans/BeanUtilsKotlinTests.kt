@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,6 +90,109 @@ class BeanUtilsKotlinTests {
 		BeanUtils.instantiateClass(PrivateClass::class.java.getDeclaredConstructor())
 	}
 
+	@Test
+	fun `Instantiate value class`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ValueClass::class.java)!!
+		val value = "Hello value class!"
+		val instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ValueClass(value))
+	}
+
+	@Test
+	fun `Instantiate value class with multiple constructors`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ValueClassWithMultipleConstructors::class.java)!!
+		val value = "Hello value class!"
+		val instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ValueClassWithMultipleConstructors(value))
+	}
+
+	@Test
+	fun `Instantiate class with value class parameter`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ConstructorWithValueClass::class.java)!!
+		val value = ValueClass("Hello value class!")
+		val instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ConstructorWithValueClass(value))
+	}
+
+	@Test
+	fun `Instantiate class with nullable value class parameter`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ConstructorWithNullableValueClass::class.java)!!
+		val value = ValueClass("Hello value class!")
+		var instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ConstructorWithNullableValueClass(value))
+		instance = BeanUtils.instantiateClass(constructor, null)
+		assertThat(instance).isEqualTo(ConstructorWithNullableValueClass(null))
+	}
+
+	@Test
+	fun `Instantiate primitive value class`() {
+		val constructor = BeanUtils.findPrimaryConstructor(PrimitiveValueClass::class.java)!!
+		val value = 0
+		val instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(PrimitiveValueClass(value))
+	}
+
+	@Test
+	fun `Instantiate class with primitive value class parameter`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ConstructorWithPrimitiveValueClass::class.java)!!
+		val value = PrimitiveValueClass(0)
+		val instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ConstructorWithPrimitiveValueClass(value))
+	}
+
+	@Test
+	fun `Instantiate class with nullable primitive value class parameter`() {
+		val constructor = BeanUtils.findPrimaryConstructor(ConstructorWithNullablePrimitiveValueClass::class.java)!!
+		val value = PrimitiveValueClass(0)
+		var instance = BeanUtils.instantiateClass(constructor, value)
+		assertThat(instance).isEqualTo(ConstructorWithNullablePrimitiveValueClass(value))
+		instance = BeanUtils.instantiateClass(constructor, null)
+		assertThat(instance).isEqualTo(ConstructorWithNullablePrimitiveValueClass(null))
+	}
+
+	@Test
+	fun `Get parameter names with Foo`() {
+		val ctor = BeanUtils.findPrimaryConstructor(Foo::class.java)!!
+		val names = BeanUtils.getParameterNames(ctor)
+		assertThat(names).containsExactly("param1", "param2")
+	}
+
+	@Test
+	fun `Get parameter names filters out DefaultConstructorMarker with ConstructorWithValueClass`() {
+		val ctor = BeanUtils.findPrimaryConstructor(ConstructorWithValueClass::class.java)!!
+		val names = BeanUtils.getParameterNames(ctor)
+		assertThat(names).containsExactly("value")
+	}
+
+	@Test
+	fun `getParameterNames filters out DefaultConstructorMarker with ConstructorWithNullableValueClass`() {
+		val ctor = BeanUtils.findPrimaryConstructor(ConstructorWithNullableValueClass::class.java)!!
+		val names = BeanUtils.getParameterNames(ctor)
+		assertThat(names).containsExactly("value")
+	}
+
+	@Test
+	fun `getParameterNames filters out DefaultConstructorMarker with ConstructorWithPrimitiveValueClass`() {
+		val ctor = BeanUtils.findPrimaryConstructor(ConstructorWithPrimitiveValueClass::class.java)!!
+		val names = BeanUtils.getParameterNames(ctor)
+		assertThat(names).containsExactly("value")
+	}
+
+	@Test
+	fun `getParameterNames filters out DefaultConstructorMarker with ConstructorWithNullablePrimitiveValueClass`() {
+		val ctor = BeanUtils.findPrimaryConstructor(ConstructorWithNullablePrimitiveValueClass::class.java)!!
+		val names = BeanUtils.getParameterNames(ctor)
+		assertThat(names).containsExactly("value")
+	}
+
+	@Test
+	fun `getParameterNames with ClassWithZeroParameterCtor`() {
+		val ctor = BeanUtils.findPrimaryConstructor(ClassWithZeroParameterCtor::class.java)!!
+		val names = BeanUtils.getParameterNames(ctor)
+		assertThat(names).isEmpty()
+	}
+
+
 	class Foo(val param1: String, val param2: Int)
 
 	class Bar(val param1: String, val param2: Int = 12)
@@ -127,5 +230,27 @@ class BeanUtilsKotlinTests {
 	open class ProtectedConstructor protected constructor()
 
 	private class PrivateClass
+
+	@JvmInline
+	value class ValueClass(private val value: String)
+
+	@JvmInline
+	value class ValueClassWithMultipleConstructors(private val value: String) {
+		constructor() : this("Fail")
+		constructor(part1: String, part2: String) : this("Fail")
+	}
+
+	data class ConstructorWithValueClass(val value: ValueClass)
+
+	data class ConstructorWithNullableValueClass(val value: ValueClass?)
+
+	@JvmInline
+	value class PrimitiveValueClass(private val value: Int)
+
+	data class ConstructorWithPrimitiveValueClass(val value: PrimitiveValueClass)
+
+	data class ConstructorWithNullablePrimitiveValueClass(val value: PrimitiveValueClass?)
+
+	class ClassWithZeroParameterCtor()
 
 }

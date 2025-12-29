@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ import org.springframework.lang.Nullable;
  * of XA enlistment. You need to specify an XA-capable ConnectionManager in
  * order to make the connector interact with an XA transaction coordinator.
  * Alternatively, simply use the native local transaction facilities of the
- * exposed API (e.g. CCI local transactions), or use a corresponding
+ * exposed API (for example, CCI local transactions), or use a corresponding
  * implementation of Spring's PlatformTransactionManager SPI to drive local
  * transactions.
  *
@@ -132,6 +132,7 @@ public class LocalConnectionFactoryBean implements FactoryBean<Object>, Initiali
 	}
 
 	@Override
+	@Nullable
 	public Class<?> getObjectType() {
 		return (this.connectionFactory != null ? this.connectionFactory.getClass() : null);
 	}

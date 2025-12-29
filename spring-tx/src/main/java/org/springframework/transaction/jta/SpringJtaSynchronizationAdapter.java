@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -122,7 +122,7 @@ public class SpringJtaSynchronizationAdapter implements Synchronization {
 		finally {
 			// Process Spring's beforeCompletion early, in order to avoid issues
 			// with strict JTA implementations that issue warnings when doing JDBC
-			// operations after transaction completion (e.g. Connection.getWarnings).
+			// operations after transaction completion (for example, Connection.getWarnings).
 			this.beforeCompletionCalled = true;
 			this.springSynchronization.beforeCompletion();
 		}

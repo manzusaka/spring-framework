@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,9 +50,8 @@ public abstract class CorsUtils {
 	 */
 	public static boolean isPreFlightRequest(ServerHttpRequest request) {
 		HttpHeaders headers = request.getHeaders();
-		return (request.getMethod() == HttpMethod.OPTIONS
-				&& headers.containsKey(HttpHeaders.ORIGIN)
-				&& headers.containsKey(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD));
+		return (request.getMethod() == HttpMethod.OPTIONS && headers.containsKey(HttpHeaders.ORIGIN) &&
+				headers.containsKey(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD));
 	}
 
 	/**
@@ -82,7 +81,7 @@ public abstract class CorsUtils {
 		Assert.notNull(actualHost, "Actual request host must not be null");
 		Assert.isTrue(actualPort != -1, "Actual request port must not be undefined");
 
-		UriComponents originUrl = UriComponentsBuilder.fromOriginHeader(origin).build();
+		UriComponents originUrl = UriComponentsBuilder.fromUriString(origin).build();
 		return (actualScheme.equals(originUrl.getScheme()) &&
 				actualHost.equals(originUrl.getHost()) &&
 				actualPort == getPort(originUrl.getScheme(), originUrl.getPort()));

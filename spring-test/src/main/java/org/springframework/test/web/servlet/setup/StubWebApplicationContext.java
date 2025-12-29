@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,6 +130,7 @@ class StubWebApplicationContext implements WebApplicationContext {
 	}
 
 	@Override
+	@Nullable
 	public ApplicationContext getParent() {
 		return null;
 	}
@@ -218,11 +219,13 @@ class StubWebApplicationContext implements WebApplicationContext {
 	}
 
 	@Override
+	@Nullable
 	public Class<?> getType(String name) throws NoSuchBeanDefinitionException {
 		return this.beanFactory.getType(name);
 	}
 
 	@Override
+	@Nullable
 	public Class<?> getType(String name, boolean allowFactoryBeanInit) throws NoSuchBeanDefinitionException {
 		return this.beanFactory.getType(name, allowFactoryBeanInit);
 	}
@@ -337,6 +340,7 @@ class StubWebApplicationContext implements WebApplicationContext {
 	//---------------------------------------------------------------------
 
 	@Override
+	@Nullable
 	public BeanFactory getParentBeanFactory() {
 		return null;
 	}
@@ -352,17 +356,18 @@ class StubWebApplicationContext implements WebApplicationContext {
 	//---------------------------------------------------------------------
 
 	@Override
-	public String getMessage(String code, @Nullable Object[] args, @Nullable String defaultMessage, Locale locale) {
+	@Nullable
+	public String getMessage(String code, @Nullable Object[] args, @Nullable String defaultMessage, @Nullable Locale locale) {
 		return this.messageSource.getMessage(code, args, defaultMessage, locale);
 	}
 
 	@Override
-	public String getMessage(String code, @Nullable Object[] args, Locale locale) throws NoSuchMessageException {
+	public String getMessage(String code, @Nullable Object[] args, @Nullable Locale locale) throws NoSuchMessageException {
 		return this.messageSource.getMessage(code, args, locale);
 	}
 
 	@Override
-	public String getMessage(MessageSourceResolvable resolvable, Locale locale) throws NoSuchMessageException {
+	public String getMessage(MessageSourceResolvable resolvable, @Nullable Locale locale) throws NoSuchMessageException {
 		return this.messageSource.getMessage(resolvable, locale);
 	}
 
@@ -421,6 +426,7 @@ class StubWebApplicationContext implements WebApplicationContext {
 			return BeanUtils.instantiateClass(beanClass);
 		}
 
+		@Deprecated
 		@Override
 		public Object createBean(Class<?> beanClass, int autowireMode, boolean dependencyCheck) {
 			return BeanUtils.instantiateClass(beanClass);
@@ -471,11 +477,13 @@ class StubWebApplicationContext implements WebApplicationContext {
 		public void applyBeanPropertyValues(Object existingBean, String beanName) throws BeansException {
 		}
 
+		@SuppressWarnings("deprecation")
 		@Override
 		public Object applyBeanPostProcessorsBeforeInitialization(Object existingBean, String beanName) {
 			return existingBean;
 		}
 
+		@SuppressWarnings("deprecation")
 		@Override
 		public Object applyBeanPostProcessorsAfterInitialization(Object existingBean, String beanName) {
 			return existingBean;

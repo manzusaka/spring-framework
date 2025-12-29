@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2017 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import org.springframework.util.StringUtils;
  * {@link org.springframework.beans.BeanWrapperImpl} will register this
  * editor by default.
  *
- * <p>Also supports conversion from a Unicode character sequence; e.g.
+ * <p>Also supports conversion from a Unicode character sequence; for example,
  * {@code u0041} ('A').
  *
  * @author Juergen Hoeller

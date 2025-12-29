@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ public class StandardScriptEvaluator implements ScriptEvaluator, BeanClassLoader
 
 
 	/**
-	 * Set the name of the language meant for evaluating the scripts (e.g. "Groovy").
+	 * Set the name of the language meant for evaluating the scripts (for example, "Groovy").
 	 * <p>This is effectively an alias for {@link #setEngineName "engineName"},
 	 * potentially (but not yet) providing common abbreviations for certain languages
 	 * beyond what the JSR-223 script engine factory exposes.
@@ -91,7 +91,7 @@ public class StandardScriptEvaluator implements ScriptEvaluator, BeanClassLoader
 	}
 
 	/**
-	 * Set the name of the script engine for evaluating the scripts (e.g. "Groovy"),
+	 * Set the name of the script engine for evaluating the scripts (for example, "Groovy"),
 	 * as exposed by the JSR-223 script engine factory.
 	 * @since 4.2.2
 	 * @see #setLanguage

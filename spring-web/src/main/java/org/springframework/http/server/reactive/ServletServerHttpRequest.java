@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,8 +90,8 @@ class ServletServerHttpRequest extends AbstractServerHttpRequest {
 			AsyncContext asyncContext, String servletPath, DataBufferFactory bufferFactory, int bufferSize)
 			throws IOException, URISyntaxException {
 
-		super(HttpMethod.valueOf(request.getMethod()), initUri(request), request.getContextPath() + servletPath,
-				initHeaders(headers, request));
+		super(HttpMethod.valueOf(request.getMethod()), initUri(request),
+				request.getContextPath() + servletPath, initHeaders(headers, request));
 
 		Assert.notNull(bufferFactory, "'bufferFactory' must not be null");
 		Assert.isTrue(bufferSize > 0, "'bufferSize' must be greater than 0");
@@ -111,7 +111,7 @@ class ServletServerHttpRequest extends AbstractServerHttpRequest {
 
 	private static MultiValueMap<String, String> createDefaultHttpHeaders(HttpServletRequest request) {
 		MultiValueMap<String, String> headers =
-				CollectionUtils.toMultiValueMap(new LinkedCaseInsensitiveMap<>(8, Locale.ENGLISH));
+				CollectionUtils.toMultiValueMap(new LinkedCaseInsensitiveMap<>(8, Locale.ROOT));
 		for (Enumeration<?> names = request.getHeaderNames(); names.hasMoreElements(); ) {
 			String name = (String) names.nextElement();
 			for (Enumeration<?> values = request.getHeaders(name); values.hasMoreElements(); ) {
@@ -121,16 +121,50 @@ class ServletServerHttpRequest extends AbstractServerHttpRequest {
 		return headers;
 	}
 
-	private static URI initUri(HttpServletRequest request) throws URISyntaxException {
-		Assert.notNull(request, "'request' must not be null");
-		StringBuffer url = request.getRequestURL();
-		String query = request.getQueryString();
-		if (StringUtils.hasText(query)) {
-			url.append('?').append(query);
+	@SuppressWarnings("JavaExistingMethodCanBeUsed")
+	private static URI initUri(HttpServletRequest servletRequest) {
+		Assert.notNull(servletRequest, "'request' must not be null");
+		String urlString = null;
+		String query = null;
+		boolean hasQuery = false;
+		try {
+			StringBuffer requestURL = servletRequest.getRequestURL();
+			query = servletRequest.getQueryString();
+			hasQuery = StringUtils.hasText(query);
+			if (hasQuery) {
+				requestURL.append('?').append(query);
+			}
+			urlString = requestURL.toString();
+			return new URI(urlString);
 		}
-		return new URI(url.toString());
+		catch (URISyntaxException ex) {
+			if (hasQuery) {
+				String requestURL = servletRequest.getRequestURL().toString();
+				try {
+					// Maybe malformed query, try to encode it
+					return new URI(requestURL + "?" + encodeQuery(query));
+				}
+				catch (URISyntaxException ex2) {
+					try {
+						// Try leaving it out
+						return new URI(requestURL);
+					}
+					catch (URISyntaxException ex3) {
+						// ignore
+					}
+				}
+			}
+			throw new IllegalStateException(
+					"Could not resolve HttpServletRequest as URI: " + urlString, ex);
+		}
 	}
 
+	private static String encodeQuery(String query) throws URISyntaxException {
+		// Avoid package cycle with web.utils
+		return new URI(null, null, "", query, null).getRawQuery();
+	}
+
+	@SuppressWarnings("NullAway") // Dataflow analysis limitation
 	private static MultiValueMap<String, String> initHeaders(
 			MultiValueMap<String, String> headerValues, HttpServletRequest request) {
 
@@ -355,7 +389,6 @@ class ServletServerHttpRequest extends AbstractServerHttpRequest {
 			@Override
 			public void onError(Throwable throwable) {
 				RequestBodyPublisher.this.onError(throwable);
-
 			}
 		}
 	}

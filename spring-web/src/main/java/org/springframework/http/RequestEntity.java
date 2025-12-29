@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -205,8 +205,8 @@ public class RequestEntity<T> extends HttpEntity<T> {
 		if (!super.equals(other)) {
 			return false;
 		}
-		RequestEntity<?> otherEntity = (RequestEntity<?>) other;
-		return (ObjectUtils.nullSafeEquals(this.method, otherEntity.method) &&
+		return (other instanceof RequestEntity<?> otherEntity &&
+				ObjectUtils.nullSafeEquals(this.method, otherEntity.method) &&
 				ObjectUtils.nullSafeEquals(this.url, otherEntity.url));
 	}
 
@@ -736,8 +736,8 @@ public class RequestEntity<T> extends HttpEntity<T> {
 			if (!super.equals(other)) {
 				return false;
 			}
-			UriTemplateRequestEntity<?> otherEntity = (UriTemplateRequestEntity<?>) other;
-			return (ObjectUtils.nullSafeEquals(this.uriTemplate, otherEntity.uriTemplate) &&
+			return (other instanceof UriTemplateRequestEntity<?> otherEntity &&
+					ObjectUtils.nullSafeEquals(this.uriTemplate, otherEntity.uriTemplate) &&
 					ObjectUtils.nullSafeEquals(this.uriVarsArray, otherEntity.uriVarsArray) &&
 					ObjectUtils.nullSafeEquals(this.uriVarsMap, otherEntity.uriVarsMap));
 		}

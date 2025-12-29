@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,15 @@
 
 package org.springframework.web.service.invoker;
 
+import java.util.Optional;
+
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 
 /**
@@ -29,16 +32,33 @@ import org.springframework.web.bind.annotation.RequestBody;
  * annotated arguments.
  *
  * @author Rossen Stoyanchev
+ * @author Olga Maciaszek-Sharma
  * @since 6.0
  */
 public class RequestBodyArgumentResolver implements HttpServiceArgumentResolver {
 
+	private static final boolean REACTOR_PRESENT =
+			ClassUtils.isPresent("reactor.core.publisher.Mono", RequestBodyArgumentResolver.class.getClassLoader());
+
+
+	@Nullable
 	private final ReactiveAdapterRegistry reactiveAdapterRegistry;
 
 
-	public RequestBodyArgumentResolver(ReactiveAdapterRegistry reactiveAdapterRegistry) {
-		Assert.notNull(reactiveAdapterRegistry, "ReactiveAdapterRegistry is required");
-		this.reactiveAdapterRegistry = reactiveAdapterRegistry;
+	/**
+	 * Constructor with a {@link HttpExchangeAdapter}, for access to config settings.
+	 * @since 6.1
+	 */
+	public RequestBodyArgumentResolver(HttpExchangeAdapter exchangeAdapter) {
+		if (REACTOR_PRESENT) {
+			this.reactiveAdapterRegistry =
+					(exchangeAdapter instanceof ReactorHttpExchangeAdapter reactorAdapter ?
+							reactorAdapter.getReactiveAdapterRegistry() :
+							ReactiveAdapterRegistry.getSharedInstance());
+		}
+		else {
+			this.reactiveAdapterRegistry = null;
+		}
 	}
 
 
@@ -51,24 +71,40 @@ public class RequestBodyArgumentResolver implements HttpServiceArgumentResolver 
 			return false;
 		}
 
-		if (argument != null) {
-			ReactiveAdapter reactiveAdapter = this.reactiveAdapterRegistry.getAdapter(parameter.getParameterType());
-			if (reactiveAdapter == null) {
-				requestValues.setBodyValue(argument);
-			}
-			else {
-				MethodParameter nestedParameter = parameter.nested();
+		if (argument instanceof Optional<?> optionalValue) {
+			argument = optionalValue.orElse(null);
+		}
+
+		if (argument == null) {
+			Assert.isTrue(!annot.required() || parameter.isOptional(), "RequestBody is required");
+			return true;
+		}
+
+		if (this.reactiveAdapterRegistry != null) {
+			ReactiveAdapter adapter = this.reactiveAdapterRegistry.getAdapter(parameter.getParameterType());
+			if (adapter != null) {
+				MethodParameter nestedParam = parameter.nested();
 
 				String message = "Async type for @RequestBody should produce value(s)";
-				Assert.isTrue(!reactiveAdapter.isNoValue(), message);
-				Assert.isTrue(nestedParameter.getNestedParameterType() != Void.class, message);
+				Assert.isTrue(!adapter.isNoValue(), message);
+				Assert.isTrue(nestedParam.getNestedParameterType() != Void.class, message);
 
-				requestValues.setBody(
-						reactiveAdapter.toPublisher(argument),
-						ParameterizedTypeReference.forType(nestedParameter.getNestedGenericParameterType()));
+				if (requestValues instanceof ReactiveHttpRequestValues.Builder rrv) {
+					rrv.setBodyPublisher(
+							adapter.toPublisher(argument),
+							ParameterizedTypeReference.forType(nestedParam.getNestedGenericParameterType()));
+				}
+				else {
+					throw new IllegalStateException(
+							"RequestBody with a reactive type is only supported with reactive client");
+				}
+
+				return true;
 			}
 		}
 
+		// Not a reactive type
+		requestValues.setBodyValue(argument, ParameterizedTypeReference.forType(parameter.getGenericParameterType()));
 		return true;
 	}
 

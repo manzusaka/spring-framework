@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ import org.springframework.lang.Nullable;
  * @author Arjen Poutsma
  * @since 5.3
  */
+@SuppressWarnings("NullAway")
 final class MultipartParser extends BaseSubscriber<DataBuffer> {
 
 	private static final byte CR = '\r';
@@ -99,7 +100,7 @@ final class MultipartParser extends BaseSubscriber<DataBuffer> {
 		return Flux.create(sink -> {
 			MultipartParser parser = new MultipartParser(sink, boundary, maxHeadersSize, headersCharset);
 			sink.onCancel(parser::onSinkCancel);
-			sink.onRequest(n -> parser.requestBuffer());
+			sink.onRequest(l -> parser.requestBuffer());
 			buffers.subscribe(parser);
 		});
 	}
@@ -111,7 +112,9 @@ final class MultipartParser extends BaseSubscriber<DataBuffer> {
 
 	@Override
 	protected void hookOnSubscribe(Subscription subscription) {
-		requestBuffer();
+		if (this.sink.requestedFromDownstream() > 0) {
+			requestBuffer();
+		}
 	}
 
 	@Override
@@ -212,7 +215,7 @@ final class MultipartParser extends BaseSubscriber<DataBuffer> {
 	/**
 	 * Represents a token that contains {@link HttpHeaders}.
 	 */
-	public final static class HeadersToken extends Token {
+	public static final class HeadersToken extends Token {
 
 		private final HttpHeaders headers;
 
@@ -240,7 +243,7 @@ final class MultipartParser extends BaseSubscriber<DataBuffer> {
 	/**
 	 * Represents a token that contains {@link DataBuffer}.
 	 */
-	public final static class BodyToken extends Token {
+	public static final class BodyToken extends Token {
 
 		private final DataBuffer buffer;
 
@@ -413,14 +416,13 @@ final class MultipartParser extends BaseSubscriber<DataBuffer> {
 		 */
 		private boolean isLastBoundary(DataBuffer buf) {
 			return (this.buffers.isEmpty() &&
-					buf.readableByteCount() >= 2 &&
-					buf.getByte(0) == HYPHEN && buf.getByte(1) == HYPHEN)
-					||
+						buf.readableByteCount() >= 2 &&
+						buf.getByte(0) == HYPHEN && buf.getByte(1) == HYPHEN) ||
 					(this.buffers.size() == 1 &&
-							this.buffers.get(0).readableByteCount() == 1 &&
-							this.buffers.get(0).getByte(0) == HYPHEN &&
-							buf.readableByteCount() >= 1 &&
-							buf.getByte(0) == HYPHEN);
+						this.buffers.get(0).readableByteCount() == 1 &&
+						this.buffers.get(0).getByte(0) == HYPHEN &&
+						buf.readableByteCount() >= 1 &&
+						buf.getByte(0) == HYPHEN);
 		}
 
 		/**
@@ -540,7 +542,7 @@ final class MultipartParser extends BaseSubscriber<DataBuffer> {
 					while ((prev = this.queue.pollLast()) != null) {
 						int prevByteCount = prev.readableByteCount();
 						int prevLen = prevByteCount + len;
-						if (prevLen > 0) {
+						if (prevLen >= 0) {
 							// slice body part of previous buffer, and flush it
 							DataBuffer body = prev.split(prevLen + prev.readPosition());
 							DataBufferUtils.release(prev);
@@ -557,6 +559,7 @@ final class MultipartParser extends BaseSubscriber<DataBuffer> {
 				}
 				else /* if (len == 0) */ {
 					// buffer starts with complete delimiter, flush out the previous buffers
+					DataBufferUtils.release(boundaryBuffer);
 					flush();
 				}
 

@@ -9,7 +9,6 @@ of a bean. This section groups them as follows:
 * xref:core/beans/factory-nature.adoc#aware-list[Other `Aware` Interfaces]
 
 
-
 [[beans-factory-lifecycle]]
 == Lifecycle Callbacks
 
@@ -41,8 +40,6 @@ startup and shutdown process, as driven by the container's own lifecycle.
 
 The lifecycle callback interfaces are described in this section.
 
-
-
 [[beans-factory-lifecycle-initializingbean]]
 === Initialization Callbacks
 
@@ -72,7 +69,7 @@ no-argument signature. With Java configuration, you can use the `initMethod` att
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	public class ExampleBean {
 
@@ -84,7 +81,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	class ExampleBean {
 
@@ -107,7 +104,7 @@ The preceding example has almost exactly the same effect as the following exampl
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	public class AnotherExampleBean implements InitializingBean {
 
@@ -120,7 +117,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	class AnotherExampleBean : InitializingBean {
 
@@ -144,7 +141,7 @@ based on the given configuration but no further activity with external bean acce
 Otherwise there is a risk for an initialization deadlock.
 
 For a scenario where expensive post-initialization activity is to be triggered,
-e.g. asynchronous database preparation steps, your bean should either implement
+for example, asynchronous database preparation steps, your bean should either implement
 `SmartInitializingSingleton.afterSingletonsInstantiated()` or rely on the context
 refresh event: implementing `ApplicationListener<ContextRefreshedEvent>` or
 declaring its annotation equivalent `@EventListener(ContextRefreshedEvent.class)`.
@@ -155,8 +152,6 @@ Alternatively, you may implement the `(Smart)Lifecycle` interface and integrate 
 the container's overall lifecycle management, including an auto-startup mechanism,
 a pre-destroy stop step, and potential stop/restart callbacks (see below).
 ====
-
-
 
 [[beans-factory-lifecycle-disposablebean]]
 === Destruction Callbacks
@@ -187,7 +182,7 @@ xref:core/beans/java/bean-annotation.adoc#beans-java-lifecycle-callbacks[Receivi
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	public class ExampleBean {
 
@@ -199,7 +194,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	class ExampleBean {
 
@@ -221,7 +216,7 @@ The preceding definition has almost exactly the same effect as the following def
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	public class AnotherExampleBean implements DisposableBean {
 
@@ -234,7 +229,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	class AnotherExampleBean : DisposableBean {
 
@@ -267,8 +262,6 @@ You may also implement `SmartLifecycle` for a time-bound stop step where the con
 will wait for all such stop processing to complete before moving on to destroy methods.
 ====
 
-
-
 [[beans-factory-lifecycle-default-init-destroy-methods]]
 === Default Initialization and Destroy Methods
 
@@ -295,7 +288,7 @@ following example:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	public class DefaultBlogService implements BlogService {
 
@@ -316,7 +309,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	class DefaultBlogService : BlogService {
 
@@ -369,8 +362,6 @@ interceptors to the `init` method, because doing so would couple the lifecycle o
 target bean to its proxy or interceptors and leave strange semantics when your code
 interacts directly with the raw target bean.
 
-
-
 [[beans-factory-lifecycle-combined-effects]]
 === Combining Lifecycle Mechanisms
 
@@ -401,8 +392,6 @@ Destroy methods are called in the same order:
 . Methods annotated with `@PreDestroy`
 . `destroy()` as defined by the `DisposableBean` callback interface
 . A custom configured `destroy()` method
-
-
 
 [[beans-factory-lifecycle-processor]]
 === Startup and Shutdown Callbacks
@@ -526,8 +515,6 @@ its own `start()` method (unlike the context refresh, the context start does not
 automatically for a standard context implementation). The `phase` value and any
 "`depends-on`" relationships determine the startup order as described earlier.
 
-
-
 [[beans-factory-shutdown]]
 === Shutting Down the Spring IoC Container Gracefully in Non-Web Applications
 
@@ -551,7 +538,7 @@ declared on the `ConfigurableApplicationContext` interface, as the following exa
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	import org.springframework.context.ConfigurableApplicationContext;
 	import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -573,7 +560,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	import org.springframework.context.support.ClassPathXmlApplicationContext
 
@@ -590,6 +577,37 @@ Kotlin::
 ----
 ======
 
+[[beans-factory-thread-safety]]
+=== Thread Safety and Visibility
+
+The Spring core container publishes created singleton instances in a thread-safe manner,
+guarding access through a singleton lock and guaranteeing visibility in other threads.
+
+As a consequence, application-provided bean classes do not have to be concerned about the
+visibility of their initialization state. Regular configuration fields do not have to be
+marked as `volatile` as long as they are only mutated during the initialization phase,
+providing visibility guarantees similar to `final` even for setter-based configuration
+state that is mutable during that initial phase. If such fields get changed after the
+bean creation phase and its subsequent initial publication, they need to be declared as
+`volatile` or guarded by a common lock whenever accessed.
+
+Note that concurrent access to such configuration state in singleton bean instances,
+for example, for controller instances or repository instances, is perfectly thread-safe after
+such safe initial publication from the container side. This includes common singleton
+`FactoryBean` instances which are processed within the general singleton lock as well.
+
+For destruction callbacks, the configuration state remains thread-safe but any runtime
+state accumulated between initialization and destruction should be kept in thread-safe
+structures (or in `volatile` fields for simple cases) as per common Java guidelines.
+
+Deeper `Lifecycle` integration as shown above involves runtime-mutable state such as
+a `runnable` field which will have to be declared as `volatile`. While the common
+lifecycle callbacks follow a certain order, for example, a start callback is guaranteed to
+only happen after full initialization and a stop callback only after an initial start,
+there is a special case with the common stop before destroy arrangement: It is strongly
+recommended that the internal state in any such bean also allows for an immediate
+destroy callback without a preceding stop since this may happen during an extraordinary
+shutdown after a cancelled bootstrap or in case of a stop timeout caused by another bean.
 
 
 [[beans-factory-aware]]
@@ -646,7 +664,6 @@ shows the definition of the BeanNameAware interface:
 The callback is invoked after population of normal bean properties but before an
 initialization callback such as `InitializingBean.afterPropertiesSet()` or a custom
 init-method.
-
 
 
 [[aware-list]]
@@ -713,6 +730,3 @@ dependency type. The following table summarizes the most important `Aware` inter
 Note again that using these interfaces ties your code to the Spring API and does not
 follow the Inversion of Control style. As a result, we recommend them for infrastructure
 beans that require programmatic access to the container.
-
-
-

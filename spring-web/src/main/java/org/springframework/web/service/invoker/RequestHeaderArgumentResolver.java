@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.web.service.invoker;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.core.convert.ConversionService;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.RequestHeader;
 
 /**
@@ -57,6 +58,7 @@ public class RequestHeaderArgumentResolver extends AbstractNamedValueArgumentRes
 
 
 	@Override
+	@Nullable
 	protected NamedValueInfo createNamedValueInfo(MethodParameter parameter) {
 		RequestHeader annot = parameter.getParameterAnnotation(RequestHeader.class);
 		return (annot == null ? null :

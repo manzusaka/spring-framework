@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,6 +83,7 @@ public interface InstanceSupplier<T> extends ThrowingSupplier<T> {
 				return after.applyWithException(registeredBean, InstanceSupplier.this.get(registeredBean));
 			}
 			@Override
+			@Nullable
 			public Method getFactoryMethod() {
 				return InstanceSupplier.this.getFactoryMethod();
 			}
@@ -126,6 +127,7 @@ public interface InstanceSupplier<T> extends ThrowingSupplier<T> {
 				return supplier.getWithException();
 			}
 			@Override
+			@Nullable
 			public Method getFactoryMethod() {
 				return factoryMethod;
 			}

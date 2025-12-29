@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,7 @@ import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.datasource.ConnectionHandle;
 import org.springframework.jdbc.datasource.DataSourceUtils;
+import org.springframework.jdbc.support.SQLExceptionSubclassTranslator;
 import org.springframework.jdbc.support.SQLExceptionTranslator;
 import org.springframework.lang.Nullable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -74,7 +75,7 @@ import org.springframework.util.ReflectionUtils;
 
 /**
  * {@link org.springframework.orm.jpa.JpaDialect} implementation for Hibernate.
- * Compatible with Hibernate ORM 5.5/5.6 as well as 6.0/6.1/6.2.
+ * Compatible with Hibernate ORM 5.5/5.6 as well as 6.x.
  *
  * @author Juergen Hoeller
  * @author Costin Leau
@@ -90,6 +91,9 @@ public class HibernateJpaDialect extends DefaultJpaDialect {
 
 	@Nullable
 	private SQLExceptionTranslator jdbcExceptionTranslator;
+
+	@Nullable
+	private SQLExceptionTranslator transactionExceptionTranslator = new SQLExceptionSubclassTranslator();
 
 
 	/**
@@ -121,14 +125,22 @@ public class HibernateJpaDialect extends DefaultJpaDialect {
 	 * <p>Applied to any detected {@link java.sql.SQLException} root cause of a Hibernate
 	 * {@link JDBCException}, overriding Hibernate's own {@code SQLException} translation
 	 * (which is based on a Hibernate Dialect for a specific target database).
+	 * <p>As of 6.1, also applied to {@link org.hibernate.TransactionException} translation
+	 * with a {@link SQLException} root cause (where Hibernate does not translate itself
+	 * at all), overriding Spring's default {@link SQLExceptionSubclassTranslator} there.
+	 * @param exceptionTranslator the {@link SQLExceptionTranslator} to delegate to, or
+	 * {@code null} for none. By default, a {@link SQLExceptionSubclassTranslator} will
+	 * be used for {@link org.hibernate.TransactionException} translation as of 6.1;
+	 * this can be reverted to pre-6.1 behavior through setting {@code null} here.
 	 * @since 5.1
 	 * @see java.sql.SQLException
 	 * @see org.hibernate.JDBCException
+	 * @see org.springframework.jdbc.support.SQLExceptionSubclassTranslator
 	 * @see org.springframework.jdbc.support.SQLErrorCodeSQLExceptionTranslator
-	 * @see org.springframework.jdbc.support.SQLStateSQLExceptionTranslator
 	 */
-	public void setJdbcExceptionTranslator(SQLExceptionTranslator jdbcExceptionTranslator) {
-		this.jdbcExceptionTranslator = jdbcExceptionTranslator;
+	public void setJdbcExceptionTranslator(@Nullable SQLExceptionTranslator exceptionTranslator) {
+		this.jdbcExceptionTranslator = exceptionTranslator;
+		this.transactionExceptionTranslator = exceptionTranslator;
 	}
 
 
@@ -241,82 +253,98 @@ public class HibernateJpaDialect extends DefaultJpaDialect {
 	 * @return the corresponding DataAccessException instance
 	 */
 	protected DataAccessException convertHibernateAccessException(HibernateException ex) {
-		if (this.jdbcExceptionTranslator != null && ex instanceof JDBCException jdbcEx) {
+		return convertHibernateAccessException(ex, ex);
+	}
+
+	private DataAccessException convertHibernateAccessException(HibernateException ex, HibernateException exToCheck) {
+		if (this.jdbcExceptionTranslator != null && exToCheck instanceof JDBCException jdbcEx) {
 			DataAccessException dae = this.jdbcExceptionTranslator.translate(
 					"Hibernate operation: " + jdbcEx.getMessage(), jdbcEx.getSQL(), jdbcEx.getSQLException());
 			if (dae != null) {
-				throw dae;
+				return dae;
+			}
+		}
+		if (this.transactionExceptionTranslator != null && exToCheck instanceof org.hibernate.TransactionException) {
+			if (ex.getCause() instanceof SQLException sqlEx) {
+				DataAccessException dae = this.transactionExceptionTranslator.translate(
+						"Hibernate transaction: " + ex.getMessage(), null, sqlEx);
+				if (dae != null) {
+					return dae;
+				}
 			}
 		}
 
-		if (ex instanceof JDBCConnectionException) {
+		if (exToCheck instanceof JDBCConnectionException) {
 			return new DataAccessResourceFailureException(ex.getMessage(), ex);
 		}
-		if (ex instanceof SQLGrammarException hibJdbcEx) {
-			return new InvalidDataAccessResourceUsageException(ex.getMessage() + "; SQL [" + hibJdbcEx.getSQL() + "]", ex);
+		if (exToCheck instanceof SQLGrammarException hibEx) {
+			return new InvalidDataAccessResourceUsageException(ex.getMessage() + "; SQL [" + hibEx.getSQL() + "]", ex);
 		}
-		if (ex instanceof QueryTimeoutException hibJdbcEx) {
-			return new org.springframework.dao.QueryTimeoutException(ex.getMessage() + "; SQL [" + hibJdbcEx.getSQL() + "]", ex);
+		if (exToCheck instanceof QueryTimeoutException hibEx) {
+			return new org.springframework.dao.QueryTimeoutException(ex.getMessage() + "; SQL [" + hibEx.getSQL() + "]", ex);
 		}
-		if (ex instanceof LockAcquisitionException hibJdbcEx) {
-			return new CannotAcquireLockException(ex.getMessage() + "; SQL [" + hibJdbcEx.getSQL() + "]", ex);
+		if (exToCheck instanceof LockAcquisitionException hibEx) {
+			return new CannotAcquireLockException(ex.getMessage() + "; SQL [" + hibEx.getSQL() + "]", ex);
 		}
-		if (ex instanceof PessimisticLockException hibJdbcEx) {
-			return new PessimisticLockingFailureException(ex.getMessage() + "; SQL [" + hibJdbcEx.getSQL() + "]", ex);
+		if (exToCheck instanceof PessimisticLockException hibEx) {
+			return new PessimisticLockingFailureException(ex.getMessage() + "; SQL [" + hibEx.getSQL() + "]", ex);
 		}
-		if (ex instanceof ConstraintViolationException hibJdbcEx) {
-			return new DataIntegrityViolationException(ex.getMessage()  + "; SQL [" + hibJdbcEx.getSQL() +
-					"]; constraint [" + hibJdbcEx.getConstraintName() + "]", ex);
+		if (exToCheck instanceof ConstraintViolationException hibEx) {
+			return new DataIntegrityViolationException(ex.getMessage() + "; SQL [" + hibEx.getSQL() +
+					"]; constraint [" + hibEx.getConstraintName() + "]", ex);
 		}
-		if (ex instanceof DataException hibJdbcEx) {
-			return new DataIntegrityViolationException(ex.getMessage() + "; SQL [" + hibJdbcEx.getSQL() + "]", ex);
+		if (exToCheck instanceof DataException hibEx) {
+			return new DataIntegrityViolationException(ex.getMessage() + "; SQL [" + hibEx.getSQL() + "]", ex);
 		}
 		// end of JDBCException subclass handling
 
-		if (ex instanceof QueryException) {
+		if (exToCheck instanceof QueryException) {
 			return new InvalidDataAccessResourceUsageException(ex.getMessage(), ex);
 		}
-		if (ex instanceof NonUniqueResultException) {
+		if (exToCheck instanceof NonUniqueResultException) {
 			return new IncorrectResultSizeDataAccessException(ex.getMessage(), 1, ex);
 		}
-		if (ex instanceof NonUniqueObjectException) {
+		if (exToCheck instanceof NonUniqueObjectException) {
 			return new DuplicateKeyException(ex.getMessage(), ex);
 		}
-		if (ex instanceof PropertyValueException) {
+		if (exToCheck instanceof PropertyValueException) {
 			return new DataIntegrityViolationException(ex.getMessage(), ex);
 		}
-		if (ex instanceof PersistentObjectException) {
+		if (exToCheck instanceof PersistentObjectException) {
 			return new InvalidDataAccessApiUsageException(ex.getMessage(), ex);
 		}
-		if (ex instanceof TransientObjectException) {
+		if (exToCheck instanceof TransientObjectException) {
 			return new InvalidDataAccessApiUsageException(ex.getMessage(), ex);
 		}
-		if (ex instanceof ObjectDeletedException) {
+		if (exToCheck instanceof ObjectDeletedException) {
 			return new InvalidDataAccessApiUsageException(ex.getMessage(), ex);
 		}
-		if (ex instanceof UnresolvableObjectException hibEx) {
+		if (exToCheck instanceof UnresolvableObjectException hibEx) {
 			return new ObjectRetrievalFailureException(hibEx.getEntityName(), getIdentifier(hibEx), ex.getMessage(), ex);
 		}
-		if (ex instanceof WrongClassException hibEx) {
+		if (exToCheck instanceof WrongClassException hibEx) {
 			return new ObjectRetrievalFailureException(hibEx.getEntityName(), getIdentifier(hibEx), ex.getMessage(), ex);
 		}
-		if (ex instanceof StaleObjectStateException hibEx) {
+		if (exToCheck instanceof StaleObjectStateException hibEx) {
 			return new ObjectOptimisticLockingFailureException(hibEx.getEntityName(), getIdentifier(hibEx), ex.getMessage(), ex);
 		}
-		if (ex instanceof StaleStateException) {
+		if (exToCheck instanceof StaleStateException) {
 			return new ObjectOptimisticLockingFailureException(ex.getMessage(), ex);
 		}
-		if (ex instanceof OptimisticEntityLockException) {
+		if (exToCheck instanceof OptimisticEntityLockException) {
 			return new ObjectOptimisticLockingFailureException(ex.getMessage(), ex);
 		}
-		if (ex instanceof PessimisticEntityLockException) {
+		if (exToCheck instanceof PessimisticEntityLockException) {
 			if (ex.getCause() instanceof LockAcquisitionException) {
 				return new CannotAcquireLockException(ex.getMessage(), ex.getCause());
 			}
 			return new PessimisticLockingFailureException(ex.getMessage(), ex);
 		}
 
-		// fallback
+		// Fallback: check potentially more specific cause, otherwise JpaSystemException
+		if (exToCheck.getCause() instanceof HibernateException causeToCheck) {
+			return convertHibernateAccessException(ex, causeToCheck);
+		}
 		return new JpaSystemException(ex);
 	}
 

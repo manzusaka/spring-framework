@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.context.annotation.configuration;
 import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,9 +27,12 @@ import jakarta.inject.Provider;
 import org.junit.jupiter.api.Test;
 
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.ObjectFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.parsing.BeanDefinitionParsingException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.beans.factory.xml.XmlBeanDefinitionReader;
@@ -43,8 +47,10 @@ import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.annotation.AliasFor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
+import org.springframework.util.Assert;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 /**
  * System tests covering use of {@link Autowired} and {@link Value} within
@@ -91,7 +97,17 @@ class AutowiredConfigurationTests {
 		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(
 				OptionalAutowiredMethodConfig.class);
 
-		assertThat(context.getBeansOfType(Colour.class).isEmpty()).isTrue();
+		assertThat(context.getBeansOfType(Colour.class)).isEmpty();
+		assertThat(context.getBean(TestBean.class).getName()).isEmpty();
+		context.close();
+	}
+
+	@Test
+	void testAutowiredConfigurationMethodDependenciesWithQualifier() {
+		AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(
+				QualifiedAutowiredMethodConfig.class);
+
+		assertThat(context.getBeansOfType(Colour.class)).isEmpty();
 		assertThat(context.getBean(TestBean.class).getName()).isEmpty();
 		context.close();
 	}
@@ -183,14 +199,20 @@ class AutowiredConfigurationTests {
 		context.close();
 	}
 
+	@Test
+	void testValueInjectionWithAccidentalAutowiredAnnotations() {
+		assertThatExceptionOfType(BeanDefinitionParsingException.class).isThrownBy(() ->
+				new AnnotationConfigApplicationContext(ValueConfigWithAccidentalAutowiredAnnotations.class));
+	}
+
 	private void doTestValueInjection(BeanFactory context) {
 		System.clearProperty("myProp");
 
 		TestBean testBean = context.getBean("testBean", TestBean.class);
-		assertThat((Object) testBean.getName()).isNull();
+		assertThat(testBean.getName()).isNull();
 
 		testBean = context.getBean("testBean2", TestBean.class);
-		assertThat((Object) testBean.getName()).isNull();
+		assertThat(testBean.getName()).isNull();
 
 		System.setProperty("myProp", "foo");
 
@@ -203,10 +225,10 @@ class AutowiredConfigurationTests {
 		System.clearProperty("myProp");
 
 		testBean = context.getBean("testBean", TestBean.class);
-		assertThat((Object) testBean.getName()).isNull();
+		assertThat(testBean.getName()).isNull();
 
 		testBean = context.getBean("testBean2", TestBean.class);
-		assertThat((Object) testBean.getName()).isNull();
+		assertThat(testBean.getName()).isNull();
 	}
 
 	@Test
@@ -277,12 +299,31 @@ class AutowiredConfigurationTests {
 
 		@Bean
 		public TestBean testBean(Optional<Colour> colour, Optional<List<Colour>> colours) {
-			if (!colour.isPresent() && !colours.isPresent()) {
+			if (colour.isEmpty() && colours.isEmpty()) {
 				return new TestBean("");
 			}
 			else {
-				return new TestBean(colour.get().toString() + "-" + colours.get().get(0).toString());
+				return new TestBean(colour.get() + "-" + colours.get().get(0).toString());
 			}
+		}
+	}
+
+
+	@Configuration
+	static class QualifiedAutowiredMethodConfig {
+
+		@Bean
+		@Qualifier("testBean")
+		public TestBean testBean(Optional<Colour> colour, Optional<List<Colour>> colours) {
+			if (!colour.isEmpty() || !colours.isEmpty()) {
+				throw new IllegalStateException("Unexpected match: " + colour + " " + colours);
+			}
+			return new TestBean("");
+		}
+
+		@Bean
+		public List<?> someList() {
+			return Collections.singletonList(new TestBean("shouldNotMatch"));
 		}
 	}
 
@@ -489,6 +530,32 @@ class AutowiredConfigurationTests {
 
 		@Bean @Scope("prototype")
 		public TestBean testBean2(@Value("#{systemProperties[myProp]}") Provider<String> name2) {
+			return new TestBean(name2.get());
+		}
+	}
+
+
+	@Configuration
+	static class ValueConfigWithAccidentalAutowiredAnnotations implements InitializingBean {
+
+		boolean invoked;
+
+		@Override
+		public void afterPropertiesSet() {
+			Assert.state(!invoked, "Factory method must not get invoked on startup");
+		}
+
+		@Bean @Scope("prototype")
+		@Autowired
+		public TestBean testBean(@Value("#{systemProperties[myProp]}") Provider<String> name) {
+			invoked = true;
+			return new TestBean(name.get());
+		}
+
+		@Bean @Scope("prototype")
+		@Autowired
+		public TestBean testBean2(@Value("#{systemProperties[myProp]}") Provider<String> name2) {
+			invoked = true;
 			return new TestBean(name2.get());
 		}
 	}

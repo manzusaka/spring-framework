@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ public interface JpaVendorAdapter {
 
 	/**
 	 * Return the name of the persistence provider's root package
-	 * (e.g. "oracle.toplink.essentials"). Will be used for
+	 * (for example, "oracle.toplink.essentials"). Will be used for
 	 * excluding provider classes from temporary class overriding.
 	 * @since 2.5.2
 	 */
@@ -140,7 +140,7 @@ public interface JpaVendorAdapter {
 	/**
 	 * Optional callback for post-processing the native EntityManager
 	 * before active use.
-	 * <p>This can be used for setting vendor-specific parameters, e.g.
+	 * <p>This can be used for setting vendor-specific parameters, for example,
 	 * Hibernate filters, on every new EntityManager.
 	 * @since 5.3
 	 */

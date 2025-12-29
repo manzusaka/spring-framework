@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 package org.springframework.http.server.reactive;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -69,7 +69,7 @@ public abstract class AbstractServerHttpResponse implements ServerHttpResponse {
 
 	private final AtomicReference<State> state = new AtomicReference<>(State.NEW);
 
-	private final List<Supplier<? extends Mono<Void>>> commitActions = new ArrayList<>(4);
+	private final List<Supplier<? extends Mono<Void>>> commitActions = new CopyOnWriteArrayList<>();
 
 	@Nullable
 	private HttpHeaders readOnlyHeaders;
@@ -113,13 +113,6 @@ public abstract class AbstractServerHttpResponse implements ServerHttpResponse {
 	@Override
 	public boolean setRawStatusCode(@Nullable Integer statusCode) {
 		return setStatusCode(statusCode != null ? HttpStatusCode.valueOf(statusCode) : null);
-	}
-
-	@Deprecated
-	@Override
-	@Nullable
-	public Integer getRawStatusCode() {
-		return (this.statusCode != null ? this.statusCode.value() : null);
 	}
 
 	@Override

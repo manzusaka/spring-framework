@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.http.MediaType;
@@ -38,7 +39,6 @@ import org.springframework.web.bind.support.ConfigurableWebBindingInitializer;
 import org.springframework.web.bind.support.WebExchangeBindException;
 import org.springframework.web.reactive.BindingContext;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.ServerWebInputException;
 import org.springframework.web.testfixture.http.server.reactive.MockServerHttpRequest;
 import org.springframework.web.testfixture.method.ResolvableMethod;
 import org.springframework.web.testfixture.server.MockServerWebExchange;
@@ -46,7 +46,7 @@ import org.springframework.web.testfixture.server.MockServerWebExchange;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for {@link ModelAttributeMethodArgumentResolver}.
+ * Tests for {@link ModelAttributeMethodArgumentResolver}.
  *
  * @author Rossen Stoyanchev
  * @author Juergen Hoeller
@@ -65,6 +65,8 @@ class ModelAttributeMethodArgumentResolverTests {
 		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
 		validator.afterPropertiesSet();
 		ConfigurableWebBindingInitializer initializer = new ConfigurableWebBindingInitializer();
+		initializer.setPropertyEditorRegistrar(registry ->
+				registry.registerCustomEditor(String.class, "name", new StringTrimmerEditor(true)));
 		initializer.setValidator(validator);
 		this.bindContext = new BindingContext(initializer);
 	}
@@ -268,7 +270,7 @@ class ModelAttributeMethodArgumentResolverTests {
 	private void testBindPojo(String modelKey, MethodParameter param, Function<Object, Pojo> valueExtractor) {
 
 		Object value = createResolver()
-				.resolveArgument(param, this.bindContext, postForm("name=Robert&age=25"))
+				.resolveArgument(param, this.bindContext, postForm("name= Robert&age=25"))
 				.block(Duration.ZERO);
 
 		Pojo pojo = valueExtractor.apply(value);
@@ -286,6 +288,12 @@ class ModelAttributeMethodArgumentResolverTests {
 	@Test
 	void validationErrorForPojo() {
 		MethodParameter parameter = this.testMethod.annotNotPresent(ModelAttribute.class).arg(Pojo.class);
+		testValidationError(parameter, Function.identity());
+	}
+
+	@Test
+	void validationErrorForDataClass() {
+		MethodParameter parameter = this.testMethod.annotNotPresent(ModelAttribute.class).arg(DataClass.class);
 		testValidationError(parameter, Function.identity());
 	}
 
@@ -333,7 +341,7 @@ class ModelAttributeMethodArgumentResolverTests {
 	}
 
 	@Test
-	void validationErrorWithoutBindingForSingle() throws Exception {
+	void validationErrorWithoutBindingForSingle() {
 		MethodParameter parameter = this.testMethod.annotPresent(ModelAttribute.class).arg(Single.class, ValidatedPojo.class);
 
 		testValidationErrorWithoutBinding(parameter, resolvedArgumentMono -> {
@@ -373,7 +381,7 @@ class ModelAttributeMethodArgumentResolverTests {
 		MethodParameter parameter = this.testMethod.annotNotPresent(ModelAttribute.class).arg(DataClass.class);
 
 		Object value = createResolver()
-				.resolveArgument(parameter, this.bindContext, postForm("name=Robert&age=25&count=1"))
+				.resolveArgument(parameter, this.bindContext, postForm("name= Robert&age=25&count=1"))
 				.block(Duration.ZERO);
 
 		DataClass dataClass = (DataClass) value;
@@ -388,16 +396,6 @@ class ModelAttributeMethodArgumentResolverTests {
 		assertThat(model).hasSize(2);
 		assertThat(model.get(modelKey)).isSameAs(dataClass);
 		assertThat(model.get(bindingResultKey)).isInstanceOf(BindingResult.class);
-	}
-
-	@Test
-	void bindDataClassError() {
-		MethodParameter parameter = this.testMethod.annotNotPresent(ModelAttribute.class).arg(DataClass.class);
-		Mono<Object> mono = createResolver().resolveArgument(parameter, this.bindContext, postForm("name=Robert&age=invalid&count=1"));
-		StepVerifier.create(mono)
-				.expectNextCount(0)
-				.expectError(ServerWebInputException.class)
-				.verify();
 	}
 
 	// TODO: SPR-15871, SPR-15542

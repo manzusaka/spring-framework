@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -278,13 +278,15 @@ public class StompHeaders implements MultiValueMap<String, String>, Serializable
 	 * Get the heartbeat header.
 	 */
 	@Nullable
+	@SuppressWarnings("NullAway")
 	public long[] getHeartbeat() {
 		String rawValue = getFirst(HEARTBEAT);
-		String[] rawValues = StringUtils.split(rawValue, ",");
-		if (rawValues == null) {
+		int pos = (rawValue != null ? rawValue.indexOf(',') : -1);
+		if (pos == -1) {
 			return null;
 		}
-		return new long[] {Long.parseLong(rawValues[0]), Long.parseLong(rawValues[1])};
+		return new long[] {Long.parseLong(rawValue, 0, pos, 10),
+				Long.parseLong(rawValue, pos + 1, rawValue.length(), 10)};
 	}
 
 	/**
@@ -447,13 +449,13 @@ public class StompHeaders implements MultiValueMap<String, String>, Serializable
 	 */
 	@Override
 	public void add(String headerName, @Nullable String headerValue) {
-		List<String> headerValues = this.headers.computeIfAbsent(headerName, k -> new ArrayList<>(1));
+		List<String> headerValues = this.headers.computeIfAbsent(headerName, key -> new ArrayList<>(1));
 		headerValues.add(headerValue);
 	}
 
 	@Override
 	public void addAll(String headerName, List<? extends String> headerValues) {
-		List<String> currentValues = this.headers.computeIfAbsent(headerName, k -> new ArrayList<>(1));
+		List<String> currentValues = this.headers.computeIfAbsent(headerName, key -> new ArrayList<>(1));
 		currentValues.addAll(headerValues);
 	}
 
@@ -513,6 +515,7 @@ public class StompHeaders implements MultiValueMap<String, String>, Serializable
 	}
 
 	@Override
+	@Nullable
 	public List<String> get(Object key) {
 		return this.headers.get(key);
 	}

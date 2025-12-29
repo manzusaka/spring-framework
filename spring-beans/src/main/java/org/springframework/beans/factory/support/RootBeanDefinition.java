@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,18 +37,18 @@ import org.springframework.util.Assert;
 /**
  * A root bean definition represents the <b>merged bean definition at runtime</b>
  * that backs a specific bean in a Spring BeanFactory. It might have been created
- * from multiple original bean definitions that inherit from each other, e.g.
+ * from multiple original bean definitions that inherit from each other, for example,
  * {@link GenericBeanDefinition GenericBeanDefinitions} from XML declarations.
  * A root bean definition is essentially the 'unified' bean definition view at runtime.
  *
  * <p>Root bean definitions may also be used for <b>registering individual bean
  * definitions in the configuration phase.</b> This is particularly applicable for
- * programmatic definitions derived from factory methods (e.g. {@code @Bean} methods)
- * and instance suppliers (e.g. lambda expressions) which come with extra type metadata
+ * programmatic definitions derived from factory methods (for example, {@code @Bean} methods)
+ * and instance suppliers (for example, lambda expressions) which come with extra type metadata
  * (see {@link #setTargetType(ResolvableType)}/{@link #setResolvedFactoryMethod(Method)}).
  *
  * <p>Note: The preferred choice for bean definitions derived from declarative sources
- * (e.g. XML definitions) is the flexible {@link GenericBeanDefinition} variant.
+ * (for example, XML definitions) is the flexible {@link GenericBeanDefinition} variant.
  * GenericBeanDefinition comes with the advantage that it allows for dynamically
  * defining parent dependencies, not 'hard-coding' the role as a root bean definition,
  * even supporting parent relationship changes in the bean post-processor phase.
@@ -277,6 +277,7 @@ public class RootBeanDefinition extends AbstractBeanDefinition {
 
 
 	@Override
+	@Nullable
 	public String getParentName() {
 		return null;
 	}
@@ -374,7 +375,7 @@ public class RootBeanDefinition extends AbstractBeanDefinition {
 		if (returnType != null) {
 			return returnType;
 		}
-		Method factoryMethod = this.factoryMethodToIntrospect;
+		Method factoryMethod = getResolvedFactoryMethod();
 		if (factoryMethod != null) {
 			return ResolvableType.forMethodReturnType(factoryMethod);
 		}
@@ -384,13 +385,28 @@ public class RootBeanDefinition extends AbstractBeanDefinition {
 	/**
 	 * Determine preferred constructors to use for default construction, if any.
 	 * Constructor arguments will be autowired if necessary.
+	 * <p>As of 6.1, the default implementation of this method takes the
+	 * {@link #PREFERRED_CONSTRUCTORS_ATTRIBUTE} attribute into account.
+	 * Subclasses are encouraged to preserve this through a {@code super} call,
+	 * either before or after their own preferred constructor determination.
 	 * @return one or more preferred constructors, or {@code null} if none
 	 * (in which case the regular no-arg default constructor will be called)
 	 * @since 5.1
 	 */
 	@Nullable
 	public Constructor<?>[] getPreferredConstructors() {
-		return null;
+		Object attribute = getAttribute(PREFERRED_CONSTRUCTORS_ATTRIBUTE);
+		if (attribute == null) {
+			return null;
+		}
+		if (attribute instanceof Constructor<?> constructor) {
+			return new Constructor<?>[] {constructor};
+		}
+		if (attribute instanceof Constructor<?>[] constructors) {
+			return constructors;
+		}
+		throw new IllegalArgumentException("Invalid value type for attribute '" +
+				PREFERRED_CONSTRUCTORS_ATTRIBUTE + "': " + attribute.getClass().getName());
 	}
 
 	/**
@@ -437,17 +453,12 @@ public class RootBeanDefinition extends AbstractBeanDefinition {
 	 */
 	@Nullable
 	public Method getResolvedFactoryMethod() {
-		return this.factoryMethodToIntrospect;
-	}
-
-	@Override
-	public void setInstanceSupplier(@Nullable Supplier<?> supplier) {
-		super.setInstanceSupplier(supplier);
-		Method factoryMethod = (supplier instanceof InstanceSupplier<?> instanceSupplier ?
-				instanceSupplier.getFactoryMethod() : null);
-		if (factoryMethod != null) {
-			setResolvedFactoryMethod(factoryMethod);
+		Method factoryMethod = this.factoryMethodToIntrospect;
+		if (factoryMethod == null &&
+				getInstanceSupplier() instanceof InstanceSupplier<?> instanceSupplier) {
+			factoryMethod = instanceSupplier.getFactoryMethod();
 		}
+		return factoryMethod;
 	}
 
 	/**
@@ -623,7 +634,7 @@ public class RootBeanDefinition extends AbstractBeanDefinition {
 		}
 	}
 
-	private static boolean hasAnyExternallyManagedMethod(Set<String> candidates, String methodName) {
+	private static boolean hasAnyExternallyManagedMethod(@Nullable Set<String> candidates, String methodName) {
 		if (candidates != null) {
 			for (String candidate : candidates) {
 				int indexOfDot = candidate.lastIndexOf('.');

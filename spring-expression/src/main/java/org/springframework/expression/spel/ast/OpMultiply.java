@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,7 +123,12 @@ public class OpMultiply extends Operator {
 	}
 
 	private void checkRepeatedTextSize(String text, int count) {
-		if (text.length() * count > MAX_REPEATED_TEXT_SIZE) {
+		if (count < 0) {
+			throw new SpelEvaluationException(getStartPosition(),
+					SpelMessage.NEGATIVE_REPEATED_TEXT_COUNT, count);
+		}
+		int result = text.length() * count;
+		if (result < 0 || result > MAX_REPEATED_TEXT_SIZE) {
 			throw new SpelEvaluationException(getStartPosition(),
 					SpelMessage.MAX_REPEATED_TEXT_SIZE_EXCEEDED, MAX_REPEATED_TEXT_SIZE);
 		}

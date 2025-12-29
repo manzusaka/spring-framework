@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 package org.springframework.validation;
+
+import java.util.HexFormat;
 
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
@@ -107,8 +109,7 @@ public class FieldError extends ObjectError {
 		if (!super.equals(other)) {
 			return false;
 		}
-		FieldError otherError = (FieldError) other;
-		return (getField().equals(otherError.getField()) &&
+		return (other instanceof FieldError otherError && getField().equals(otherError.getField()) &&
 				ObjectUtils.nullSafeEquals(getRejectedValue(), otherError.getRejectedValue()) &&
 				isBindingFailure() == otherError.isBindingFailure());
 	}
@@ -127,8 +128,18 @@ public class FieldError extends ObjectError {
 		// We would preferably use ObjectUtils.nullSafeConciseToString(rejectedValue) here but
 		// keep including the full nullSafeToString representation for backwards compatibility.
 		return "Field error in object '" + getObjectName() + "' on field '" + this.field +
-				"': rejected value [" + ObjectUtils.nullSafeToString(this.rejectedValue) + "]; " +
+				"': rejected value [" + formatRejectedValue() + "]; " +
 				resolvableToString();
+	}
+
+	private String formatRejectedValue() {
+
+		// Special handling of byte[], to be moved into ObjectUtils in 7.0
+		if (this.rejectedValue instanceof byte[] bytes && bytes.length != 0) {
+			return "{" + HexFormat.of().formatHex(bytes) + "}";
+		}
+
+		return ObjectUtils.nullSafeToString(this.rejectedValue);
 	}
 
 }

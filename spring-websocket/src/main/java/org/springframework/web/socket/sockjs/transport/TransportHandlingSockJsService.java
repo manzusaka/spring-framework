@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -289,7 +289,7 @@ public class TransportHandlingSockJsService extends AbstractSockJsService implem
 					if (logger.isDebugEnabled()) {
 						logger.debug("Session not found, sessionId=" + sessionId +
 								". The session may have been closed " +
-								"(e.g. missed heart-beat) while a message was coming in.");
+								"(for example, missed heart-beat) while a message was coming in.");
 					}
 					return;
 				}
@@ -346,8 +346,8 @@ public class TransportHandlingSockJsService extends AbstractSockJsService implem
 			return false;
 		}
 
-		if (!getAllowedOrigins().isEmpty() && !getAllowedOrigins().contains("*") ||
-				!getAllowedOriginPatterns().isEmpty()) {
+		if (!CollectionUtils.isEmpty(getAllowedOrigins()) && !getAllowedOrigins().contains("*") ||
+				!CollectionUtils.isEmpty(getAllowedOriginPatterns())) {
 			TransportType transportType = TransportType.fromValue(transport);
 			if (transportType == null || !transportType.supportsOrigin()) {
 				if (logger.isWarnEnabled()) {
@@ -392,7 +392,7 @@ public class TransportHandlingSockJsService extends AbstractSockJsService implem
 						}
 					}
 					catch (Throwable ex) {
-						// Could be part of normal workflow (e.g. browser tab closed)
+						// Could be part of normal workflow (for example, browser tab closed)
 						logger.debug("Failed to close " + session, ex);
 					}
 				}

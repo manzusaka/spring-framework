@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -240,12 +240,13 @@ public class CachingConnectionFactory extends SingleConnectionFactory {
 	 * Checks for a cached Session for the given mode.
 	 */
 	@Override
+	@Nullable
 	protected Session getSession(Connection con, Integer mode) throws JMSException {
 		if (!this.active) {
 			return null;
 		}
 
-		Deque<Session> sessionList = this.cachedSessions.computeIfAbsent(mode, k -> new ArrayDeque<>());
+		Deque<Session> sessionList = this.cachedSessions.computeIfAbsent(mode, key -> new ArrayDeque<>());
 		Session session = null;
 		synchronized (sessionList) {
 			if (!sessionList.isEmpty()) {

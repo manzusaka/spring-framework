@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ public interface ClientResponse {
 	 * Return the raw status code of this response.
 	 * @return the HTTP status as an integer value
 	 * @since 5.1
-	 * @deprecated as of 6.0, in favor of {@link #statusCode()}
+	 * @deprecated in favor of {@link #statusCode()}, for removal in 7.0
 	 */
 	@Deprecated(since = "6.0", forRemoval = true)
 	default int rawStatusCode() {
@@ -82,6 +82,12 @@ public interface ClientResponse {
 	 * Return the strategies used to convert the body of this response.
 	 */
 	ExchangeStrategies strategies();
+
+	/**
+	 * Return the request associated with the response.
+	 * @since 6.1
+	 */
+	HttpRequest request();
 
 	/**
 	 * Extract the body with the given {@code BodyExtractor}.

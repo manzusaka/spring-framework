@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package org.springframework.web.testfixture.http.client;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.ClientHttpRequest;
@@ -45,6 +47,9 @@ public class MockClientHttpRequest extends MockHttpOutputMessage implements Clie
 	private ClientHttpResponse clientHttpResponse;
 
 	private boolean executed = false;
+
+	@Nullable
+	Map<String, Object> attributes;
 
 
 	/**
@@ -100,7 +105,7 @@ public class MockClientHttpRequest extends MockHttpOutputMessage implements Clie
 
 	/**
 	 * Set the {@link ClientHttpResponse} to be used as the result of executing
-	 * the this request.
+	 * this request.
 	 * @see #execute()
 	 */
 	public void setResponse(ClientHttpResponse clientHttpResponse) {
@@ -113,6 +118,16 @@ public class MockClientHttpRequest extends MockHttpOutputMessage implements Clie
 	 */
 	public boolean isExecuted() {
 		return this.executed;
+	}
+
+	@Override
+	public Map<String, Object> getAttributes() {
+		Map<String, Object> attributes = this.attributes;
+		if (attributes == null) {
+			attributes = new ConcurrentHashMap<>();
+			this.attributes = attributes;
+		}
+		return attributes;
 	}
 
 	/**

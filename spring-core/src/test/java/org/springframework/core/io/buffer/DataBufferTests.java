@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@
 
 package org.springframework.core.io.buffer;
 
-import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.springframework.core.testfixture.io.buffer.AbstractDataBufferAllocatingTests;
 
@@ -342,6 +344,48 @@ class DataBufferTests extends AbstractDataBufferAllocatingTests {
 		len = inputStream.read(bytes);
 		assertThat(len).isEqualTo(3);
 		assertThat(bytes).containsExactly('c', 'd', 'e');
+
+		buffer.readPosition(0);
+		inputStream = buffer.asInputStream();
+		assertThat(inputStream.readAllBytes()).asString().isEqualTo("abcde");
+		assertThat(inputStream.available()).isEqualTo(0);
+		assertThat(inputStream.readAllBytes()).isEmpty();
+
+		buffer.readPosition(0);
+		inputStream = buffer.asInputStream();
+		inputStream.mark(5);
+		assertThat(inputStream.readNBytes(0)).isEmpty();
+		assertThat(inputStream.readNBytes(1000)).asString().isEqualTo("abcde");
+		inputStream.reset();
+		assertThat(inputStream.readNBytes(3)).asString().isEqualTo("abc");
+		assertThat(inputStream.readNBytes(2)).asString().isEqualTo("de");
+		assertThat(inputStream.readNBytes(10)).isEmpty();
+
+		buffer.readPosition(0);
+		inputStream = buffer.asInputStream();
+		inputStream.mark(5);
+		assertThat(inputStream.skip(1)).isEqualTo(1);
+		assertThat(inputStream.readAllBytes()).asString().isEqualTo("bcde");
+		assertThat(inputStream.skip(10)).isEqualTo(0);
+		assertThat(inputStream.available()).isEqualTo(0);
+		inputStream.reset();
+		assertThat(inputStream.skip(100)).isEqualTo(5);
+		assertThat(inputStream.available()).isEqualTo(0);
+
+		buffer.readPosition(0);
+		inputStream = buffer.asInputStream();
+		inputStream.mark(5);
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		assertThat(inputStream.transferTo(out)).isEqualTo(5);
+		assertThat(out.toByteArray()).asString().isEqualTo("abcde");
+		assertThat(inputStream.available()).isEqualTo(0);
+		out.reset();
+		inputStream.reset();
+		assertThat(inputStream.read()).isEqualTo('a');
+		assertThat(inputStream.transferTo(out)).isEqualTo(4);
+		assertThat(out.toByteArray()).asString().isEqualTo("bcde");
+		assertThat(inputStream.available()).isEqualTo(0);
+		assertThat(inputStream.transferTo(OutputStream.nullOutputStream())).isEqualTo(0);
 
 		release(buffer);
 	}
@@ -675,7 +719,39 @@ class DataBufferTests extends AbstractDataBufferAllocatingTests {
 	}
 
 	@ParameterizedDataBufferAllocatingTest
-	void readableByteBuffers(DataBufferFactory bufferFactory) throws IOException {
+	void readableByteBuffers(DataBufferFactory bufferFactory) {
+		super.bufferFactory = bufferFactory;
+
+		DataBuffer dataBuffer = this.bufferFactory.allocateBuffer(3);
+		dataBuffer.write("abc".getBytes(StandardCharsets.UTF_8));
+		dataBuffer.readPosition(1);
+		dataBuffer.writePosition(2);
+
+
+		byte[] result = new byte[1];
+		try (var iterator = dataBuffer.readableByteBuffers()) {
+			assertThat(iterator).hasNext();
+			int i = 0;
+			while (iterator.hasNext()) {
+				ByteBuffer byteBuffer = iterator.next();
+				assertThat(byteBuffer.position()).isEqualTo(0);
+				assertThat(byteBuffer.limit()).isEqualTo(1);
+				assertThat(byteBuffer.capacity()).isEqualTo(1);
+				assertThat(byteBuffer.remaining()).isEqualTo(1);
+
+				byteBuffer.get(result, i, 1);
+
+				assertThat(iterator).isExhausted();
+			}
+		}
+
+		assertThat(result).containsExactly('b');
+
+		release(dataBuffer);
+	}
+
+	@ParameterizedDataBufferAllocatingTest
+	void readableByteBuffersJoined(DataBufferFactory bufferFactory) {
 		super.bufferFactory = bufferFactory;
 
 		DataBuffer dataBuffer = this.bufferFactory.join(Arrays.asList(stringBuffer("a"),
@@ -703,17 +779,26 @@ class DataBufferTests extends AbstractDataBufferAllocatingTests {
 	void writableByteBuffers(DataBufferFactory bufferFactory) {
 		super.bufferFactory = bufferFactory;
 
-		DataBuffer dataBuffer = this.bufferFactory.allocateBuffer(1);
+		DataBuffer dataBuffer = this.bufferFactory.allocateBuffer(3);
+		dataBuffer.write("ab".getBytes(StandardCharsets.UTF_8));
+		dataBuffer.readPosition(1);
 
 		try (DataBuffer.ByteBufferIterator iterator = dataBuffer.writableByteBuffers()) {
 			assertThat(iterator).hasNext();
 			ByteBuffer byteBuffer = iterator.next();
-			byteBuffer.put((byte) 'a');
-			dataBuffer.writePosition(1);
+			assertThat(byteBuffer.position()).isEqualTo(0);
+			assertThat(byteBuffer.limit()).isEqualTo(1);
+			assertThat(byteBuffer.capacity()).isEqualTo(1);
+			assertThat(byteBuffer.remaining()).isEqualTo(1);
+
+			byteBuffer.put((byte) 'c');
+			dataBuffer.writePosition(3);
 
 			assertThat(iterator).isExhausted();
 		}
-		assertThat(dataBuffer.read()).isEqualTo((byte) 'a');
+		byte[] result = new byte[2];
+		dataBuffer.read(result);
+		assertThat(result).containsExactly('b', 'c');
 
 		release(dataBuffer);
 	}
@@ -795,10 +880,6 @@ class DataBufferTests extends AbstractDataBufferAllocatingTests {
 
 		if (!(bufferFactory instanceof Netty5DataBufferFactory)) {
 			assertThat(result).isEqualTo(new byte[]{'b', 'c'});
-		}
-		else {
-			assertThat(result).isEqualTo(new byte[]{'b', 0});
-			release(slice);
 		}
 		release(buffer);
 	}
@@ -935,6 +1016,65 @@ class DataBufferTests extends AbstractDataBufferAllocatingTests {
 		assertThatExceptionOfType(IndexOutOfBoundsException.class).isThrownBy(() -> buffer.getByte(-1));
 		assertThatExceptionOfType(IndexOutOfBoundsException.class).isThrownBy(() -> buffer.getByte(3));
 
+		release(buffer);
+	}
+
+	@ParameterizedDataBufferAllocatingTest // gh-31605
+	void shouldHonorSourceBuffersReadPosition(DataBufferFactory bufferFactory) {
+		DataBuffer dataBuffer = bufferFactory.wrap("ab".getBytes(StandardCharsets.UTF_8));
+		dataBuffer.readPosition(1);
+
+		ByteBuffer byteBuffer = ByteBuffer.allocate(dataBuffer.readableByteCount());
+		dataBuffer.toByteBuffer(byteBuffer);
+
+		assertThat(StandardCharsets.UTF_8.decode(byteBuffer).toString()).isEqualTo("b");
+	}
+
+	@ParameterizedDataBufferAllocatingTest // gh-31873
+	void repeatedWrites(DataBufferFactory bufferFactory) {
+		super.bufferFactory = bufferFactory;
+
+		DataBuffer buffer = bufferFactory.allocateBuffer(256);
+		String name = "Müller";
+		int repeatCount = 19;
+		for (int i = 0; i < repeatCount; i++) {
+			buffer.write(name, StandardCharsets.UTF_8);
+		}
+		String result = buffer.toString(StandardCharsets.UTF_8);
+		String expected = name.repeat(repeatCount);
+		assertThat(result).isEqualTo(expected);
+
+		release(buffer);
+	}
+
+	@ParameterizedDataBufferAllocatingTest
+	void forEachByteProcessAll(DataBufferFactory bufferFactory) {
+		super.bufferFactory = bufferFactory;
+
+		List<Byte> result = new ArrayList<>();
+		DataBuffer buffer = byteBuffer(new byte[]{'a', 'b', 'c', 'd'});
+		int index = buffer.forEachByte(0, 4, b -> {
+			result.add(b);
+			return true;
+		});
+		assertThat(index).isEqualTo(-1);
+		assertThat(result).containsExactly((byte) 'a', (byte) 'b', (byte) 'c', (byte) 'd');
+		release(buffer);
+	}
+
+
+	@ParameterizedDataBufferAllocatingTest
+	void forEachByteProcessSome(DataBufferFactory bufferFactory) {
+		super.bufferFactory = bufferFactory;
+
+		List<Byte> result = new ArrayList<>();
+		DataBuffer buffer = byteBuffer(new byte[]{'a', 'b', 'c', 'd'});
+		int index = buffer.forEachByte(0, 4, b -> {
+			result.add(b);
+			return (b != 'c');
+		});
+		assertThat(index).isEqualTo(2);
+		assertThat(result).containsExactly((byte) 'a', (byte) 'b', (byte) 'c');
 		release(buffer);
 	}
 

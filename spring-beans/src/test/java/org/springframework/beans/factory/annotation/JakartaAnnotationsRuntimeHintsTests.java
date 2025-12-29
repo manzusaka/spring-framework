@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package org.springframework.beans.factory.annotation;
 
 
 import jakarta.inject.Inject;
+import jakarta.inject.Provider;
 import jakarta.inject.Qualifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests for {@link JakartaAnnotationsRuntimeHints}.
  *
  * @author Brian Clozel
+ * @author Sam Brannen
  */
 class JakartaAnnotationsRuntimeHintsTests {
 
@@ -52,8 +54,23 @@ class JakartaAnnotationsRuntimeHintsTests {
 	}
 
 	@Test
+	void jakartaProviderAnnotationHasHints() {
+		assertThat(RuntimeHintsPredicates.reflection().onType(Provider.class)).accepts(this.hints);
+	}
+
+	@Test
 	void jakartaQualifierAnnotationHasHints() {
 		assertThat(RuntimeHintsPredicates.reflection().onType(Qualifier.class)).accepts(this.hints);
+	}
+
+	@Test  // gh-33345
+	void javaxInjectAnnotationHasHints() {
+		assertThat(RuntimeHintsPredicates.reflection().onType(javax.inject.Inject.class)).accepts(this.hints);
+	}
+
+	@Test  // gh-33345
+	void javaxQualifierAnnotationHasHints() {
+		assertThat(RuntimeHintsPredicates.reflection().onType(javax.inject.Qualifier.class)).accepts(this.hints);
 	}
 
 }

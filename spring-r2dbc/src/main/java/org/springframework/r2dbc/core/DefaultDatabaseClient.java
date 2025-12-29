@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.r2dbc.core;
 
+import java.beans.PropertyDescriptor;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -23,6 +24,7 @@ import java.lang.reflect.Proxy;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
@@ -47,6 +49,7 @@ import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import org.springframework.beans.BeanUtils;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.lang.Nullable;
 import org.springframework.r2dbc.connection.ConnectionFactoryUtils;
@@ -54,6 +57,7 @@ import org.springframework.r2dbc.core.binding.BindMarkersFactory;
 import org.springframework.r2dbc.core.binding.BindTarget;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
 
 /**
@@ -64,6 +68,7 @@ import org.springframework.util.StringUtils;
  * @author Mingyuan Wu
  * @author Bogdan Ilchyshyn
  * @author Simon Baslé
+ * @author Juergen Hoeller
  * @since 5.3
  * @see DatabaseClient#create(ConnectionFactory)
  */
@@ -166,9 +171,8 @@ final class DefaultDatabaseClient implements DatabaseClient {
 	 * @return a {@link Publisher} that completes successfully when the connection is closed
 	 */
 	private Publisher<Void> closeConnection(Connection connection) {
-		return ConnectionFactoryUtils.currentConnectionFactory(
-				obtainConnectionFactory()).then().onErrorResume(Exception.class,
-						e -> Mono.from(connection.close()));
+		return ConnectionFactoryUtils.currentConnectionFactory(obtainConnectionFactory()).then()
+				.onErrorResume(Exception.class, ex -> Mono.from(connection.close()));
 	}
 
 	/**
@@ -187,7 +191,7 @@ final class DefaultDatabaseClient implements DatabaseClient {
 	 */
 	private static Connection createConnectionProxy(Connection con) {
 		return (Connection) Proxy.newProxyInstance(DatabaseClient.class.getClassLoader(),
-				new Class<?>[] { Connection.class, Wrapped.class },
+				new Class<?>[] {Connection.class, Wrapped.class},
 				new CloseSuppressingInvocationHandler(con));
 	}
 
@@ -306,6 +310,46 @@ final class DefaultDatabaseClient implements DatabaseClient {
 		}
 
 		@Override
+		public GenericExecuteSpec bindValues(List<?> source) {
+			assertNotPreparedOperation();
+			Assert.notNull(source, "Source list must not be null");
+			Map<Integer, Parameter> byIndex = new LinkedHashMap<>(this.byIndex);
+			ListIterator<?> listIterator = source.listIterator();
+			while (listIterator.hasNext()) {
+				byIndex.put(listIterator.nextIndex(), resolveParameter(listIterator.next()));
+			}
+			return new DefaultGenericExecuteSpec(byIndex, this.byName, this.sqlSupplier, this.filterFunction);
+		}
+
+		@Override
+		public GenericExecuteSpec bindValues(Map<String, ?> source) {
+			assertNotPreparedOperation();
+			Assert.notNull(source, "Parameter source must not be null");
+
+			Map<String, Parameter> target = new LinkedHashMap<>(this.byName);
+			source.forEach((name, value) -> target.put(name, resolveParameter(value)));
+
+			return new DefaultGenericExecuteSpec(this.byIndex, target, this.sqlSupplier, this.filterFunction);
+		}
+
+		@Override
+		public DefaultGenericExecuteSpec bindProperties(Object source) {
+			assertNotPreparedOperation();
+			Assert.notNull(source, "Parameter source must not be null");
+
+			Map<String, Parameter> byName = new LinkedHashMap<>(this.byName);
+			for (PropertyDescriptor pd : BeanUtils.getPropertyDescriptors(source.getClass())) {
+				if (pd.getReadMethod() != null && pd.getReadMethod().getDeclaringClass() != Object.class) {
+					ReflectionUtils.makeAccessible(pd.getReadMethod());
+					Object value = ReflectionUtils.invokeMethod(pd.getReadMethod(), source);
+					byName.put(pd.getName(), (value != null ? Parameters.in(value) : Parameters.in(pd.getPropertyType())));
+				}
+			}
+
+			return new DefaultGenericExecuteSpec(this.byIndex, byName, this.sqlSupplier, this.filterFunction);
+		}
+
+		@Override
 		public DefaultGenericExecuteSpec filter(StatementFilterFunction filter) {
 			Assert.notNull(filter, "StatementFilterFunction must not be null");
 			return new DefaultGenericExecuteSpec(
@@ -322,6 +366,18 @@ final class DefaultDatabaseClient implements DatabaseClient {
 		public <R> FetchSpec<R> map(BiFunction<Row, RowMetadata, R> mappingFunction) {
 			Assert.notNull(mappingFunction, "Mapping function must not be null");
 			return execute(this.sqlSupplier, result -> result.map(mappingFunction));
+		}
+
+		@Override
+		public <R> RowsFetchSpec<R> mapValue(Class<R> mappedClass) {
+			Assert.notNull(mappedClass, "Mapped class must not be null");
+			return execute(this.sqlSupplier, result -> result.map(row -> row.get(0, mappedClass)));
+		}
+
+		@Override
+		public <R> FetchSpec<R> mapProperties(Class<R> mappedClass) {
+			Assert.notNull(mappedClass, "Mapped class must not be null");
+			return execute(this.sqlSupplier, result -> result.map(new DataClassRowMapper<>(mappedClass)));
 		}
 
 		@Override
@@ -476,27 +532,24 @@ final class DefaultDatabaseClient implements DatabaseClient {
 		@Override
 		@Nullable
 		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-			switch (method.getName()) {
-				case "equals":
-					// Only consider equal when proxies are identical.
-					return proxy == args[0];
-				case "hashCode":
-					// Use hashCode of PersistenceManager proxy.
-					return System.identityHashCode(proxy);
-				case "unwrap":
-					return this.target;
-				case "close":
-					// Handle close method: suppress, not valid.
-					return Mono.error(new UnsupportedOperationException("Close is not supported!"));
-			}
-
-			// Invoke method on target Connection.
-			try {
-				return method.invoke(this.target, args);
-			}
-			catch (InvocationTargetException ex) {
-				throw ex.getTargetException();
-			}
+			return switch (method.getName()) {
+				// Only consider equal when proxies are identical.
+				case "equals" -> proxy == args[0];
+				// Use hashCode of Connection proxy.
+				case "hashCode" -> System.identityHashCode(proxy);
+				case "unwrap" -> this.target;
+				// Handle close method: suppress, not valid.
+				case "close" -> Mono.error(new UnsupportedOperationException("Close is not supported!"));
+				default -> {
+					try {
+						// Invoke method on target Connection.
+						yield method.invoke(this.target, args);
+					}
+					catch (InvocationTargetException ex) {
+						throw ex.getTargetException();
+					}
+				}
+			};
 		}
 	}
 

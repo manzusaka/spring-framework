@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ import org.springframework.util.Assert;
  * to be removed before a new one can be set for the same key.
  * Supports a list of transaction synchronizations if synchronization is active.
  *
- * <p>Resource management code should check for thread-bound resources, e.g. JDBC
+ * <p>Resource management code should check for thread-bound resources, for example, JDBC
  * Connections or Hibernate Sessions, via {@code getResource}. Such code is
  * normally not supposed to bind resources to threads, as this is the responsibility
  * of transaction managers. A further option is to lazily bind on first use if
@@ -58,7 +58,7 @@ import org.springframework.util.Assert;
  * doesn't support transaction synchronization.
  *
  * <p>Synchronization is for example used to always return the same resources
- * within a JTA transaction, e.g. a JDBC Connection or a Hibernate Session for
+ * within a JTA transaction, for example, a JDBC Connection or a Hibernate Session for
  * any given DataSource or SessionFactory, respectively.
  *
  * @author Juergen Hoeller
@@ -296,6 +296,9 @@ public abstract class TransactionSynchronizationManager {
 		// might register further synchronizations.
 		if (synchs.isEmpty()) {
 			return Collections.emptyList();
+		}
+		else if (synchs.size() == 1) {
+			return Collections.singletonList(synchs.iterator().next());
 		}
 		else {
 			// Sort lazily here, not in registerSynchronization.

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,12 +52,13 @@ import org.springframework.util.function.SingletonSupplier;
  * <p>Provides support for <i>executor qualification</i> on a method-by-method basis.
  * {@code AsyncExecutionAspectSupport} objects must be constructed with a default {@code
  * Executor}, but each individual method may further qualify a specific {@code Executor}
- * bean to be used when executing it, e.g. through an annotation attribute.
+ * bean to be used when executing it, for example, through an annotation attribute.
  *
  * @author Chris Beams
  * @author Juergen Hoeller
  * @author Stephane Nicoll
  * @author He Bo
+ * @author Sebastien Deleuze
  * @since 3.1.2
  */
 public abstract class AsyncExecutionAspectSupport implements BeanFactoryAware {
@@ -73,8 +74,6 @@ public abstract class AsyncExecutionAspectSupport implements BeanFactoryAware {
 
 	protected final Log logger = LogFactory.getLog(getClass());
 
-	private final Map<Method, AsyncTaskExecutor> executors = new ConcurrentHashMap<>(16);
-
 	private SingletonSupplier<Executor> defaultExecutor;
 
 	private SingletonSupplier<AsyncUncaughtExceptionHandler> exceptionHandler;
@@ -84,6 +83,9 @@ public abstract class AsyncExecutionAspectSupport implements BeanFactoryAware {
 
 	@Nullable
 	private StringValueResolver embeddedValueResolver;
+
+	private final Map<Method, AsyncTaskExecutor> executors = new ConcurrentHashMap<>(16);
+
 
 	/**
 	 * Create a new instance with a default {@link AsyncUncaughtExceptionHandler}.
@@ -157,6 +159,7 @@ public abstract class AsyncExecutionAspectSupport implements BeanFactoryAware {
 		if (beanFactory instanceof ConfigurableBeanFactory configurableBeanFactory) {
 			this.embeddedValueResolver = new EmbeddedValueResolver(configurableBeanFactory);
 		}
+		this.executors.clear();
 	}
 
 
@@ -278,8 +281,8 @@ public abstract class AsyncExecutionAspectSupport implements BeanFactoryAware {
 	 * @param returnType the declared return type (potentially a {@link Future} variant)
 	 * @return the execution result (potentially a corresponding {@link Future} handle)
 	 */
+	@SuppressWarnings("removal")
 	@Nullable
-	@SuppressWarnings("deprecation")
 	protected Object doSubmit(Callable<Object> task, AsyncTaskExecutor executor, Class<?> returnType) {
 		if (CompletableFuture.class.isAssignableFrom(returnType)) {
 			return executor.submitCompletable(task);
@@ -290,7 +293,7 @@ public abstract class AsyncExecutionAspectSupport implements BeanFactoryAware {
 		else if (Future.class.isAssignableFrom(returnType)) {
 			return executor.submit(task);
 		}
-		else if (void.class == returnType) {
+		else if (void.class == returnType || "kotlin.Unit".equals(returnType.getName())) {
 			executor.submit(task);
 			return null;
 		}

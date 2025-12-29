@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ import org.springframework.lang.Nullable;
  * singleton in the scope of the factory). Which type of instance will be returned
  * depends on the bean factory configuration: the API is the same. Since Spring
  * 2.0, further scopes are available depending on the concrete application
- * context (e.g. "request" and "session" scopes in a web environment).
+ * context (for example, "request" and "session" scopes in a web environment).
  *
  * <p>The point of this approach is that the BeanFactory is a central registry
  * of application components, and centralizes configuration of application
@@ -124,8 +124,15 @@ public interface BeanFactory {
 	 * beans <i>created</i> by the FactoryBean. For example, if the bean named
 	 * {@code myJndiObject} is a FactoryBean, getting {@code &myJndiObject}
 	 * will return the factory, not the instance returned by the factory.
+	 * @see #FACTORY_BEAN_PREFIX_CHAR
 	 */
 	String FACTORY_BEAN_PREFIX = "&";
+
+	/**
+	 * Character variant of {@link #FACTORY_BEAN_PREFIX}.
+	 * @since 6.2.6
+	 */
+	char FACTORY_BEAN_PREFIX_CHAR = '&';
 
 
 	/**
@@ -170,6 +177,8 @@ public interface BeanFactory {
 	 * Return an instance, which may be shared or independent, of the specified bean.
 	 * <p>Allows for specifying explicit constructor arguments / factory method arguments,
 	 * overriding the specified default arguments (if any) in the bean definition.
+	 * Note that the provided arguments need to match a specific candidate constructor /
+	 * factory method in the order of declared parameters.
 	 * @param name the name of the bean to retrieve
 	 * @param args arguments to use when creating a bean instance using explicit arguments
 	 * (only applied when creating a new instance as opposed to retrieving an existing one)
@@ -202,6 +211,8 @@ public interface BeanFactory {
 	 * Return an instance, which may be shared or independent, of the specified bean.
 	 * <p>Allows for specifying explicit constructor arguments / factory method arguments,
 	 * overriding the specified default arguments (if any) in the bean definition.
+	 * Note that the provided arguments need to match a specific candidate constructor /
+	 * factory method in the order of declared parameters.
 	 * <p>This method goes into {@link ListableBeanFactory} by-type lookup territory
 	 * but may also be translated into a conventional by-name lookup based on the name
 	 * of the given type. For more extensive retrieval operations across sets of beans,
@@ -239,7 +250,7 @@ public interface BeanFactory {
 	 * specific type, specify the actual bean type as an argument here and subsequently
 	 * use {@link ObjectProvider#orderedStream()} or its lazy streaming/iteration options.
 	 * <p>Also, generics matching is strict here, as per the Java assignment rules.
-	 * For lenient fallback matching with unchecked semantics (similar to the ´unchecked´
+	 * For lenient fallback matching with unchecked semantics (similar to the 'unchecked'
 	 * Java compiler warning), consider calling {@link #getBeanProvider(Class)} with the
 	 * raw type as a second step if no full generic match is
 	 * {@link ObjectProvider#getIfAvailable() available} with this variant.

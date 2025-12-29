@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public interface TriggerContext {
 	@Deprecated(since = "6.0")
 	default Date lastScheduledExecutionTime() {
 		Instant instant = lastScheduledExecution();
-		return instant != null ? Date.from(instant) : null;
+		return (instant != null ? Date.from(instant) : null);
 	}
 
 	/**
@@ -73,7 +73,7 @@ public interface TriggerContext {
 	@Deprecated(since = "6.0")
 	default Date lastActualExecutionTime() {
 		Instant instant = lastActualExecution();
-		return instant != null ? Date.from(instant) : null;
+		return (instant != null ? Date.from(instant) : null);
 	}
 
 	/**
@@ -94,7 +94,7 @@ public interface TriggerContext {
 	@Nullable
 	default Date lastCompletionTime() {
 		Instant instant = lastCompletion();
-		return instant != null ? Date.from(instant) : null;
+		return (instant != null ? Date.from(instant) : null);
 	}
 
 	/**

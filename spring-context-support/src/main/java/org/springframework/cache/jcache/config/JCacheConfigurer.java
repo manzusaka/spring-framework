@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public interface JCacheConfigurer extends CachingConfigurer {
 	/**
 	 * Return the {@link CacheResolver} bean to use to resolve exception caches for
 	 * annotation-driven cache management. Implementations must explicitly declare
-	 * {@link org.springframework.context.annotation.Bean @Bean}, e.g.
+	 * {@link org.springframework.context.annotation.Bean @Bean}, for example,
 	 * <pre class="code">
 	 * &#064;Configuration
 	 * &#064;EnableCaching

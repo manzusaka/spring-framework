@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 /**
- * Unit tests for {@link AbstractXhrTransport}.
+ * Tests for {@link AbstractXhrTransport}.
  *
  * @author Rossen Stoyanchev
  */
@@ -84,7 +84,6 @@ class XhrTransportTests {
 	}
 
 	@Test
-	@SuppressWarnings("deprecation")
 	void connect() {
 		HttpHeaders handshakeHeaders = new HttpHeaders();
 		handshakeHeaders.setOrigin("foo");
@@ -96,7 +95,7 @@ class XhrTransportTests {
 
 		TestXhrTransport transport = new TestXhrTransport();
 		WebSocketHandler handler = mock();
-		transport.connect(request, handler);
+		transport.connectAsync(request, handler);
 
 		ArgumentCaptor<Runnable> captor = ArgumentCaptor.forClass(Runnable.class);
 		verify(request).getSockJsUrlInfo();
@@ -126,7 +125,6 @@ class XhrTransportTests {
 		private HttpHeaders actualHandshakeHeaders;
 
 		private XhrClientSockJsSession actualSession;
-
 
 		@Override
 		protected ResponseEntity<String> executeInfoRequestInternal(URI infoUrl, HttpHeaders headers) {

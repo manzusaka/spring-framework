@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.util;
 
+import java.lang.reflect.InaccessibleObjectException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -123,7 +124,7 @@ public class MethodInvoker {
 
 	/**
 	 * Set a fully qualified static method name to invoke,
-	 * e.g. "example.MyExampleClass.myExampleMethod". This is a
+	 * for example, "example.MyExampleClass.myExampleMethod". This is a
 	 * convenient alternative to specifying targetClass and targetMethod.
 	 * @see #setTargetClass
 	 * @see #setTargetMethod
@@ -136,7 +137,7 @@ public class MethodInvoker {
 	 * Set arguments for the method invocation. If this property is not set,
 	 * or the Object array is of length 0, a method with no arguments is assumed.
 	 */
-	public void setArguments(Object... arguments) {
+	public void setArguments(@Nullable Object... arguments) {
 		this.arguments = arguments;
 	}
 
@@ -160,7 +161,7 @@ public class MethodInvoker {
 			if (lastDotIndex == -1 || lastDotIndex == this.staticMethod.length() - 1) {
 				throw new IllegalArgumentException(
 						"staticMethod must be a fully qualified class plus method name: " +
-						"e.g. 'example.MyExampleClass.myExampleMethod'");
+						"for example, 'example.MyExampleClass.myExampleMethod'");
 			}
 			String className = this.staticMethod.substring(0, lastDotIndex);
 			String methodName = this.staticMethod.substring(lastDotIndex + 1);
@@ -178,7 +179,8 @@ public class MethodInvoker {
 		Object[] arguments = getArguments();
 		Class<?>[] argTypes = new Class<?>[arguments.length];
 		for (int i = 0; i < arguments.length; ++i) {
-			argTypes[i] = (arguments[i] != null ? arguments[i].getClass() : Object.class);
+			Object argument = arguments[i];
+			argTypes[i] = (argument != null ? argument.getClass() : Object.class);
 		}
 
 		// Try to get the exact method first.
@@ -226,14 +228,12 @@ public class MethodInvoker {
 		Method matchingMethod = null;
 
 		for (Method candidate : candidates) {
-			if (candidate.getName().equals(targetMethod)) {
-				if (candidate.getParameterCount() == argCount) {
-					Class<?>[] paramTypes = candidate.getParameterTypes();
-					int typeDiffWeight = getTypeDifferenceWeight(paramTypes, arguments);
-					if (typeDiffWeight < minTypeDiffWeight) {
-						minTypeDiffWeight = typeDiffWeight;
-						matchingMethod = candidate;
-					}
+			if (candidate.getName().equals(targetMethod) && candidate.getParameterCount() == argCount) {
+				Class<?>[] paramTypes = candidate.getParameterTypes();
+				int typeDiffWeight = getTypeDifferenceWeight(paramTypes, arguments);
+				if (typeDiffWeight < minTypeDiffWeight) {
+					minTypeDiffWeight = typeDiffWeight;
+					matchingMethod = candidate;
 				}
 			}
 		}
@@ -281,8 +281,20 @@ public class MethodInvoker {
 		if (targetObject == null && !Modifier.isStatic(preparedMethod.getModifiers())) {
 			throw new IllegalArgumentException("Target method must not be non-static without a target");
 		}
-		ReflectionUtils.makeAccessible(preparedMethod);
-		return preparedMethod.invoke(targetObject, getArguments());
+		try {
+			ReflectionUtils.makeAccessible(preparedMethod);
+			return preparedMethod.invoke(targetObject, getArguments());
+		}
+		catch (IllegalAccessException | InaccessibleObjectException ex) {
+			if (targetObject != null) {
+				Method fallbackMethod =
+						ClassUtils.getPubliclyAccessibleMethodIfPossible(preparedMethod, targetObject.getClass());
+				if (fallbackMethod != preparedMethod) {
+					return fallbackMethod.invoke(targetObject, getArguments());
+				}
+			}
+			throw ex;
+		}
 	}
 
 
@@ -309,12 +321,13 @@ public class MethodInvoker {
 	public static int getTypeDifferenceWeight(Class<?>[] paramTypes, Object[] args) {
 		int result = 0;
 		for (int i = 0; i < paramTypes.length; i++) {
-			if (!ClassUtils.isAssignableValue(paramTypes[i], args[i])) {
+			Class<?> paramType = paramTypes[i];
+			Object arg = args[i];
+			if (!ClassUtils.isAssignableValue(paramType, arg)) {
 				return Integer.MAX_VALUE;
 			}
-			if (args[i] != null) {
-				Class<?> paramType = paramTypes[i];
-				Class<?> superClass = args[i].getClass().getSuperclass();
+			if (arg != null) {
+				Class<?> superClass = arg.getClass().getSuperclass();
 				while (superClass != null) {
 					if (paramType.equals(superClass)) {
 						result = result + 2;

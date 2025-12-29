@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.util.Enumeration;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
@@ -215,6 +216,9 @@ public class XsltView extends AbstractUrlBasedView {
 			}
 		}
 		else {
+			// This transformer is used for local XSLT views only.
+			// As a result, attackers would need complete write access to application configuration
+			// to leverage XXE attacks. This does not qualify as privilege escalation.
 			return TransformerFactory.newInstance();
 		}
 	}
@@ -306,7 +310,7 @@ public class XsltView extends AbstractUrlBasedView {
 	 * @return the adapted XSLT Source
 	 * @throws IllegalArgumentException if the given Object is not of a supported type
 	 */
-	protected Source convertSource(Object sourceObject) throws Exception {
+	protected Source convertSource(@Nullable Object sourceObject) throws Exception {
 		if (sourceObject instanceof Source source) {
 			return source;
 		}
@@ -414,7 +418,7 @@ public class XsltView extends AbstractUrlBasedView {
 		}
 		if (StringUtils.hasText(encoding)) {
 			// Only apply encoding if content type is specified but does not contain charset clause already.
-			if (contentType != null && !contentType.toLowerCase().contains(WebUtils.CONTENT_TYPE_CHARSET_PREFIX)) {
+			if (contentType != null && !contentType.toLowerCase(Locale.ROOT).contains(WebUtils.CONTENT_TYPE_CHARSET_PREFIX)) {
 				contentType = contentType + WebUtils.CONTENT_TYPE_CHARSET_PREFIX + encoding;
 			}
 		}
@@ -427,11 +431,10 @@ public class XsltView extends AbstractUrlBasedView {
 	private Templates loadTemplates() throws ApplicationContextException {
 		Source stylesheetSource = getStylesheetSource();
 		try {
-			Templates templates = getTransformerFactory().newTemplates(stylesheetSource);
-			return templates;
+			return getTransformerFactory().newTemplates(stylesheetSource);
 		}
 		catch (TransformerConfigurationException ex) {
-			throw new ApplicationContextException("Can't load stylesheet from '" + getUrl() + "'", ex);
+			throw new ApplicationContextException("Cannot load stylesheet from '" + getUrl() + "'", ex);
 		}
 		finally {
 			closeSourceIfNecessary(stylesheetSource);
@@ -470,7 +473,7 @@ public class XsltView extends AbstractUrlBasedView {
 			return new StreamSource(resource.getInputStream(), resource.getURI().toASCIIString());
 		}
 		catch (IOException ex) {
-			throw new ApplicationContextException("Can't load XSLT stylesheet from '" + url + "'", ex);
+			throw new ApplicationContextException("Cannot load XSLT stylesheet from '" + url + "'", ex);
 		}
 	}
 

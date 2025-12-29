@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@ public final class LogDelegateFactory {
 	 * secondary logger if logging for the primary logger is not enabled.
 	 * <p>This may be used for fallback logging from lower-level packages that
 	 * logically should log together with some higher-level package but the two
-	 * don't happen to share a suitable parent package (e.g. logging for the web
+	 * don't happen to share a suitable parent package (for example, logging for the web
 	 * and lower-level http and codec packages). For such cases the primary
 	 * (class-based) logger can be wrapped with a shared fallback logger.
 	 * @param primaryLogger primary logger to try first

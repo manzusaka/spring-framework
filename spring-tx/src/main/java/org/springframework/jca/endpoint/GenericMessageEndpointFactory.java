@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import org.springframework.util.ReflectionUtils;
  * Generic implementation of the JCA 1.7
  * {@link jakarta.resource.spi.endpoint.MessageEndpointFactory} interface,
  * providing transaction management capabilities for any kind of message
- * listener object (e.g. {@link jakarta.jms.MessageListener} objects or
+ * listener object (for example, {@link jakarta.jms.MessageListener} objects or
  * {@link jakarta.resource.cci.MessageListener} objects).
  *
  * <p>Uses AOP proxies for concrete endpoint instances, simply wrapping
@@ -60,7 +60,7 @@ public class GenericMessageEndpointFactory extends AbstractMessageEndpointFactor
 
 	/**
 	 * Specify the message listener object that the endpoint should expose
-	 * (e.g. a {@link jakarta.jms.MessageListener} objects or
+	 * (for example, a {@link jakarta.jms.MessageListener} objects or
 	 * {@link jakarta.resource.cci.MessageListener} implementation).
 	 */
 	public void setMessageListener(Object messageListener) {

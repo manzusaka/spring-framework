@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  * are nested "on top" of the target.
  *
  * <p>The user should implement the {@link #invoke(MethodInvocation)}
- * method to modify the original behavior. E.g. the following class
+ * method to modify the original behavior. For example, the following class
  * implements a tracing interceptor (traces all the calls on the
  * intercepted method(s)):
  *

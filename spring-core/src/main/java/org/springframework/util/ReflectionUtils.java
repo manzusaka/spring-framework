@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -137,7 +137,7 @@ public abstract class ReflectionUtils {
 	 * @param ex the exception to rethrow
 	 * @throws RuntimeException the rethrown exception
 	 */
-	public static void rethrowRuntimeException(Throwable ex) {
+	public static void rethrowRuntimeException(@Nullable Throwable ex) {
 		if (ex instanceof RuntimeException runtimeException) {
 			throw runtimeException;
 		}
@@ -158,7 +158,7 @@ public abstract class ReflectionUtils {
 	 * @param throwable the exception to rethrow
 	 * @throws Exception the rethrown exception (in case of a checked exception)
 	 */
-	public static void rethrowException(Throwable throwable) throws Exception {
+	public static void rethrowException(@Nullable Throwable throwable) throws Exception {
 		if (throwable instanceof Exception exception) {
 			throw exception;
 		}
@@ -463,7 +463,7 @@ public abstract class ReflectionUtils {
 		if (result == null) {
 			try {
 				Method[] declaredMethods = clazz.getDeclaredMethods();
-				List<Method> defaultMethods = findConcreteMethodsOnInterfaces(clazz);
+				List<Method> defaultMethods = findDefaultMethodsOnInterfaces(clazz);
 				if (defaultMethods != null) {
 					result = new Method[declaredMethods.length + defaultMethods.size()];
 					System.arraycopy(declaredMethods, 0, result, 0, declaredMethods.length);
@@ -487,15 +487,15 @@ public abstract class ReflectionUtils {
 	}
 
 	@Nullable
-	private static List<Method> findConcreteMethodsOnInterfaces(Class<?> clazz) {
+	private static List<Method> findDefaultMethodsOnInterfaces(Class<?> clazz) {
 		List<Method> result = null;
 		for (Class<?> ifc : clazz.getInterfaces()) {
-			for (Method ifcMethod : ifc.getMethods()) {
-				if (!Modifier.isAbstract(ifcMethod.getModifiers())) {
+			for (Method method : ifc.getMethods()) {
+				if (method.isDefault()) {
 					if (result == null) {
 						result = new ArrayList<>();
 					}
-					result.add(ifcMethod);
+					result.add(method);
 				}
 			}
 		}
@@ -610,6 +610,31 @@ public abstract class ReflectionUtils {
 	}
 
 	/**
+	 * Attempt to find a {@link Field field} on the supplied {@link Class} with the
+	 * supplied {@code name}. Searches all superclasses up to {@link Object}.
+	 * @param clazz the class to introspect
+	 * @param name the name of the field (with upper/lower case to be ignored)
+	 * @return the corresponding Field object, or {@code null} if not found
+	 * @since 6.1
+	 */
+	@Nullable
+	public static Field findFieldIgnoreCase(Class<?> clazz, String name) {
+		Assert.notNull(clazz, "Class must not be null");
+		Assert.notNull(name, "Name must not be null");
+		Class<?> searchType = clazz;
+		while (Object.class != searchType && searchType != null) {
+			Field[] fields = getDeclaredFields(searchType);
+			for (Field field : fields) {
+				if (name.equalsIgnoreCase(field.getName())) {
+					return field;
+				}
+			}
+			searchType = searchType.getSuperclass();
+		}
+		return null;
+	}
+
+	/**
 	 * Set the field represented by the supplied {@linkplain Field field object} on
 	 * the specified {@linkplain Object target object} to the specified {@code value}.
 	 * <p>In accordance with {@link Field#set(Object, Object)} semantics, the new value
@@ -694,8 +719,7 @@ public abstract class ReflectionUtils {
 		// Keep backing up the inheritance hierarchy.
 		Class<?> targetClass = clazz;
 		do {
-			Field[] fields = getDeclaredFields(targetClass);
-			for (Field field : fields) {
+			for (Field field : getDeclaredFields(targetClass)) {
 				if (ff != null && !ff.matches(field)) {
 					continue;
 				}

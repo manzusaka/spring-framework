@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ public interface ContextLoader {
 	 * <strong>must</strong> register a JVM shutdown hook for itself. Unless the
 	 * context gets closed early, all context instances will be automatically
 	 * closed on JVM shutdown. This allows for freeing external resources held by
-	 * beans within the context, e.g. temporary files.
+	 * beans within the context, for example, temporary files.
 	 * @param locations the resource locations to use to load the application context
 	 * @return a new application context
 	 * @throws Exception if context loading failed

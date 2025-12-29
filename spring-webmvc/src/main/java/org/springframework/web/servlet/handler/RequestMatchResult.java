@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ public class RequestMatchResult {
 	 * {@link PathMatcher#extractUriTemplateVariables}.
 	 * @return a map with URI template variables
 	 */
-	@SuppressWarnings("ConstantConditions")
+	@SuppressWarnings({"ConstantConditions", "NullAway"})
 	public Map<String, String> extractUriTemplateVariables() {
 		return (this.pathPattern != null ?
 				this.pathPattern.matchAndExtract(this.lookupPathContainer).getUriVariables() :

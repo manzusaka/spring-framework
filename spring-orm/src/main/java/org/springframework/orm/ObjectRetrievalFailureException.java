@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public class ObjectRetrievalFailureException extends DataRetrievalFailureExcepti
 	 * @param msg the detail message
 	 * @param cause the source exception
 	 */
-	public ObjectRetrievalFailureException(String msg, Throwable cause) {
+	public ObjectRetrievalFailureException(@Nullable String msg, Throwable cause) {
 		super(msg, cause);
 		this.persistentClass = null;
 		this.identifier = null;
@@ -97,7 +97,7 @@ public class ObjectRetrievalFailureException extends DataRetrievalFailureExcepti
 	 * @param cause the source exception
 	 */
 	public ObjectRetrievalFailureException(
-			String persistentClassName, @Nullable Object identifier, String msg, @Nullable Throwable cause) {
+			String persistentClassName, @Nullable Object identifier, @Nullable String msg, @Nullable Throwable cause) {
 
 		super(msg, cause);
 		this.persistentClass = persistentClassName;

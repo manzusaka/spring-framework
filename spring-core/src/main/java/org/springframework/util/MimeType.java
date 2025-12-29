@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,7 +102,6 @@ public class MimeType implements Comparable<MimeType>, Serializable {
 
 	private final String subtype;
 
-	@SuppressWarnings("serial")
 	private final Map<String, String> parameters;
 
 	@Nullable
@@ -182,10 +181,10 @@ public class MimeType implements Comparable<MimeType>, Serializable {
 		Assert.hasLength(subtype, "'subtype' must not be empty");
 		checkToken(type);
 		checkToken(subtype);
-		this.type = type.toLowerCase(Locale.ENGLISH);
-		this.subtype = subtype.toLowerCase(Locale.ENGLISH);
+		this.type = type.toLowerCase(Locale.ROOT);
+		this.subtype = subtype.toLowerCase(Locale.ROOT);
 		if (!CollectionUtils.isEmpty(parameters)) {
-			Map<String, String> map = new LinkedCaseInsensitiveMap<>(parameters.size(), Locale.ENGLISH);
+			Map<String, String> map = new LinkedCaseInsensitiveMap<>(parameters.size(), Locale.ROOT);
 			parameters.forEach((parameter, value) -> {
 				checkParameters(parameter, value);
 				map.put(parameter, value);
@@ -244,9 +243,7 @@ public class MimeType implements Comparable<MimeType>, Serializable {
 		if (s.length() < 2) {
 			return false;
 		}
-		else {
-			return ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'")));
-		}
+		return ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'")));
 	}
 
 	protected String unquote(String s) {
@@ -264,7 +261,7 @@ public class MimeType implements Comparable<MimeType>, Serializable {
 	/**
 	 * Indicates whether the {@linkplain #getSubtype() subtype} is the wildcard
 	 * character <code>&#42;</code> or the wildcard character followed by a suffix
-	 * (e.g. <code>&#42;+xml</code>).
+	 * (for example, <code>&#42;+xml</code>).
 	 * @return whether the subtype is a wildcard
 	 */
 	public boolean isWildcardSubtype() {
@@ -358,7 +355,7 @@ public class MimeType implements Comparable<MimeType>, Serializable {
 				return true;
 			}
 			if (isWildcardSubtype()) {
-				// Wildcard with suffix, e.g. application/*+xml
+				// Wildcard with suffix, for example, application/*+xml
 				int thisPlusIdx = getSubtype().lastIndexOf('+');
 				if (thisPlusIdx == -1) {
 					return true;
@@ -574,6 +571,7 @@ public class MimeType implements Comparable<MimeType>, Serializable {
 			else {
 				String thisValue = getParameters().get(thisAttribute);
 				String otherValue = other.getParameters().get(otherAttribute);
+				Assert.notNull(thisValue, "Parameter for " + thisAttribute + " must not be null");
 				if (otherValue == null) {
 					otherValue = "";
 				}
@@ -642,7 +640,7 @@ public class MimeType implements Comparable<MimeType>, Serializable {
 	}
 
 	/**
-	 * Indicates whether this {@code MimeType} is more less than the given type.
+	 * Indicates whether this {@code MimeType} is less specific than the given type.
 	 * <ol>
 	 * <li>if this mime type has a {@linkplain #isWildcardType() wildcard type},
 	 * and the other does not, then this method returns {@code true}.</li>
@@ -684,7 +682,7 @@ public class MimeType implements Comparable<MimeType>, Serializable {
 	/**
 	 * Parse the given String value into a {@code MimeType} object,
 	 * with this method name following the 'valueOf' naming convention
-	 * (as supported by {@link org.springframework.core.convert.ConversionService}.
+	 * (as supported by {@link org.springframework.core.convert.ConversionService}).
 	 * @see MimeTypeUtils#parseMimeType(String)
 	 */
 	public static MimeType valueOf(String value) {

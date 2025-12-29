@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,17 +61,17 @@ class RSocketExchangeBeanRegistrationAotProcessor implements BeanRegistrationAot
 			});
 		}
 		if (!exchangeInterfaces.isEmpty()) {
-			return new RSocketExchangeBeanRegistrationContribution(exchangeInterfaces);
+			return new AotContribution(exchangeInterfaces);
 		}
 		return null;
 	}
 
 
-	private static class RSocketExchangeBeanRegistrationContribution implements BeanRegistrationAotContribution {
+	private static class AotContribution implements BeanRegistrationAotContribution {
 
 		private final Set<Class<?>> rSocketExchangeInterfaces;
 
-		public RSocketExchangeBeanRegistrationContribution(Set<Class<?>> rSocketExchangeInterfaces) {
+		public AotContribution(Set<Class<?>> rSocketExchangeInterfaces) {
 			this.rSocketExchangeInterfaces = rSocketExchangeInterfaces;
 		}
 

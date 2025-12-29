@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import org.springframework.util.ConcurrencyThrottleSupport;
  * <p>Can be applied to methods of local services that involve heavy use
  * of system resources, in a scenario where it is more efficient to
  * throttle concurrency for a specific service rather than restricting
- * the entire thread pool (e.g. the web container's thread pool).
+ * the entire thread pool (for example, the web container's thread pool).
  *
  * <p>The default concurrency limit of this interceptor is 1.
  * Specify the "concurrencyLimit" bean property to change this value.

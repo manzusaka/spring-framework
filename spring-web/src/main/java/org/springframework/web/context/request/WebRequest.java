@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2020 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -223,7 +223,7 @@ public interface WebRequest extends RequestAttributes {
 	 * also with conditional POST/PUT/DELETE requests.
 	 * <p><strong>Note:</strong> The HTTP specification recommends
 	 * setting both ETag and Last-Modified values, but you can also
-	 * use {@code #checkNotModified(String)} or
+	 * use {@link #checkNotModified(String)} or
 	 * {@link #checkNotModified(long)}.
 	 * @param etag the entity tag that the application determined
 	 * for the underlying resource. This parameter will be padded

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,17 +59,17 @@ class HttpExchangeBeanRegistrationAotProcessor implements BeanRegistrationAotPro
 			});
 		}
 		if (!exchangeInterfaces.isEmpty()) {
-			return new HttpExchangeBeanRegistrationAotContribution(exchangeInterfaces);
+			return new AotContribution(exchangeInterfaces);
 		}
 		return null;
 	}
 
 
-	private static class HttpExchangeBeanRegistrationAotContribution implements BeanRegistrationAotContribution {
+	private static class AotContribution implements BeanRegistrationAotContribution {
 
 		private final List<Class<?>> httpExchangeInterfaces;
 
-		public HttpExchangeBeanRegistrationAotContribution(List<Class<?>> httpExchangeInterfaces) {
+		public AotContribution(List<Class<?>> httpExchangeInterfaces) {
 			this.httpExchangeInterfaces = httpExchangeInterfaces;
 		}
 

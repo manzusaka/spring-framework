@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ public abstract class EntityManagerFactoryUtils {
 
 	/**
 	 * Obtain a JPA EntityManager from the given factory. Is aware of a corresponding
-	 * EntityManager bound to the current thread, e.g. when using JpaTransactionManager.
+	 * EntityManager bound to the current thread, for example, when using JpaTransactionManager.
 	 * <p>Note: Will return {@code null} if no thread-bound EntityManager found!
 	 * @param emf the EntityManagerFactory to create the EntityManager with
 	 * @return the EntityManager, or {@code null} if none found
@@ -139,7 +139,7 @@ public abstract class EntityManagerFactoryUtils {
 
 	/**
 	 * Obtain a JPA EntityManager from the given factory. Is aware of a corresponding
-	 * EntityManager bound to the current thread, e.g. when using JpaTransactionManager.
+	 * EntityManager bound to the current thread, for example, when using JpaTransactionManager.
 	 * <p>Note: Will return {@code null} if no thread-bound EntityManager found!
 	 * @param emf the EntityManagerFactory to create the EntityManager with
 	 * @param properties the properties to be passed into the {@code createEntityManager}
@@ -161,7 +161,7 @@ public abstract class EntityManagerFactoryUtils {
 
 	/**
 	 * Obtain a JPA EntityManager from the given factory. Is aware of a corresponding
-	 * EntityManager bound to the current thread, e.g. when using JpaTransactionManager.
+	 * EntityManager bound to the current thread, for example, when using JpaTransactionManager.
 	 * <p>Same as {@code getEntityManager}, but throwing the original PersistenceException.
 	 * @param emf the EntityManagerFactory to create the EntityManager with
 	 * @param properties the properties to be passed into the {@code createEntityManager}
@@ -180,7 +180,7 @@ public abstract class EntityManagerFactoryUtils {
 
 	/**
 	 * Obtain a JPA EntityManager from the given factory. Is aware of a corresponding
-	 * EntityManager bound to the current thread, e.g. when using JpaTransactionManager.
+	 * EntityManager bound to the current thread, for example, when using JpaTransactionManager.
 	 * <p>Same as {@code getEntityManager}, but throwing the original PersistenceException.
 	 * @param emf the EntityManagerFactory to create the EntityManager with
 	 * @param properties the properties to be passed into the {@code createEntityManager}
@@ -433,7 +433,7 @@ public abstract class EntityManagerFactoryUtils {
 
 	/**
 	 * Callback for resource cleanup at the end of a non-JPA transaction
-	 * (e.g. when participating in a JtaTransactionManager transaction),
+	 * (for example, when participating in a JtaTransactionManager transaction),
 	 * fully synchronized with the ongoing transaction.
 	 * @see org.springframework.transaction.jta.JtaTransactionManager
 	 */

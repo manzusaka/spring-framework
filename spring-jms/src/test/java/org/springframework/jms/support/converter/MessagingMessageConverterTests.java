@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,19 +37,19 @@ import static org.mockito.Mockito.verify;
 /**
  * @author Stephane Nicoll
  */
-public class MessagingMessageConverterTests {
+class MessagingMessageConverterTests {
 
 	private final MessagingMessageConverter converter = new MessagingMessageConverter();
 
 
 	@Test
-	public void onlyHandlesMessage() throws JMSException {
+	void onlyHandlesMessage() {
 		assertThatIllegalArgumentException().isThrownBy(() ->
 				this.converter.toMessage(new Object(), mock()));
 	}
 
 	@Test
-	public void simpleObject() throws Exception {
+	void simpleObject() throws Exception {
 		Session session = mock();
 		Serializable payload = mock();
 		ObjectMessage jmsMessage = mock();
@@ -60,7 +60,7 @@ public class MessagingMessageConverterTests {
 	}
 
 	@Test
-	public void customPayloadConverter() throws JMSException {
+	void customPayloadConverter() throws JMSException {
 		TextMessage jmsMsg = new StubTextMessage("1224");
 
 		this.converter.setPayloadConverter(new TestMessageConverter());

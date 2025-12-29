@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,22 +127,9 @@ public final class HttpMethod implements Comparable<HttpMethod>, Serializable {
 		};
 	}
 
-	/**
-	 * Resolve the given method value to an {@code HttpMethod}.
-	 * @param method the method value as a String
-	 * @return the corresponding {@code HttpMethod}, or {@code null} if not found
-	 * @since 4.2.4
-	 * @deprecated in favor of {@link #valueOf(String)}
-	 */
-	@Nullable
-	@Deprecated(since = "6.0", forRemoval = true)
-	public static HttpMethod resolve(@Nullable String method) {
-		return (method != null ? valueOf(method) : null);
-	}
-
 
 	/**
-	 * Return the name of this method, e.g. "GET", "POST".
+	 * Return the name of this method, for example, "GET", "POST".
 	 */
 	public String name() {
 		return this.name;

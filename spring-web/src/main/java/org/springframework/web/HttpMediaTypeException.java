@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,7 +73,7 @@ public abstract class HttpMediaTypeException extends ServletException implements
 	 * resolving the problem "detail" through a {@code MessageSource}
 	 * @since 6.0
 	 */
-	protected HttpMediaTypeException(String message, List<MediaType> supportedMediaTypes,
+	protected HttpMediaTypeException(@Nullable String message, List<MediaType> supportedMediaTypes,
 			@Nullable String messageDetailCode, @Nullable Object[] messageDetailArguments) {
 
 		super(message);
@@ -102,6 +102,7 @@ public abstract class HttpMediaTypeException extends ServletException implements
 	}
 
 	@Override
+	@Nullable
 	public Object[] getDetailMessageArguments() {
 		return this.messageDetailArguments;
 	}

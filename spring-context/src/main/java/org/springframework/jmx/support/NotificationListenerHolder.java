@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -167,11 +167,8 @@ public class NotificationListenerHolder {
 
 	@Override
 	public int hashCode() {
-		int hashCode = ObjectUtils.nullSafeHashCode(this.notificationListener);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.notificationFilter);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.handback);
-		hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(this.mappedObjectNames);
-		return hashCode;
+		return ObjectUtils.nullSafeHash(this.notificationListener, this.notificationFilter,
+				this.handback, this.mappedObjectNames);
 	}
 
 }

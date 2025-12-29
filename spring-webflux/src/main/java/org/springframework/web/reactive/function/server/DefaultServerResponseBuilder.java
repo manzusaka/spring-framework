@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -146,15 +146,8 @@ class DefaultServerResponseBuilder implements ServerResponse.BodyBuilder {
 	}
 
 	@Override
-	public ServerResponse.BodyBuilder eTag(String etag) {
-		Assert.notNull(etag, "etag must not be null");
-		if (!etag.startsWith("\"") && !etag.startsWith("W/\"")) {
-			etag = "\"" + etag;
-		}
-		if (!etag.endsWith("\"")) {
-			etag = etag + "\"";
-		}
-		this.headers.setETag(etag);
+	public ServerResponse.BodyBuilder eTag(String tag) {
+		this.headers.setETag(tag);
 		return this;
 	}
 
@@ -226,6 +219,11 @@ class DefaultServerResponseBuilder implements ServerResponse.BodyBuilder {
 	}
 
 	@Override
+	public <T> Mono<ServerResponse> bodyValue(T body, ParameterizedTypeReference<T> bodyType) {
+		return initBuilder(body, BodyInserters.fromValue(body, bodyType));
+	}
+
+	@Override
 	public <T, P extends Publisher<T>> Mono<ServerResponse> body(P publisher, Class<T> elementClass) {
 		return initBuilder(publisher, BodyInserters.fromPublisher(publisher, elementClass));
 	}
@@ -245,7 +243,7 @@ class DefaultServerResponseBuilder implements ServerResponse.BodyBuilder {
 		return initBuilder(producer, BodyInserters.fromProducer(producer, elementTypeRef));
 	}
 
-	private  <T> Mono<ServerResponse> initBuilder(T entity, BodyInserter<T, ReactiveHttpOutputMessage> inserter) {
+	private <T> Mono<ServerResponse> initBuilder(T entity, BodyInserter<T, ReactiveHttpOutputMessage> inserter) {
 		return new DefaultEntityResponseBuilder<>(entity, inserter)
 				.status(this.statusCode)
 				.headers(this.headers)
@@ -323,6 +321,7 @@ class DefaultServerResponseBuilder implements ServerResponse.BodyBuilder {
 
 		@Override
 		@Deprecated
+		@SuppressWarnings("removal")
 		public int rawStatusCode() {
 			return this.statusCode.value();
 		}

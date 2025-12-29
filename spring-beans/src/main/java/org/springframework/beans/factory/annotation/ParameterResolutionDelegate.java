@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2021 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -153,7 +153,7 @@ public final class ParameterResolutionDelegate {
 	 * an empty {@code AnnotatedElement}.
 	 * <h4>WARNING</h4>
 	 * <p>The {@code AnnotatedElement} returned by this method should never be cast and
-	 * treated as a {@code Parameter} since the metadata (e.g., {@link Parameter#getName()},
+	 * treated as a {@code Parameter} since the metadata (for example, {@link Parameter#getName()},
 	 * {@link Parameter#getType()}, etc.) will not match those for the declared parameter
 	 * at the given index in an inner class constructor.
 	 * @return the supplied {@code parameter} or the <em>effective</em> {@code Parameter}

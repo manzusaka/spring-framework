@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.io.IOException;
 import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.lang.Nullable;
 import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.ResponseCreator;
 import org.springframework.util.Assert;
@@ -59,7 +60,7 @@ public class ExecutingResponseCreator implements ResponseCreator {
 
 
 	@Override
-	public ClientHttpResponse createResponse(ClientHttpRequest request) throws IOException {
+	public ClientHttpResponse createResponse(@Nullable ClientHttpRequest request) throws IOException {
 		Assert.state(request instanceof MockClientHttpRequest, "Expected a MockClientHttpRequest");
 		MockClientHttpRequest mockRequest = (MockClientHttpRequest) request;
 		ClientHttpRequest newRequest = this.requestFactory.createRequest(mockRequest.getURI(), mockRequest.getMethod());

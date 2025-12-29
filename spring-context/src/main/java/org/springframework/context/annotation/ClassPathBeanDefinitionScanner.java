@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+import org.springframework.util.ObjectUtils;
 import org.springframework.util.PatternMatchUtils;
 
 /**
@@ -311,7 +312,7 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 
 	/**
 	 * Register the specified bean with the given registry.
-	 * <p>Can be overridden in subclasses, e.g. to adapt the registration
+	 * <p>Can be overridden in subclasses, for example, to adapt the registration
 	 * process or to register further bean definitions for each scanned bean.
 	 * @param definitionHolder the bean definition plus bean name for the bean
 	 * @param registry the BeanDefinitionRegistry to register the bean with
@@ -336,14 +337,25 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 		if (!this.registry.containsBeanDefinition(beanName)) {
 			return true;
 		}
+
 		BeanDefinition existingDef = this.registry.getBeanDefinition(beanName);
 		BeanDefinition originatingDef = existingDef.getOriginatingBeanDefinition();
 		if (originatingDef != null) {
 			existingDef = originatingDef;
 		}
+
+		// Explicitly registered overriding bean?
+		if (!(existingDef instanceof ScannedGenericBeanDefinition) &&
+				(this.registry.isBeanDefinitionOverridable(beanName) || ObjectUtils.nullSafeEquals(
+						beanDefinition.getBeanClassName(), existingDef.getBeanClassName()))) {
+			return false;
+		}
+
+		// Scanned same file or equivalent class twice?
 		if (isCompatible(beanDefinition, existingDef)) {
 			return false;
 		}
+
 		throw new ConflictingBeanDefinitionException("Annotation-specified bean name '" + beanName +
 				"' for bean class [" + beanDefinition.getBeanClassName() + "] conflicts with existing, " +
 				"non-compatible bean definition of same name and class [" + existingDef.getBeanClassName() + "]");
@@ -361,9 +373,8 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 	 * new definition to be skipped in favor of the existing definition
 	 */
 	protected boolean isCompatible(BeanDefinition newDef, BeanDefinition existingDef) {
-		return (!(existingDef instanceof ScannedGenericBeanDefinition) ||  // explicitly registered overriding bean
-				(newDef.getSource() != null && newDef.getSource().equals(existingDef.getSource())) ||  // scanned same file twice
-				newDef.equals(existingDef));  // scanned equivalent class twice
+		return ((newDef.getSource() != null && newDef.getSource().equals(existingDef.getSource())) ||
+				newDef.equals(existingDef));
 	}
 
 

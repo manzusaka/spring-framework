@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Supplier;
 
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.cache.Cache;
@@ -35,11 +36,15 @@ import org.springframework.lang.Nullable;
  * the set of cache names is pre-defined through {@link #setCacheNames}, with no
  * dynamic creation of further cache regions at runtime.
  *
+ * <p>Supports the asynchronous {@link Cache#retrieve(Object)} and
+ * {@link Cache#retrieve(Object, Supplier)} operations through basic
+ * {@code CompletableFuture} adaptation, with early-determined cache misses.
+ *
  * <p>Note: This is by no means a sophisticated CacheManager; it comes with no
  * cache configuration options. However, it may be useful for testing or simple
  * caching scenarios. For advanced local caching needs, consider
- * {@link org.springframework.cache.jcache.JCacheCacheManager} or
- * {@link org.springframework.cache.caffeine.CaffeineCacheManager}.
+ * {@link org.springframework.cache.caffeine.CaffeineCacheManager} or
+ * {@link org.springframework.cache.jcache.JCacheCacheManager}.
  *
  * @author Juergen Hoeller
  * @since 3.1
@@ -49,7 +54,7 @@ public class ConcurrentMapCacheManager implements CacheManager, BeanClassLoaderA
 
 	private final ConcurrentMap<String, Cache> cacheMap = new ConcurrentHashMap<>(16);
 
-	private boolean dynamic = true;
+	private volatile boolean dynamic = true;
 
 	private boolean allowNullValues = true;
 
@@ -77,10 +82,15 @@ public class ConcurrentMapCacheManager implements CacheManager, BeanClassLoaderA
 
 	/**
 	 * Specify the set of cache names for this CacheManager's 'static' mode.
-	 * <p>The number of caches and their names will be fixed after a call to this method,
-	 * with no creation of further cache regions at runtime.
-	 * <p>Calling this with a {@code null} collection argument resets the
-	 * mode to 'dynamic', allowing for further creation of caches again.
+	 * <p>The number of caches and their names will be fixed after a call
+	 * to this method, with no creation of further cache regions at runtime.
+	 * <p>Note that this method replaces existing caches of the given names
+	 * and prevents the creation of further cache regions from here on - but
+	 * does <i>not</i> remove unrelated existing caches. For a full reset,
+	 * consider calling {@link #resetCaches()} before calling this method.
+	 * <p>Calling this method with a {@code null} collection argument resets
+	 * the mode to 'dynamic', allowing for further creation of caches again.
+	 * @see #resetCaches()
 	 */
 	public void setCacheNames(@Nullable Collection<String> cacheNames) {
 		if (cacheNames != null) {
@@ -156,11 +166,6 @@ public class ConcurrentMapCacheManager implements CacheManager, BeanClassLoaderA
 
 
 	@Override
-	public Collection<String> getCacheNames() {
-		return Collections.unmodifiableSet(this.cacheMap.keySet());
-	}
-
-	@Override
 	@Nullable
 	public Cache getCache(String name) {
 		Cache cache = this.cacheMap.get(name);
@@ -168,6 +173,32 @@ public class ConcurrentMapCacheManager implements CacheManager, BeanClassLoaderA
 			cache = this.cacheMap.computeIfAbsent(name, this::createConcurrentMapCache);
 		}
 		return cache;
+	}
+
+	@Override
+	public Collection<String> getCacheNames() {
+		return Collections.unmodifiableSet(this.cacheMap.keySet());
+	}
+
+	/**
+	 * Reset this cache manager's caches, removing them completely for on-demand
+	 * re-creation in 'dynamic' mode, or simply clearing their entries otherwise.
+	 * @since 6.2.14
+	 */
+	public void resetCaches() {
+		this.cacheMap.values().forEach(Cache::clear);
+		if (this.dynamic) {
+			this.cacheMap.clear();
+		}
+	}
+
+	/**
+	 * Remove the specified cache from this cache manager.
+	 * @param name the name of the cache
+	 * @since 6.1.15
+	 */
+	public void removeCache(String name) {
+		this.cacheMap.remove(name);
 	}
 
 	private void recreateCaches() {

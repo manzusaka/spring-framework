@@ -7,19 +7,12 @@ but exposes a testing facade for verifying responses. `WebTestClient` can be use
 perform end-to-end HTTP tests. It can also be used to test Spring MVC and Spring WebFlux
 applications without a running server via mock server request and response objects.
 
-TIP: Kotlin users: See xref:languages/kotlin/spring-projects-in.adoc#kotlin-webtestclient-issue[this section]
-related to use of the `WebTestClient`.
-
-
-
 
 [[webtestclient-setup]]
 == Setup
 
 To set up a `WebTestClient` you need to choose a server setup to bind to. This can be one
 of several mock server setup choices or a connection to a live server.
-
-
 
 [[webtestclient-controller-config]]
 === Bind to Controller
@@ -36,7 +29,7 @@ to handle requests:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	WebTestClient client =
 			WebTestClient.bindToController(new TestController()).build();
@@ -44,23 +37,23 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val client = WebTestClient.bindToController(TestController()).build()
 ----
 ======
 
 For Spring MVC, use the following which delegates to the
-{api-spring-framework}/test/web/servlet/setup/StandaloneMockMvcBuilder.html[StandaloneMockMvcBuilder]
+{spring-framework-api}/test/web/servlet/setup/StandaloneMockMvcBuilder.html[StandaloneMockMvcBuilder]
 to load infrastructure equivalent to the xref:web/webmvc/mvc-config.adoc[WebMvc Java config],
 registers the given controller(s), and creates an instance of
-xref:testing/spring-mvc-test-framework.adoc[MockMvc] to handle requests:
+xref:testing/mockmvc.adoc[MockMvc] to handle requests:
 
 [tabs]
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	WebTestClient client =
 			MockMvcWebTestClient.bindToController(new TestController()).build();
@@ -68,13 +61,11 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val client = MockMvcWebTestClient.bindToController(TestController()).build()
 ----
 ======
-
-
 
 [[webtestclient-context-config]]
 === Bind to `ApplicationContext`
@@ -84,7 +75,7 @@ infrastructure and controller declarations and use it to handle requests via moc
 and response objects, without a running server.
 
 For WebFlux, use the following where the Spring `ApplicationContext` is passed to
-{api-spring-framework}/web/server/adapter/WebHttpHandlerBuilder.html#applicationContext-org.springframework.context.ApplicationContext-[WebHttpHandlerBuilder]
+{spring-framework-api}/web/server/adapter/WebHttpHandlerBuilder.html#applicationContext(org.springframework.context.ApplicationContext)[WebHttpHandlerBuilder]
 to create the xref:web/webflux/reactive-spring.adoc#webflux-web-handler-api[WebHandler chain] to handle
 requests:
 
@@ -92,7 +83,7 @@ requests:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	@SpringJUnitConfig(WebConfig.class) // <1>
 	class MyTests {
@@ -111,7 +102,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	@SpringJUnitConfig(WebConfig::class) // <1>
 	class MyTests {
@@ -130,15 +121,15 @@ Kotlin::
 ======
 
 For Spring MVC, use the following where the Spring `ApplicationContext` is passed to
-{api-spring-framework}/test/web/servlet/setup/MockMvcBuilders.html#webAppContextSetup-org.springframework.web.context.WebApplicationContext-[MockMvcBuilders.webAppContextSetup]
-to create a xref:testing/spring-mvc-test-framework.adoc[MockMvc] instance to handle
+{spring-framework-api}/test/web/servlet/setup/MockMvcBuilders.html#webAppContextSetup(org.springframework.web.context.WebApplicationContext)[MockMvcBuilders.webAppContextSetup]
+to create a xref:testing/mockmvc.adoc[MockMvc] instance to handle
 requests:
 
 [tabs]
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	@ExtendWith(SpringExtension.class)
 	@WebAppConfiguration("classpath:META-INF/web-resources") // <1>
@@ -165,7 +156,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	@ExtendWith(SpringExtension.class)
 	@WebAppConfiguration("classpath:META-INF/web-resources") // <1>
@@ -191,12 +182,10 @@ Kotlin::
 <3> Create the `WebTestClient`
 ======
 
-
-
 [[webtestclient-fn-config]]
 === Bind to Router Function
 
-This setup allows you to test <<web-reactive.adoc#webflux-fn, functional endpoints>> via
+This setup allows you to test xref:web/webflux-functional.adoc[functional endpoints] via
 mock request and response objects, without a running server.
 
 For WebFlux, use the following which delegates to `RouterFunctions.toWebHandler` to
@@ -206,7 +195,7 @@ create a server setup to handle requests:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	RouterFunction<?> route = ...
 	client = WebTestClient.bindToRouterFunction(route).build();
@@ -214,7 +203,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val route: RouterFunction<*> = ...
 	val client = WebTestClient.bindToRouterFunction(route).build()
@@ -223,8 +212,6 @@ Kotlin::
 
 For Spring MVC there are currently no options to test
 xref:web/webmvc-functional.adoc[WebMvc functional endpoints].
-
-
 
 [[webtestclient-server-config]]
 === Bind to Server
@@ -235,20 +222,18 @@ This setup connects to a running server to perform full, end-to-end HTTP tests:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client = WebTestClient.bindToServer().baseUrl("http://localhost:8080").build();
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client = WebTestClient.bindToServer().baseUrl("http://localhost:8080").build()
 ----
 ======
-
-
 
 [[webtestclient-client-config]]
 === Client Config
@@ -263,7 +248,7 @@ follows:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client = WebTestClient.bindToController(new TestController())
 			.configureClient()
@@ -273,7 +258,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client = WebTestClient.bindToController(TestController())
 			.configureClient()
@@ -281,8 +266,6 @@ Kotlin::
 			.build()
 ----
 ======
-
-
 
 
 [[webtestclient-tests]]
@@ -302,7 +285,7 @@ To assert the response status and headers, use the following:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons/1")
 		.accept(MediaType.APPLICATION_JSON)
@@ -313,7 +296,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons/1")
 		.accept(MediaType.APPLICATION_JSON)
@@ -332,7 +315,7 @@ JUnit Jupiter.
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons/1")
 		.accept(MediaType.APPLICATION_JSON)
@@ -341,6 +324,19 @@ Java::
 			spec -> spec.expectStatus().isOk(),
 			spec -> spec.expectHeader().contentType(MediaType.APPLICATION_JSON)
 		);
+----
+
+Kotlin::
++
+[source,kotlin,indent=0,subs="verbatim,quotes"]
+----
+	client.get().uri("/persons/1")
+		.accept(MediaType.APPLICATION_JSON)
+		.exchange()
+		.expectAll(
+			{ spec -> spec.expectStatus().isOk() },
+			{ spec -> spec.expectHeader().contentType(MediaType.APPLICATION_JSON) }
+		)
 ----
 ======
 
@@ -356,7 +352,7 @@ And perform assertions on the resulting higher level Object(s):
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons")
 			.exchange()
@@ -366,7 +362,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	import org.springframework.test.web.reactive.server.expectBodyList
 
@@ -384,29 +380,29 @@ perform any other assertions:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
-    import org.springframework.test.web.reactive.server.expectBody
+	import org.springframework.test.web.reactive.server.expectBody
 
 	client.get().uri("/persons/1")
 			.exchange()
 			.expectStatus().isOk()
 			.expectBody(Person.class)
 			.consumeWith(result -> {
-				// custom assertions (e.g. AssertJ)...
+				// custom assertions (for example, AssertJ)...
 			});
 ----
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons/1")
 			.exchange()
 			.expectStatus().isOk()
 			.expectBody<Person>()
 			.consumeWith {
-				// custom assertions (e.g. AssertJ)...
+				// custom assertions (for example, AssertJ)...
 			}
 ----
 ======
@@ -417,7 +413,7 @@ Or you can exit the workflow and obtain an `EntityExchangeResult`:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	EntityExchangeResult<Person> result = client.get().uri("/persons/1")
 			.exchange()
@@ -428,7 +424,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	import org.springframework.test.web.reactive.server.expectBody
 
@@ -442,10 +438,8 @@ Kotlin::
 
 TIP: When you need to decode to a target type with generics, look for the overloaded methods
 that accept
-{api-spring-framework}/core/ParameterizedTypeReference.html[`ParameterizedTypeReference`]
+{spring-framework-api}/core/ParameterizedTypeReference.html[`ParameterizedTypeReference`]
 instead of `Class<T>`.
-
-
 
 [[webtestclient-no-content]]
 === No Content
@@ -456,7 +450,7 @@ If the response is not expected to have content, you can assert that as follows:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client.post().uri("/persons")
 			.body(personMono, Person.class)
@@ -467,7 +461,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client.post().uri("/persons")
 			.bodyValue(person)
@@ -484,7 +478,7 @@ any assertions:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons/123")
 			.exchange()
@@ -494,7 +488,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons/123")
 			.exchange()
@@ -502,8 +496,6 @@ Kotlin::
 			.expectBody<Unit>()
 ----
 ======
-
-
 
 [[webtestclient-json]]
 === JSON Content
@@ -517,7 +509,7 @@ To verify the full JSON content with https://jsonassert.skyscreamer.org[JSONAsse
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons/1")
 			.exchange()
@@ -528,7 +520,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons/1")
 			.exchange()
@@ -544,7 +536,7 @@ To verify JSON content with https://github.com/jayway/JsonPath[JSONPath]:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons")
 			.exchange()
@@ -556,7 +548,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	client.get().uri("/persons")
 			.exchange()
@@ -566,8 +558,6 @@ Kotlin::
 			.jsonPath("$[1].name").isEqualTo("Jason")
 ----
 ======
-
-
 
 [[webtestclient-stream]]
 === Streaming Responses
@@ -580,7 +570,7 @@ obtain a `FluxExchangeResult`:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	FluxExchangeResult<MyEvent> result = client.get().uri("/events")
 			.accept(TEXT_EVENT_STREAM)
@@ -592,7 +582,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	import org.springframework.test.web.reactive.server.returnResult
 
@@ -610,7 +600,7 @@ Now you're ready to consume the response stream with `StepVerifier` from `reacto
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	Flux<Event> eventFlux = result.getResponseBody();
 
@@ -624,7 +614,7 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	val eventFlux = result.getResponseBody()
 
@@ -636,7 +626,6 @@ Kotlin::
 			.verify()
 ----
 ======
-
 
 [[webtestclient-mockmvc]]
 === MockMvc Assertions
@@ -652,7 +641,7 @@ obtaining an `ExchangeResult` after asserting the body:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	// For a response with a body
 	EntityExchangeResult<Person> result = client.get().uri("/persons/1")
@@ -669,19 +658,19 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	// For a response with a body
 	val result = client.get().uri("/persons/1")
 			.exchange()
 			.expectStatus().isOk()
-			.expectBody(Person.class)
-			.returnResult();
+			.expectBody<Person>()
+			.returnResult()
 
 	// For a response without a body
 	val result = client.get().uri("/path")
 			.exchange()
-			.expectBody().isEmpty();
+			.expectBody().isEmpty()
 ----
 ======
 
@@ -691,7 +680,7 @@ Then switch to MockMvc server response assertions:
 ======
 Java::
 +
-[source,java,indent=0,subs="verbatim,quotes",role="primary"]
+[source,java,indent=0,subs="verbatim,quotes"]
 ----
 	MockMvcWebTestClient.resultActionsFor(result)
 			.andExpect(model().attribute("integer", 3))
@@ -700,11 +689,10 @@ Java::
 
 Kotlin::
 +
-[source,kotlin,indent=0,subs="verbatim,quotes",role="secondary"]
+[source,kotlin,indent=0,subs="verbatim,quotes"]
 ----
 	MockMvcWebTestClient.resultActionsFor(result)
 			.andExpect(model().attribute("integer", 3))
 			.andExpect(model().attribute("string", "a string value"));
 ----
 ======
-

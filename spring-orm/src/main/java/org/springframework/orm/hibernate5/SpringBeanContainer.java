@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ import org.springframework.util.ConcurrentReferenceHashMap;
  * <p>Auto-configured by {@link LocalSessionFactoryBean#setBeanFactory},
  * programmatically supported via {@link LocalSessionFactoryBuilder#setBeanContainer},
  * and manually configurable through a "hibernate.resource.beans.container" entry
- * in JPA properties, e.g.:
+ * in JPA properties, for example:
  *
  * <pre class="code">
  * &lt;bean id="entityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean"&gt;
@@ -144,8 +144,8 @@ public final class SpringBeanContainer implements BeanContainer {
 
 		try {
 			if (lifecycleOptions.useJpaCompliantCreation()) {
-				return new SpringContainedBean<>(  // to be replaced with plain createBean(Class)
-						this.beanFactory.createBean(beanType, AutowireCapableBeanFactory.AUTOWIRE_CONSTRUCTOR, false),
+				return new SpringContainedBean<>(
+						this.beanFactory.createBean(beanType),
 						this.beanFactory::destroyBean);
 			}
 			else {
@@ -203,8 +203,8 @@ public final class SpringBeanContainer implements BeanContainer {
 				}
 				else {
 					// No bean found by name -> construct by type using createBean
-					return new SpringContainedBean<>(  // to be replaced with plain createBean(Class)
-							this.beanFactory.createBean(beanType, AutowireCapableBeanFactory.AUTOWIRE_CONSTRUCTOR, false),
+					return new SpringContainedBean<>(
+							this.beanFactory.createBean(beanType),
 							this.beanFactory::destroyBean);
 				}
 			}

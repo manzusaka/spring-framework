@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@ package org.springframework.transaction.reactive;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import reactor.core.publisher.Mono;
 
@@ -39,7 +39,7 @@ import org.springframework.util.Assert;
  * to be removed before a new one can be set for the same key.
  * Supports a list of transaction synchronizations if synchronization is active.
  *
- * <p>Resource management code should check for context-bound resources, e.g.
+ * <p>Resource management code should check for context-bound resources, for example,
  * database connections, via {@code getResource}. Such code is normally not
  * supposed to bind resources to units of work, as this is the responsibility
  * of transaction managers. A further option is to lazily bind on first use if
@@ -58,7 +58,7 @@ import org.springframework.util.Assert;
  * doesn't support transaction synchronization.
  *
  * <p>Synchronization is for example used to always return the same resources within
- * a transaction, e.g. a database connection for any given connection factory.
+ * a transaction, for example, a database connection for any given connection factory.
  *
  * @author Mark Paluch
  * @author Juergen Hoeller
@@ -196,7 +196,7 @@ public class TransactionSynchronizationManager {
 		if (isSynchronizationActive()) {
 			throw new IllegalStateException("Cannot activate transaction synchronization - already active");
 		}
-		this.transactionContext.setSynchronizations(new LinkedHashSet<>());
+		this.transactionContext.setSynchronizations(new CopyOnWriteArraySet<>());
 	}
 
 	/**

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,17 +40,19 @@ import org.springframework.util.ClassUtils;
  */
 class AspectJBeanFactoryInitializationAotProcessor implements BeanFactoryInitializationAotProcessor {
 
-	private static final boolean aspectJPresent = ClassUtils.isPresent(
-			"org.aspectj.lang.annotation.Pointcut", AspectJBeanFactoryInitializationAotProcessor.class.getClassLoader());
+	private static final boolean aspectJPresent = ClassUtils.isPresent("org.aspectj.lang.annotation.Pointcut",
+			AspectJBeanFactoryInitializationAotProcessor.class.getClassLoader());
 
-	@Nullable
+
 	@Override
+	@Nullable
 	public BeanFactoryInitializationAotContribution processAheadOfTime(ConfigurableListableBeanFactory beanFactory) {
 		if (aspectJPresent) {
 			return AspectDelegate.processAheadOfTime(beanFactory);
 		}
 		return null;
 	}
+
 
 	/**
 	 * Inner class to avoid a hard dependency on AspectJ at runtime.
@@ -61,9 +63,8 @@ class AspectJBeanFactoryInitializationAotProcessor implements BeanFactoryInitial
 		private static AspectContribution processAheadOfTime(ConfigurableListableBeanFactory beanFactory) {
 			BeanFactoryAspectJAdvisorsBuilder builder = new BeanFactoryAspectJAdvisorsBuilder(beanFactory);
 			List<Advisor> advisors = builder.buildAspectJAdvisors();
-			return advisors.isEmpty() ? null : new AspectContribution(advisors);
+			return (advisors.isEmpty() ? null : new AspectContribution(advisors));
 		}
-
 	}
 
 
@@ -84,7 +85,6 @@ class AspectJBeanFactoryInitializationAotProcessor implements BeanFactoryInitial
 				}
 			}
 		}
-
 	}
 
 }

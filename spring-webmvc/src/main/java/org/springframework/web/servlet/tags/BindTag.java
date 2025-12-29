@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,8 +108,8 @@ public class BindTag extends HtmlEscapingAwareTag implements EditorAwareTag {
 
 
 	/**
-	 * Set the path that this tag should apply. Can be a bean (e.g. "person")
-	 * to get global errors, or a bean property (e.g. "person.name") to get
+	 * Set the path that this tag should apply. Can be a bean (for example, "person")
+	 * to get global errors, or a bean property (for example, "person.name") to get
 	 * field errors (also supporting nested fields and "person.na*" mappings).
 	 * "person.*" will return all errors for the specified bean, both global
 	 * and field errors.

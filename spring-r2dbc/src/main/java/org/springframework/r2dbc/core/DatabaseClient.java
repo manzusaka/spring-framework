@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package org.springframework.r2dbc.core;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -55,6 +56,8 @@ import org.springframework.util.Assert;
  *     .first();</pre>
  *
  * @author Mark Paluch
+ * @author Juergen Hoeller
+ * @author Brian Clozel
  * @since 5.3
  */
 public interface DatabaseClient extends ConnectionAccessor {
@@ -68,7 +71,7 @@ public interface DatabaseClient extends ConnectionAccessor {
 	/**
 	 * Specify a static {@code sql} statement to run. Contract for specifying an
 	 * SQL call along with options leading to the execution. The SQL string can
-	 * contain either native parameter bind markers or named parameters (e.g.
+	 * contain either native parameter bind markers or named parameters (for example,
 	 * {@literal :foo, :bar}) when {@link NamedParameterExpander} is enabled.
 	 * @param sql the SQL statement
 	 * @return a new {@link GenericExecuteSpec}
@@ -81,7 +84,7 @@ public interface DatabaseClient extends ConnectionAccessor {
 	 * Specify an {@linkplain Supplier SQL supplier} that provides SQL to run.
 	 * Contract for specifying an SQL call along with options leading to
 	 * the execution. The SQL string can contain either native parameter
-	 * bind markers or named parameters (e.g. {@literal :foo, :bar}) when
+	 * bind markers or named parameters (for example, {@literal :foo, :bar}) when
 	 * {@link NamedParameterExpander} is enabled.
 	 * <p>Accepts {@link PreparedOperation} as SQL and binding {@link Supplier}.
 	 * <p>{@code DatabaseClient} implementations should defer the resolution of
@@ -191,6 +194,37 @@ public interface DatabaseClient extends ConnectionAccessor {
 		GenericExecuteSpec bindNull(String name, Class<?> type);
 
 		/**
+		 * Bind the parameter values from the given source list,
+		 * registering each as a positional parameter using their order
+		 * in the given list as their index.
+		 * @param source the source list of parameters, with their order
+		 * as position and each value either a scalar value
+		 * or a {@link io.r2dbc.spi.Parameter}
+		 * @since 6.2
+		 * @see #bind(int, Object)
+		 */
+		GenericExecuteSpec bindValues(List<?> source);
+
+		/**
+		 * Bind the parameter values from the given source map,
+		 * registering each as a parameter with the map key as name.
+		 * @param source the source map of parameters, with keys as names and
+		 * each value either a scalar value or a {@link io.r2dbc.spi.Parameter}
+		 * @since 6.1
+		 * @see #bindProperties
+		 */
+		GenericExecuteSpec bindValues(Map<String, ?> source);
+
+		/**
+		 * Bind the bean properties or record components from the given
+		 * source object, registering each as a named parameter.
+		 * @param source the source object (a JavaBean or record)
+		 * @since 6.1
+		 * @see #mapProperties
+		 */
+		GenericExecuteSpec bindProperties(Object source);
+
+		/**
 		 * Add the given filter to the end of the filter chain.
 		 * <p>Filter functions are typically used to invoke methods on the Statement
 		 * before it is executed. For example:
@@ -234,6 +268,27 @@ public interface DatabaseClient extends ConnectionAccessor {
 		 * @return a {@link RowsFetchSpec} for configuration what to fetch
 		 */
 		<R> RowsFetchSpec<R> map(BiFunction<Row, RowMetadata, R> mappingFunction);
+
+		/**
+		 * Configure a mapping for values in the first column and enter the execution stage.
+		 * @param mappedClass the target class (a database-supported value class)
+		 * @param <R> the result type
+		 * @return a {@link RowsFetchSpec} for configuration what to fetch
+		 * @since 6.1
+		 * @see Readable#get(int, Class)
+		 */
+		<R> RowsFetchSpec<R> mapValue(Class<R> mappedClass);
+
+		/**
+		 * Configure a row mapper for the given mapped class and enter the execution stage.
+		 * @param mappedClass the target class (a JavaBean or record) with properties to
+		 * map to (bean properties or record components)
+		 * @param <R> the result type
+		 * @return a {@link RowsFetchSpec} for configuration what to fetch
+		 * @since 6.1
+		 * @see DataClassRowMapper
+		 */
+		<R> RowsFetchSpec<R> mapProperties(Class<R> mappedClass);
 
 		/**
 		 * Perform the SQL call and apply {@link BiFunction function} to the {@link Result}.

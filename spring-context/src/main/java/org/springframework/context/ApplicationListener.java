@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,18 @@ public interface ApplicationListener<E extends ApplicationEvent> extends EventLi
 	 * @param event the event to respond to
 	 */
 	void onApplicationEvent(E event);
+
+	/**
+	 * Return whether this listener supports asynchronous execution.
+	 * @return {@code true} if this listener instance can be executed asynchronously
+	 * depending on the multicaster configuration (the default), or {@code false} if it
+	 * needs to immediately run within the original thread which published the event
+	 * @since 6.1
+	 * @see org.springframework.context.event.SimpleApplicationEventMulticaster#setTaskExecutor
+	 */
+	default boolean supportsAsyncExecution() {
+		return true;
+	}
 
 
 	/**

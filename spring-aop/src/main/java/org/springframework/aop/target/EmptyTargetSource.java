@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.springframework.aop.target;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 import org.springframework.aop.TargetSource;
 import org.springframework.lang.Nullable;
@@ -115,13 +116,6 @@ public final class EmptyTargetSource implements TargetSource, Serializable {
 		return null;
 	}
 
-	/**
-	 * Nothing to release.
-	 */
-	@Override
-	public void releaseTarget(Object target) {
-	}
-
 
 	/**
 	 * Returns the canonical instance on deserialization in case
@@ -140,7 +134,7 @@ public final class EmptyTargetSource implements TargetSource, Serializable {
 
 	@Override
 	public int hashCode() {
-		return EmptyTargetSource.class.hashCode() * 13 + ObjectUtils.nullSafeHashCode(this.targetClass);
+		return Objects.hash(getClass(), this.targetClass);
 	}
 
 	@Override

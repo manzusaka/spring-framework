@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ class SimpleNamespaceContextTests {
 
 
 	@Test
-	void getNamespaceURI_withNull() throws Exception {
+	void getNamespaceURI_withNull() {
 		assertThatIllegalArgumentException().isThrownBy(() ->
 				context.getNamespaceURI(null));
 	}
@@ -77,7 +77,7 @@ class SimpleNamespaceContextTests {
 	}
 
 	@Test
-	void getPrefix_withNull() throws Exception {
+	void getPrefix_withNull() {
 		assertThatIllegalArgumentException().isThrownBy(() ->
 				context.getPrefix(null));
 	}
@@ -100,13 +100,13 @@ class SimpleNamespaceContextTests {
 	}
 
 	@Test
-	void getPrefixes_withNull() throws Exception {
+	void getPrefixes_withNull() {
 		assertThatIllegalArgumentException().isThrownBy(() ->
 				context.getPrefixes(null));
 	}
 
 	@Test
-	void getPrefixes_IteratorIsNotModifiable() throws Exception {
+	void getPrefixes_IteratorIsNotModifiable() {
 		context.bindNamespaceUri(prefix, namespaceUri);
 		Iterator<String> iterator = context.getPrefixes(namespaceUri);
 		assertThatExceptionOfType(UnsupportedOperationException.class).isThrownBy(

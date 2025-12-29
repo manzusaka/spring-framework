@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2015 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.springframework.orm.hibernate5;
 import org.hibernate.QueryException;
 
 import org.springframework.dao.InvalidDataAccessResourceUsageException;
+import org.springframework.lang.Nullable;
 
 /**
  * Hibernate-specific subclass of InvalidDataAccessResourceUsageException,
@@ -38,8 +39,10 @@ public class HibernateQueryException extends InvalidDataAccessResourceUsageExcep
 	/**
 	 * Return the HQL query string that was invalid.
 	 */
+	@Nullable
 	public String getQueryString() {
-		return ((QueryException) getCause()).getQueryString();
+		QueryException cause = (QueryException) getCause();
+		return (cause != null ? cause.getQueryString() : null);
 	}
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.reactive.ClientHttpConnector;
@@ -62,6 +63,7 @@ class WiretapConnector implements ClientHttpConnector {
 
 
 	@Override
+	@SuppressWarnings("NullAway")
 	public Mono<ClientHttpResponse> connect(HttpMethod method, URI uri,
 			Function<? super ClientHttpRequest, Mono<Void>> requestCallback) {
 
@@ -73,7 +75,7 @@ class WiretapConnector implements ClientHttpConnector {
 					requestRef.set(wrapped);
 					return requestCallback.apply(wrapped);
 				})
-				.map(response ->  {
+				.map(response -> {
 					WiretapClientHttpRequest wrappedRequest = requestRef.get();
 					String header = WebTestClient.WEBTESTCLIENT_REQUEST_ID;
 					String requestId = wrappedRequest.getHeaders().getFirst(header);
@@ -126,7 +128,7 @@ class WiretapConnector implements ClientHttpConnector {
 	/**
 	 * Tap into a Publisher of data buffers to save the content.
 	 */
-	final static class WiretapRecorder {
+	static final class WiretapRecorder {
 
 		@Nullable
 		private final Flux<? extends DataBuffer> publisher;
@@ -181,6 +183,7 @@ class WiretapConnector implements ClientHttpConnector {
 			return this.publisherNested;
 		}
 
+		@SuppressWarnings("NullAway")
 		public Mono<byte[]> getContent() {
 			return Mono.defer(() -> {
 				if (this.content.scan(Scannable.Attr.TERMINATED) == Boolean.TRUE) {
@@ -188,14 +191,24 @@ class WiretapConnector implements ClientHttpConnector {
 				}
 				if (!this.hasContentConsumer) {
 					// Couple of possible cases:
-					//  1. Mock server never consumed request body (e.g. error before read)
+					//  1. Mock server never consumed request body (for example, error before read)
 					//  2. FluxExchangeResult: getResponseBodyContent called before getResponseBody
 					//noinspection ConstantConditions
-					(this.publisher != null ? this.publisher : this.publisherNested)
-							.onErrorMap(ex -> new IllegalStateException(
-									"Content has not been consumed, and " +
-											"an error was raised while attempting to produce it.", ex))
-							.subscribe();
+					if (this.publisher != null) {
+						this.publisher.doOnNext(DataBufferUtils::release)
+								.onErrorMap(ex -> new IllegalStateException(
+										"Content has not been consumed, and " +
+												"an error was raised while attempting to produce it.", ex))
+								.subscribe();
+					}
+					else if (this.publisherNested != null) {
+						this.publisherNested
+								.map(pub -> Flux.from(pub).doOnNext(DataBufferUtils::release))
+								.onErrorMap(ex -> new IllegalStateException(
+										"Content has not been consumed, and " +
+												"an error was raised while attempting to produce it.", ex))
+								.subscribe();
+					}
 				}
 				return this.content.asMono();
 			});

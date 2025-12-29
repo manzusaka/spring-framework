@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2018 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import org.springframework.lang.Nullable;
  * @since 3.2
  * @param <T> the converted object type
  * @see org.springframework.core.ParameterizedTypeReference
+ * @see SmartHttpMessageConverter
  */
 public interface GenericHttpMessageConverter<T> extends HttpMessageConverter<T> {
 
@@ -53,7 +54,7 @@ public interface GenericHttpMessageConverter<T> extends HttpMessageConverter<T> 
 	boolean canRead(Type type, @Nullable Class<?> contextClass, @Nullable MediaType mediaType);
 
 	/**
-	 * Read an object of the given type form the given input message, and returns it.
+	 * Read an object of the given type from the given input message, and returns it.
 	 * @param type the (potentially generic) type of object to return. This type must have
 	 * previously been passed to the {@link #canRead canRead} method of this interface,
 	 * which must have returned {@code true}.

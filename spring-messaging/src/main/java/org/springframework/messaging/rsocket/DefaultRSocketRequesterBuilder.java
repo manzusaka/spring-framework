@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -245,13 +245,13 @@ final class DefaultRSocketRequesterBuilder implements RSocketRequester.Builder {
 		if (this.dataMimeType != null) {
 			return this.dataMimeType;
 		}
-		// First non-basic Decoder (e.g. CBOR, Protobuf)
+		// First non-basic Decoder (for example, CBOR, Protobuf)
 		for (Decoder<?> candidate : strategies.decoders()) {
 			if (!isCoreCodec(candidate) && !candidate.getDecodableMimeTypes().isEmpty()) {
 				return getMimeType(candidate);
 			}
 		}
-		// First core decoder (e.g. String)
+		// First core decoder (for example, String)
 		for (Decoder<?> decoder : strategies.decoders()) {
 			if (!decoder.getDecodableMimeTypes().isEmpty()) {
 				return getMimeType(decoder);

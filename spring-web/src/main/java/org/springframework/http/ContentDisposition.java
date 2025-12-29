@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.BitSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -50,10 +51,10 @@ import static java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME;
  */
 public final class ContentDisposition {
 
-	private final static Pattern BASE64_ENCODED_PATTERN =
+	private static final Pattern BASE64_ENCODED_PATTERN =
 			Pattern.compile("=\\?([0-9a-zA-Z-_]+)\\?B\\?([+/0-9a-zA-Z]+=*)\\?=");
 
-	private final static Pattern QUOTED_PRINTABLE_ENCODED_PATTERN =
+	private static final Pattern QUOTED_PRINTABLE_ENCODED_PATTERN =
 			Pattern.compile("=\\?([0-9a-zA-Z-_]+)\\?Q\\?([!->@-~]+)\\?="); // Printable ASCII other than "?" or SPACE
 
 	private static final String INVALID_HEADER_FIELD_PARAMETER_FORMAT =
@@ -67,6 +68,7 @@ public final class ContentDisposition {
 		for (int i=33; i<= 126; i++) {
 			PRINTABLE.set(i);
 		}
+		PRINTABLE.set(34, false); // "
 		PRINTABLE.set(61, false); // =
 		PRINTABLE.set(63, false); // ?
 		PRINTABLE.set(95, false); // _
@@ -240,15 +242,8 @@ public final class ContentDisposition {
 
 	@Override
 	public int hashCode() {
-		int result = ObjectUtils.nullSafeHashCode(this.type);
-		result = 31 * result + ObjectUtils.nullSafeHashCode(this.name);
-		result = 31 * result + ObjectUtils.nullSafeHashCode(this.filename);
-		result = 31 * result + ObjectUtils.nullSafeHashCode(this.charset);
-		result = 31 * result + ObjectUtils.nullSafeHashCode(this.size);
-		result = 31 * result + ObjectUtils.nullSafeHashCode(this.creationDate);
-		result = 31 * result + ObjectUtils.nullSafeHashCode(this.modificationDate);
-		result = 31 * result + ObjectUtils.nullSafeHashCode(this.readDate);
-		return result;
+		return ObjectUtils.nullSafeHash(this.type, this.name,this.filename,
+				this.charset, this.size, this.creationDate, this.modificationDate, this.readDate);
 	}
 
 	/**
@@ -361,7 +356,7 @@ public final class ContentDisposition {
 			String part = parts.get(i);
 			int eqIndex = part.indexOf('=');
 			if (eqIndex != -1) {
-				String attribute = part.substring(0, eqIndex);
+				String attribute = part.substring(0, eqIndex).toLowerCase(Locale.ROOT);
 				String value = (part.startsWith("\"", eqIndex + 1) && part.endsWith("\"") ?
 						part.substring(eqIndex + 2, part.length() - 1) :
 						part.substring(eqIndex + 1));
@@ -705,7 +700,7 @@ public final class ContentDisposition {
 		 * Set the value of the {@literal filename} parameter. The given
 		 * filename will be formatted as quoted-string, as defined in RFC 2616,
 		 * section 2.2, and any quote characters within the filename value will
-		 * be escaped with a backslash, e.g. {@code "foo\"bar.txt"} becomes
+		 * be escaped with a backslash, for example, {@code "foo\"bar.txt"} becomes
 		 * {@code "foo\\\"bar.txt"}.
 		 */
 		Builder filename(@Nullable String filename);
@@ -795,19 +790,19 @@ public final class ContentDisposition {
 		}
 
 		@Override
-		public Builder name(String name) {
+		public Builder name(@Nullable String name) {
 			this.name = name;
 			return this;
 		}
 
 		@Override
-		public Builder filename(String filename) {
+		public Builder filename(@Nullable String filename) {
 			this.filename = filename;
 			return this;
 		}
 
 		@Override
-		public Builder filename(String filename, Charset charset) {
+		public Builder filename(@Nullable String filename, @Nullable Charset charset) {
 			this.filename = filename;
 			this.charset = charset;
 			return this;
@@ -815,28 +810,28 @@ public final class ContentDisposition {
 
 		@Override
 		@SuppressWarnings("deprecation")
-		public Builder size(Long size) {
+		public Builder size(@Nullable Long size) {
 			this.size = size;
 			return this;
 		}
 
 		@Override
 		@SuppressWarnings("deprecation")
-		public Builder creationDate(ZonedDateTime creationDate) {
+		public Builder creationDate(@Nullable ZonedDateTime creationDate) {
 			this.creationDate = creationDate;
 			return this;
 		}
 
 		@Override
 		@SuppressWarnings("deprecation")
-		public Builder modificationDate(ZonedDateTime modificationDate) {
+		public Builder modificationDate(@Nullable ZonedDateTime modificationDate) {
 			this.modificationDate = modificationDate;
 			return this;
 		}
 
 		@Override
 		@SuppressWarnings("deprecation")
-		public Builder readDate(ZonedDateTime readDate) {
+		public Builder readDate(@Nullable ZonedDateTime readDate) {
 			this.readDate = readDate;
 			return this;
 		}

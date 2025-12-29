@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 package org.springframework.scheduling.concurrent;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -41,19 +41,19 @@ class ConcurrentTaskExecutorTests extends AbstractSchedulingTaskExecutorTests {
 			new ThreadPoolExecutor(1, 1, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
 
 
-	@SuppressWarnings("deprecation")
 	@Override
+	@SuppressWarnings("removal")
 	protected org.springframework.core.task.AsyncListenableTaskExecutor buildExecutor() {
 		concurrentExecutor.setThreadFactory(new CustomizableThreadFactory(this.threadNamePrefix));
 		return new ConcurrentTaskExecutor(concurrentExecutor);
 	}
 
-	@Override
 	@AfterEach
+	@Override
 	void shutdownExecutor() {
 		for (Runnable task : concurrentExecutor.shutdownNow()) {
-			if (task instanceof RunnableFuture) {
-				((RunnableFuture<?>) task).cancel(true);
+			if (task instanceof Future) {
+				((Future<?>) task).cancel(true);
 			}
 		}
 	}
@@ -61,6 +61,7 @@ class ConcurrentTaskExecutorTests extends AbstractSchedulingTaskExecutorTests {
 
 	@Test
 	void zeroArgCtorResultsInDefaultTaskExecutorBeingUsed() {
+		@SuppressWarnings("deprecation")
 		ConcurrentTaskExecutor executor = new ConcurrentTaskExecutor();
 		assertThatCode(() -> executor.execute(new NoOpRunnable())).doesNotThrowAnyException();
 	}
@@ -68,11 +69,12 @@ class ConcurrentTaskExecutorTests extends AbstractSchedulingTaskExecutorTests {
 	@Test
 	void passingNullExecutorToCtorResultsInDefaultTaskExecutorBeingUsed() {
 		ConcurrentTaskExecutor executor = new ConcurrentTaskExecutor(null);
-		assertThatCode(() -> executor.execute(new NoOpRunnable())).doesNotThrowAnyException();
+		assertThatCode(() -> executor.execute(new NoOpRunnable())).hasMessage("Executor not configured");
 	}
 
 	@Test
 	void earlySetConcurrentExecutorCallRespectsConfiguredTaskDecorator() {
+		@SuppressWarnings("deprecation")
 		ConcurrentTaskExecutor executor = new ConcurrentTaskExecutor();
 		executor.setConcurrentExecutor(new DecoratedExecutor());
 		executor.setTaskDecorator(new RunnableDecorator());
@@ -81,6 +83,7 @@ class ConcurrentTaskExecutorTests extends AbstractSchedulingTaskExecutorTests {
 
 	@Test
 	void lateSetConcurrentExecutorCallRespectsConfiguredTaskDecorator() {
+		@SuppressWarnings("deprecation")
 		ConcurrentTaskExecutor executor = new ConcurrentTaskExecutor();
 		executor.setTaskDecorator(new RunnableDecorator());
 		executor.setConcurrentExecutor(new DecoratedExecutor());

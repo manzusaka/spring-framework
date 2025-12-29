@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import java.util.stream.Stream;
 
 import javax.management.Attribute;
 import javax.management.InstanceNotFoundException;
-import javax.management.JMException;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
 import javax.management.Notification;
@@ -48,6 +47,7 @@ import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.beans.testfixture.beans.TestBean;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.context.testfixture.jmx.export.Person;
 import org.springframework.jmx.AbstractMBeanServerTests;
 import org.springframework.jmx.IJmxTestBean;
 import org.springframework.jmx.JmxTestBean;
@@ -76,7 +76,7 @@ import static org.assertj.core.api.Assertions.assertThatRuntimeException;
  * @author Sam Brannen
  * @author Stephane Nicoll
  */
-public class MBeanExporterTests extends AbstractMBeanServerTests {
+class MBeanExporterTests extends AbstractMBeanServerTests {
 
 	private static final String OBJECT_NAME = "spring:test=jmxMBeanAdaptor";
 
@@ -84,7 +84,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 
 
 	@Test
-	void registerNullNotificationListenerType() throws Exception {
+	void registerNullNotificationListenerType() {
 		Map<String, NotificationListener> listeners = new HashMap<>();
 		// put null in as a value...
 		listeners.put("*", null);
@@ -95,7 +95,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
-	void registerNotificationListenerForNonExistentMBean() throws Exception {
+	void registerNotificationListenerForNonExistentMBean() {
 		NotificationListener dummyListener = (notification, handback) -> {
 			throw new UnsupportedOperationException();
 		};
@@ -191,7 +191,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
-	void autodetectNoMBeans() throws Exception {
+	void autodetectNoMBeans() {
 		try (ConfigurableApplicationContext ctx = load("autodetectNoMBeans.xml")) {
 			ctx.getBean("exporter");
 		}
@@ -360,6 +360,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void onlyBonaFideMBeanIsExportedWhenAutodetectIsMBeanOnly() throws Exception {
 		BeanDefinitionBuilder builder = BeanDefinitionBuilder.rootBeanDefinition(Person.class);
 		DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
@@ -380,6 +381,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void bonaFideMBeanAndRegularBeanExporterWithAutodetectAll() throws Exception {
 		BeanDefinitionBuilder builder = BeanDefinitionBuilder.rootBeanDefinition(Person.class);
 		DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
@@ -403,6 +405,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void bonaFideMBeanIsNotExportedWithAutodetectAssembler() throws Exception {
 		BeanDefinitionBuilder builder = BeanDefinitionBuilder.rootBeanDefinition(Person.class);
 		DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
@@ -425,6 +428,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	 * Want to ensure that said MBean is not exported twice.
 	 */
 	@Test
+	@SuppressWarnings("deprecation")
 	void bonaFideMBeanExplicitlyExportedAndAutodetectionIsOn() throws Exception {
 		BeanDefinitionBuilder builder = BeanDefinitionBuilder.rootBeanDefinition(Person.class);
 		DefaultListableBeanFactory factory = new DefaultListableBeanFactory();
@@ -442,6 +446,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void setAutodetectModeToOutOfRangeNegativeValue() {
 		assertThatIllegalArgumentException()
 				.isThrownBy(() -> exporter.setAutodetectMode(-1))
@@ -450,6 +455,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void setAutodetectModeToOutOfRangePositiveValue() {
 		assertThatIllegalArgumentException()
 				.isThrownBy(() -> exporter.setAutodetectMode(5))
@@ -462,6 +468,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	 * configured for all autodetect constants defined in {@link MBeanExporter}.
 	 */
 	@Test
+	@SuppressWarnings("deprecation")
 	void setAutodetectModeToAllSupportedValues() {
 		streamAutodetectConstants()
 				.map(MBeanExporterTests::getFieldValue)
@@ -469,12 +476,14 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void setAutodetectModeToSupportedValue() {
 		exporter.setAutodetectMode(MBeanExporter.AUTODETECT_ASSEMBLER);
 		assertThat(exporter.autodetectMode).isEqualTo(MBeanExporter.AUTODETECT_ASSEMBLER);
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void setAutodetectModeNameToNull() {
 		assertThatIllegalArgumentException()
 				.isThrownBy(() -> exporter.setAutodetectModeName(null))
@@ -483,6 +492,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void setAutodetectModeNameToAnEmptyString() {
 		assertThatIllegalArgumentException()
 				.isThrownBy(() -> exporter.setAutodetectModeName(""))
@@ -491,6 +501,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void setAutodetectModeNameToWhitespace() {
 		assertThatIllegalArgumentException()
 				.isThrownBy(() -> exporter.setAutodetectModeName("  \t"))
@@ -499,6 +510,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void setAutodetectModeNameToBogusValue() {
 		assertThatIllegalArgumentException()
 				.isThrownBy(() -> exporter.setAutodetectModeName("Bogus"))
@@ -511,6 +523,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	 * configured for all autodetect constants defined in {@link MBeanExporter}.
 	 */
 	@Test
+	@SuppressWarnings("deprecation")
 	void setAutodetectModeNameToAllSupportedValues() {
 		streamAutodetectConstants()
 				.map(Field::getName)
@@ -518,6 +531,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 	}
 
 	@Test
+	@SuppressWarnings("deprecation")
 	void setAutodetectModeNameToSupportedValue() {
 		exporter.setAutodetectModeName("AUTODETECT_ASSEMBLER");
 		assertThat(exporter.autodetectMode).isEqualTo(MBeanExporter.AUTODETECT_ASSEMBLER);
@@ -683,10 +697,8 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 
 	private static void assertListener(MockMBeanExporterListener listener) throws MalformedObjectNameException {
 		ObjectName desired = ObjectNameManager.getInstance(OBJECT_NAME);
-		assertThat(listener.getRegistered()).as("Incorrect number of registrations").hasSize(1);
-		assertThat(listener.getUnregistered()).as("Incorrect number of unregistrations").hasSize(1);
-		assertThat(listener.getRegistered().get(0)).as("Incorrect ObjectName in register").isEqualTo(desired);
-		assertThat(listener.getUnregistered().get(0)).as("Incorrect ObjectName in unregister").isEqualTo(desired);
+		assertThat(listener.getRegistered()).singleElement().isEqualTo(desired);
+		assertThat(listener.getUnregistered()).singleElement().isEqualTo(desired);
 	}
 
 
@@ -695,7 +707,7 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 		private boolean invoked = false;
 
 		@Override
-		public ModelMBeanInfo getMBeanInfo(Object managedResource, String beanKey) throws JMException {
+		public ModelMBeanInfo getMBeanInfo(Object managedResource, String beanKey) {
 			invoked = true;
 			return null;
 		}
@@ -752,29 +764,8 @@ public class MBeanExporterTests extends AbstractMBeanServerTests {
 		}
 
 		@Override
-		public ObjectName getObjectName() throws MalformedObjectNameException {
+		public ObjectName getObjectName() {
 			return this.objectName;
-		}
-	}
-
-
-	public interface PersonMBean {
-
-		String getName();
-	}
-
-
-	public static class Person implements PersonMBean {
-
-		private String name;
-
-		@Override
-		public String getName() {
-			return name;
-		}
-
-		public void setName(String name) {
-			this.name = name;
 		}
 	}
 

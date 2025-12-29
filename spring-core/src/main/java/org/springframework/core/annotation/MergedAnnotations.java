@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ import org.springframework.util.Assert;
  * <ul>
  * <li>Explicit and Implicit {@link AliasFor @AliasFor} declarations on one or
  * more attributes within the annotation</li>
- * <li>Explicit {@link AliasFor @AliasFor} declarations for a meta-annotation</li>
+ * <li>Explicit {@code @AliasFor} declarations for a meta-annotation</li>
  * <li>Convention based attribute aliases for a meta-annotation</li>
  * <li>From a meta-annotation declaration</li>
  * </ul>
@@ -133,6 +133,14 @@ import org.springframework.util.Assert;
  * please use standard Java reflection or Spring's {@link AnnotationUtils}
  * for simple annotation retrieval purposes.
  *
+ * <p><strong>WARNING</strong>: If an annotation cannot be loaded because one of
+ * its attributes references a {@link Class} or {@link Enum}
+ * {@linkplain TypeNotPresentException that is not present in the classpath}, that
+ * annotation will not be accessible via the {@code MergedAnnotations} API.
+ * To assist with diagnosing such scenarios, you can set the log level for
+ * {@code "org.springframework.core.annotation.MergedAnnotation"} to {@code DEBUG},
+ * {@code INFO}, or {@code WARN}.
+
  * @author Phillip Webb
  * @author Sam Brannen
  * @since 5.2
@@ -140,6 +148,9 @@ import org.springframework.util.Assert;
  * @see MergedAnnotationCollectors
  * @see MergedAnnotationPredicates
  * @see MergedAnnotationSelectors
+ * @see AliasFor
+ * @see AnnotationUtils
+ * @see AnnotatedElementUtils
  */
 public interface MergedAnnotations extends Iterable<MergedAnnotation<Annotation>> {
 
@@ -507,7 +518,7 @@ public interface MergedAnnotations extends Iterable<MergedAnnotation<Annotation>
 	 *
 	 * @since 6.0
 	 */
-	static final class Search {
+	final class Search {
 
 		static final Predicate<Class<?>> always = clazz -> true;
 
@@ -560,6 +571,7 @@ public interface MergedAnnotations extends Iterable<MergedAnnotation<Annotation>
 		 * @see #withRepeatableContainers(RepeatableContainers)
 		 * @see #withAnnotationFilter(AnnotationFilter)
 		 * @see #from(AnnotatedElement)
+		 * @see org.springframework.test.context.TestContextAnnotationUtils#searchEnclosingClass(Class)
 		 */
 		public Search withEnclosingClasses(Predicate<Class<?>> searchEnclosingClass) {
 			Assert.notNull(searchEnclosingClass, "Predicate must not be null");

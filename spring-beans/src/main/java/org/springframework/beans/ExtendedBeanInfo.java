@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -40,7 +41,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.ObjectUtils;
 
 /**
- * Decorator for a standard {@link BeanInfo} object, e.g. as created by
+ * Decorator for a standard {@link BeanInfo} object, for example, as created by
  * {@link Introspector#getBeanInfo(Class)}, designed to discover and register
  * static and/or non-void returning setter methods. For example:
  *
@@ -192,14 +193,14 @@ class ExtendedBeanInfo implements BeanInfo {
 			if (pd instanceof IndexedPropertyDescriptor indexedPd) {
 				candidateType = indexedPd.getIndexedPropertyType();
 				if (candidateName.equals(propertyName) &&
-						(candidateType.equals(propertyType) || candidateType.equals(propertyType.getComponentType()))) {
+						(candidateType.equals(propertyType) || candidateType.equals(propertyType.componentType()))) {
 					return pd;
 				}
 			}
 			else {
 				candidateType = pd.getPropertyType();
 				if (candidateName.equals(propertyName) &&
-						(candidateType.equals(propertyType) || propertyType.equals(candidateType.getComponentType()))) {
+						(candidateType.equals(propertyType) || propertyType.equals(candidateType.componentType()))) {
 					return pd;
 				}
 			}
@@ -345,7 +346,7 @@ class ExtendedBeanInfo implements BeanInfo {
 
 		@Override
 		public int hashCode() {
-			return (ObjectUtils.nullSafeHashCode(getReadMethod()) * 29 + ObjectUtils.nullSafeHashCode(getWriteMethod()));
+			return Objects.hash(getReadMethod(), getWriteMethod());
 		}
 
 		@Override
@@ -500,11 +501,8 @@ class ExtendedBeanInfo implements BeanInfo {
 
 		@Override
 		public int hashCode() {
-			int hashCode = ObjectUtils.nullSafeHashCode(getReadMethod());
-			hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(getWriteMethod());
-			hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(getIndexedReadMethod());
-			hashCode = 29 * hashCode + ObjectUtils.nullSafeHashCode(getIndexedWriteMethod());
-			return hashCode;
+			return Objects.hash(getReadMethod(), getWriteMethod(),
+					getIndexedReadMethod(), getIndexedWriteMethod());
 		}
 
 		@Override
@@ -526,20 +524,7 @@ class ExtendedBeanInfo implements BeanInfo {
 
 		@Override
 		public int compare(PropertyDescriptor desc1, PropertyDescriptor desc2) {
-			String left = desc1.getName();
-			String right = desc2.getName();
-			byte[] leftBytes = left.getBytes();
-			byte[] rightBytes = right.getBytes();
-			for (int i = 0; i < left.length(); i++) {
-				if (right.length() == i) {
-					return 1;
-				}
-				int result = leftBytes[i] - rightBytes[i];
-				if (result != 0) {
-					return result;
-				}
-			}
-			return left.length() - right.length();
+			return desc1.getName().compareTo(desc2.getName());
 		}
 	}
 

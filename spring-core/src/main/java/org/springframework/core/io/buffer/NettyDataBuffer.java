@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,6 +127,11 @@ public class NettyDataBuffer implements PooledDataBuffer {
 	@Override
 	public byte getByte(int index) {
 		return this.byteBuf.getByte(index);
+	}
+
+	@Override
+	public int forEachByte(int index, int length, ByteProcessor processor) {
+		return this.byteBuf.forEachByte(index, length, processor::process);
 	}
 
 	@Override
@@ -313,7 +318,7 @@ public class NettyDataBuffer implements PooledDataBuffer {
 		Assert.notNull(dest, "Dest must not be null");
 
 		dest = dest.duplicate().clear();
-		dest.put(destPos, this.byteBuf.nioBuffer(), srcPos, length);
+		dest.put(destPos, this.byteBuf.nioBuffer(srcPos, length), 0, length);
 	}
 
 	@Override
@@ -374,7 +379,13 @@ public class NettyDataBuffer implements PooledDataBuffer {
 
 	@Override
 	public String toString() {
-		return this.byteBuf.toString();
+		try {
+			return this.byteBuf.toString();
+		}
+		catch (OutOfMemoryError ex) {
+			throw new DataBufferLimitException(
+					"Failed to convert data buffer to string: " + ex.getMessage(), ex);
+		}
 	}
 
 

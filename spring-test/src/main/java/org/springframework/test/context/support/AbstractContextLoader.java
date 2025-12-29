@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-present the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,15 +127,15 @@ public abstract class AbstractContextLoader implements SmartContextLoader {
 	 * @param context the newly created application context
 	 * @param mergedConfig the merged context configuration
 	 * @since 3.2
-	 * @see TestPropertySourceUtils#addPropertiesFilesToEnvironment
-	 * @see TestPropertySourceUtils#addInlinedPropertiesToEnvironment
+	 * @see TestPropertySourceUtils#addPropertySourcesToEnvironment(ConfigurableApplicationContext, List)
+	 * @see TestPropertySourceUtils#addInlinedPropertiesToEnvironment(ConfigurableApplicationContext, String...)
 	 * @see ApplicationContextInitializer#initialize(ConfigurableApplicationContext)
 	 * @see #loadContext(MergedContextConfiguration)
 	 * @see ConfigurableApplicationContext#setId
 	 */
 	protected void prepareContext(ConfigurableApplicationContext context, MergedContextConfiguration mergedConfig) {
 		context.getEnvironment().setActiveProfiles(mergedConfig.getActiveProfiles());
-		TestPropertySourceUtils.addPropertiesFilesToEnvironment(context, mergedConfig.getPropertySourceLocations());
+		TestPropertySourceUtils.addPropertySourcesToEnvironment(context, mergedConfig.getPropertySourceDescriptors());
 		TestPropertySourceUtils.addInlinedPropertiesToEnvironment(context, mergedConfig.getPropertySourceProperties());
 		invokeApplicationContextInitializers(context, mergedConfig);
 	}
